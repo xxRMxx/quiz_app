@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dein Quiz</title>
+    <style>
+        /* Optional: Grundlegende Stile für bessere Lesbarkeit */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+
+        /* Stil für die Buttons und das Formular */
+        /* Wir setzen Flexbox direkt auf ein div, das die Buttons umschließt,
+           oder lassen es einfach auf dem Formular und passen die Anordnung an. */
+        
+        /* Die Labels der Radio-Buttons sollen untereinander bleiben */
+        #answer-form label {
+            display: block; /* Jedes Label in einer neuen Zeile */
+            margin-bottom: 5px;
+        }
+
+        /* Container für die Buttons, damit sie nebeneinander liegen */
+        .button-container {
+            display: flex; /* Nutzt Flexbox, um Elemente nebeneinander anzuordnen */
+            gap: 10px; /* Fügt Abstand zwischen den Buttons hinzu */
+            margin-top: 15px; /* Abstand zu den Radio-Buttons */
+        }
+
+        .button-container button {
+            padding: 10px 20px; /* Gleiche Polsterung für beide Buttons */
+            font-size: 16px; /* Gleiche Schriftgröße */
+            cursor: pointer;
+            border: none;
+            border-radius: 5px; /* Abgerundete Ecken */
+            white-space: nowrap; /* Verhindert Zeilenumbruch im Button-Text */
+        }
+
+        /* Stil für den "Antwort abschicken" Button */
+        .button-container button[type="submit"] {
+            background-color: #007bff; /* Beispiel-Farbe Blau */
+            color: white;
+        }
+
+        .button-container button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        /* Stil für den "Aktualisieren" Button */
+        #refresh-button { /* Da es nur einen Refresh-Button gibt, kann die ID genutzt werden */
+            background-color: #6c757d; /* Beispiel-Farbe Grau */
+            color: white;
+        }
+
+        #refresh-button:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <h1>Willkommen, {{ participant.name }}!</h1>
+    <h2>Session: {{ session.name }}</h2>
+
+    <div id="quiz-area">
+        {% if current_question %}
+            <h3>Frage:</h3>
+            <p>{{ current_question.text }}</p>
+            <form id="answer-form">
+                {% csrf_token %}
+                <input type="hidden" name="question_id" value="{{ current_question.id }}">
+                {% for answer in answers %}
+                    <label>
+                        <input type="radio" name="chosen_answer_text" value="{{ answer }}" required>
+                        {{ answer }}
+                    </label>
+                {% endfor %}
+                
+                <div class="button-container">
+                    <button type="submit">Antwort abschicken</button>
+                    <button type="button" id="refresh-button">Seite aktualisieren</button> 
+                </div>
+            </form>
+        {% else %}
+            <p>Bitte warten Sie auf die nächste Frage...</p>
+        {% endif %}
+    </div>
+
+    <div id="status-message" style="margin-top: 20px; color: green;"></div>
+
+    <script>
+        document.getElementById('answer-form').addEventListener('submit', function(event) {
+            event.preventDefault(); 
+
+            const formData = new FormData(this);
+            const questionId = formData.get('question_id');
+            const chosenAnswerText = formData.get('chosen_answer_text'); 
+            const statusDiv = document.getElementById('status-message');
+
+            fetch('{% url "submit_answer" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                },
+                body: JSON.stringify({
+                    question_id: questionId,
+                    chosen_answer_text: chosenAnswerText 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                statusDiv.textContent = data.message;
+                if (data.status === 'success') {
+                    document.getElementById('answer-form').querySelector('button[type="submit"]').disabled = true;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                statusDiv.textContent = 'Ein Fehler ist aufgetreten.';
+            });
+        });
+
+        document.getElementById('refresh-button').addEventListener('click', function() {
+            location.reload(); 
+        });
+
+        // Hier kommt später der WebSocket-Code für Live-Updates
+    </script>
+</body>
+</html>

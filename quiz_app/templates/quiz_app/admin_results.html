@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Ergebnisse - {{ session.name }}</title>
+    <style>
+        .correct { color: green; font-weight: bold; }
+        .incorrect { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Ergebnisse für Session: {{ session.name }}</h1>
+
+    <a href="{% url 'admin_dashboard' %}">Zurück zum Admin Dashboard</a>
+
+    {% for question_data in question_results %}
+        <h2>Frage: {{ question_data.question.text }}</h2>
+        <p>Richtige Antwort: <span class="correct">{{ question_data.correct_answer.text|default:"N/A" }}</span></p>
+
+        <h3>Teilnehmerantworten:</h3>
+        {% if question_data.participant_responses %}
+            <ul>
+                {% for response in question_data.participant_responses %}
+                    <li class="{% if response.is_correct_answer %}correct{% else %}incorrect{% endif %}">
+                        {{ response.participant_name }}: {{ response.selected_choice_text }}
+                        {% if response.is_correct_answer %}(Richtig){% else %}(Falsch){% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>Noch keine Antworten für diese Frage.</p>
+        {% endif %}
+        <hr>
+    {% endfor %}
+</body>
+</html>

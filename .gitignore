@@ -1,0 +1,60 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+wheels/
+*.egg
+
+# Environments
+.env
+.venv
+env/
+venv/
+myenv/ # FÜGE DIES HINZU, falls deine virtuelle Umgebung im Projektordner liegt
+*.lock
+
+# Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+.coverage
+.tox/
+htmlcov/
+
+# Django stuff
+*.log
+*.pot
+*.mo
+*.orig
+db.sqlite3 # WICHTIG: Deine lokale Datenbank, nicht in Git pushen!
+media/      # Wenn du ein media-Verzeichnis für Benutzer-Uploads hast
+static/     # Wenn du ein gesammeltes statisches Verzeichnis hast
+
+# Security
+*.secret # Wenn du eine Datei für deinen SECRET_KEY hast
+# If your SECRET_KEY is in settings.py and pulled from an env var, this is less critical.
+# But if you hardcoded it, this file would ignore it.
+# Generally, keep SECRET_KEY out of Git.
+quiz_project/settings.py # <-- EXTREM WICHTIG: Füge dies HINZU, wenn du deinen SECRET_KEY direkt in settings.py hast
+                           # Oder du hast ihn als Env-Variable, dann reicht .env im root.
+                           # Wenn du den SECRET_KEY NICHT aus .env holst und ihn in settings.py hast,
+                           # solltest du ihn sicher aus settings.py entfernen und über eine
+                           # Umgebungsvariable oder eine separate, NICHT-gepushute Datei laden.
+
+# Channels stuff
+# if you use local file based channel layers (less common)
+# channel_layer_storage/

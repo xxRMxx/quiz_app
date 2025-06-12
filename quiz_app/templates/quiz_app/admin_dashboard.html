@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard für {{ session.session_code }}</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f7f6; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #e2e6ea; }
+        .correct { color: green; font-weight: bold; }
+        .incorrect { color: red; font-weight: bold; }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Dashboard für Session: {{ session.session_code }}</h1>
+        <p>Aktuelle Frage: <span id="current-question-display">{% if session.current_question %}{{ session.current_question.text }}{% else %}Keine Frage aktiv{% endif %}</span></p>
+
+        <h2>Fragen auswählen und senden</h2>
+        <select id="question-selector" style="padding: 8px; margin-right: 10px;">
+            <option value="">Frage auswählen...</option>
+            {% for question in questions %}
+                <option value="{{ question.id }}">{{ question.text }}</option>
+            {% endfor %}
+        </select>
+        <button id="send-question-button">Frage senden</button>
+        <p id="send-status-message" style="margin-top: 10px;"></p>
+
+        <h2>Antworten der Teilnehmer</h2>
+        <table id="answers-table">
+            <thead>
+                <tr>
+                    <th>Teilnehmer</th>
+                    <th>Gewählte Antwort</th>
+                    <th>Status</th>
+                    <th>Zeitpunkt</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for answer in current_answers %}
+                <tr id="answer-row-{{ answer.id }}">
+                    <td>{{ answer.participant.name }}</td>
+                    <td>{{ answer.chosen_answer }}</td>
+                    <td class="{% if answer.is_correct %}correct{% else %}incorrect{% endif %}">
+                        {% if answer.is_correct %}Korrekt{% else %}Falsch{% endif %}
+                    </td>
+                    <td>{{ answer.timestamp|date:"H:i:s" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">Noch keine Antworten für diese Frage.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const sessionCode = "{{ session.session_code }}";
+        const questionSelector = document.getElementById('question-selector');
+        const sendQuestionButton = document.getElementById('send-question-button');
+        const sendStatusMessage = document.getElementById('send-status-message');
+        const answersTableBody = document.querySelector('#answers-table tbody');
+        const currentQuestionDisplay = document.getElementById('current-question-display');
+
+        sendQuestionButton.onclick = function() {
+            const selectedQuestionId = questionSelector.value;
+            if (selectedQuestionId) {
+                fetch('/send-question/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}' // Django CSRF-Token einbinden
+                    },
+                    body: JSON.stringify({
+                        session_code: sessionCode,
+                        question_id: selectedQuestionId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        sendStatusMessage.textContent = 'Frage erfolgreich gesendet!';
+                        sendStatusMessage.style.color = 'green';
+                        // Optional: Lade die Seite neu oder update die UI, um die neue Frage anzuzeigen
+                        // Im echten Szenario würde man hier auch Channels für Live-Updates nutzen
+                        currentQuestionDisplay.textContent = questionSelector.options[questionSelector.selectedIndex].text;
+                        answersTableBody.innerHTML = '<tr><td colspan="4">Warten auf neue Antworten...</td></tr>'; // Tabelle leeren
+                    } else {
+                        sendStatusMessage.textContent = 'Fehler beim Senden der Frage: ' + data.message;
+                        sendStatusMessage.style.color = 'red';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    sendStatusMessage.textContent = 'Netzwerkfehler beim Senden der Frage.';
+                    sendStatusMessage.style.color = 'red';
+                });
+            } else {
+                sendStatusMessage.textContent = 'Bitte wähle eine Frage aus.';
+                sendStatusMessage.style.color = 'orange';
+            }
+        };
+
+        // Optional: Live-Updates der Antworten für den Admin
+        // Der Admin-Dashboard könnte auch einen WebSocket-Consumer haben,
+        // der Benachrichtigungen über neue Antworten erhält.
+        // Das würde aber diesen Guide sehr viel länger machen.
+        // Fürs Erste kann der Admin die Seite aktualisieren, um neue Antworten zu sehen.
+    </script>
+</body>
+</html>
