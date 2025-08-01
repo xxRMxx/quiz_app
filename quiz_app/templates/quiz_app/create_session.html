@@ -1,0 +1,11 @@
+<h1>Neue Quiz-Session erstellen</h1>
+
+<form method="post">
+    {% csrf_token %}
+    <label>Kategorien auswählen:</label><br>
+    {% for c in categories %}
+        <input type="checkbox" name="categories" value="{{ c.id }}"> {{ c.name }}<br>
+    {% endfor %}
+    <br>
+    <button type="submit">Session erstellen</button>
+</form>

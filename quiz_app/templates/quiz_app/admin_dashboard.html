@@ -25,62 +25,110 @@
         button:hover { background-color: #0056b3; }
     </style>
 </head>
+
+
 <body>
     <div class="container">
-        <h1>Admin Dashboard für Session: {{ session.session_code }}</h1>
-        <p>Aktuelle Frage: <span id="current-question-display">{% if session.current_question %}{{ session.current_question.text }}{% else %}Keine Frage aktiv{% endif %}</span></p>
+        <h1>Admin Dashboard für Session: {{ session.join_code }}</h1>
 
-        <h2>Fragen auswählen und senden</h2>
+		<h2>Teilnehmer & Punkte</h2>
+			<table>
+				<thead>
+					<tr>
+						<th>Teilnehmer</th>
+						<th>Punkte</th>
+						<th>aktuelle Antwort</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for participant in participants %}
+					<tr id="answer-{{ answer.id }}">
+						<td>{{ participant.name }}</td>
+						<td class="points" id="points-{{ answer.id }}">
+							<button onclick="updateScore({{ participant.points }}, -1)">-1</button>
+							<span class="score-value">{{ participant.points }}</span>
+							<button onclick="updateScore({{ participants.points }}, +1)">+1</button>
+						</td>
+						<td>{{ participantanswer.chosen_answer }}</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+
+
+		<h1> Aktuelle Frage </h1>
+			{% if current_question %}
+	<p><strong>Frage:</strong> {{ current_question.text }}</p>
+		<p><strong>Antwort:</strong> {{ current_question.correct_answer }}</p>
+		{% else %}
+		<p>Aktuell keine Frage in dieser Session.</p>
+		{% endif %}
+
+		<!--
+		<h2 id="question-category">1) Kategorie auswählen</h2>
+        <select id="category-selector" style="padding: 8px; margin-right: 10px;">
+            <option value="">Kategorie auswählen...</option>
+            {% for category in categories %}
+				<option value="{{ category.id }}">{{ category.name }}</option>
+			{% endfor %}
+        </select>
+		-->
+
+		<h1> Nächste Frage </h1>
+		<!--<h2 id="question-text">2) Frage auswählen</h2>-->
         <select id="question-selector" style="padding: 8px; margin-right: 10px;">
             <option value="">Frage auswählen...</option>
             {% for question in questions %}
-                <option value="{{ question.id }}">{{ question.text }}</option>
+                <option value="{{ question.id }}">{{ question.question_text }}</option>
             {% endfor %}
         </select>
-        <button id="send-question-button">Frage senden</button>
+		<span id="q-correct">{% if session.current_question %}{{ session.current_question.correct_answer }}{% endif %}</span>
+        
+		<button id="send-question-button">Frage senden</button>
         <p id="send-status-message" style="margin-top: 10px;"></p>
-
-        <h2>Antworten der Teilnehmer</h2>
-        <table id="answers-table">
-            <thead>
-                <tr>
-                    <th>Teilnehmer</th>
-                    <th>Gewählte Antwort</th>
-                    <th>Status</th>
-                    <th>Zeitpunkt</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for answer in current_answers %}
-                <tr id="answer-row-{{ answer.id }}">
-                    <td>{{ answer.participant.name }}</td>
-                    <td>{{ answer.chosen_answer }}</td>
-                    <td class="{% if answer.is_correct %}correct{% else %}incorrect{% endif %}">
-                        {% if answer.is_correct %}Korrekt{% else %}Falsch{% endif %}
-                    </td>
-                    <td>{{ answer.timestamp|date:"H:i:s" }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4">Noch keine Antworten für diese Frage.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
     </div>
 
     <script>
+		/*
+
+		NOTE: big garbage can (these were several tries to trigger communication between admin dashboard and participants)
+
         const sessionCode = "{{ session.session_code }}";
+		const sessCode = "{{ session.session_code }}";
         const questionSelector = document.getElementById('question-selector');
+		const categorySelector = document.getElementById('category-selector');
         const sendQuestionButton = document.getElementById('send-question-button');
         const sendStatusMessage = document.getElementById('send-status-message');
         const answersTableBody = document.querySelector('#answers-table tbody');
         const currentQuestionDisplay = document.getElementById('current-question-display');
+		const sess = document.body.dataset.sessionCode;
+		const catSel = document.getElementById("cat");
+		const qSel   = document.getElementById("question");
+		const send   = document.getElementById("send");
+		const csrf   = "{{ csrf_token }}";   // wenn du JS inline einbettest
+		const tbody  = document.getElementById("answer-body");
+		const answerBody = document.getElementById("answer-body");
+
+		function fetchCurrentQuestion(){
+			fetch(`/api/current-question/${sessCode}/`)
+				.then(r=>r.json())
+				.then(d=>{
+					if(d.id){
+						document.getElementById("question-category").textContent =
+							"Kategorie: " + d.category;
+						document.getElementById("question-text").textContent = d.text;
+				}
+			});
+		}
+		setInterval(fetchCurrentQuestion, 3000);
+		fetchCurrentQuestion();
+
 
         sendQuestionButton.onclick = function() {
+			const sendQuestionUrl = "{% url 'send_question' %}";
             const selectedQuestionId = questionSelector.value;
             if (selectedQuestionId) {
-                fetch('/send-question/', {
+                fetch(sendQuestionUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -116,11 +164,189 @@
             }
         };
 
-        // Optional: Live-Updates der Antworten für den Admin
-        // Der Admin-Dashboard könnte auch einen WebSocket-Consumer haben,
-        // der Benachrichtigungen über neue Antworten erhält.
-        // Das würde aber diesen Guide sehr viel länger machen.
-        // Fürs Erste kann der Admin die Seite aktualisieren, um neue Antworten zu sehen.
+		categorySelector.onchange = function () {
+			const categoryId = categorySelector.value;
+
+			if (categoryId) {
+				fetch(`/get-questions-for-category/${categoryId}/`)
+					.then(response => response.json())
+					.then(data => {
+						const questions = data.questions;
+
+						// Bestehende Optionen im Frage-Selector löschen
+						questionSelector.innerHTML = '<option value="">Frage auswählen...</option>';
+
+						// Neue Fragen hinzufügen
+						questions.forEach(q => {
+							const option = document.createElement('option');
+							option.value = q.id;
+							option.textContent = q.text;
+							questionSelector.appendChild(option);
+						});
+					})
+					.catch(error => {
+						console.error("Fehler beim Laden der Fragen für die Kategorie:", error);
+					});
+			} else {
+				// Wenn keine Kategorie ausgewählt ist, Option zurücksetzen
+				questionSelector.innerHTML = '<option value="">Frage auswählen...</option>';
+			}
+		};
+
+		function updateScore(answerId, delta) {
+			fetch("{% url 'update_answer_points' %}", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-CSRFToken": "{{ csrf_token }}"
+				},
+				body: JSON.stringify({
+					answer_id: answerId,
+					delta: delta
+				})
+			})
+			.then(response => response.json())
+			.then(data => {
+				if (data.status === "success") {
+					const pointsElement = document.querySelector(`#points-${answerId} .score-value`);
+					pointsElement.textContent = data.new_points;
+				} else {
+					alert("Fehler: " + (data.message || "Unbekannter Fehler"));
+				}
+			})
+			.catch(error => {
+				console.error("Fehler beim Aktualisieren der Punkte:", error);
+			});
+		}
+
+
+		function fetchScores() {
+    		fetch('/api/scores/{{ session.id }}/')  // oder mit JS: `/api/scores/${sessionId}/`
+        		.then(response => response.json())
+        		.then(data => {
+					const tbody = document.getElementById("score-table-body");
+					tbody.innerHTML = "A"; // Tabelle leeren
+
+					data.scores.forEach(participant => {
+						const row = document.createElement("tr");
+						row.innerHTML = `
+							<td>${participant.name}</td>
+							<td>${participant.points}</td>
+						`;
+						tbody.appendChild(row);
+					});
+				})
+				.catch(err => {
+					console.error("Fehler beim Abrufen der Punktzahlen:", err);
+				});
+		}
+
+		// alle 5 Sekunden aktualisieren
+		setInterval(fetchScores, 5000);
+
+		// einmal sofort laden
+		fetchScores();
+
+
+		catSel.addEventListener("change", () => {
+			const id = catSel.value;
+			if (!id) return qSel.innerHTML = "<option>Frage…</option>";
+
+			fetch(`/api/questions/${sess}/${id}/`)
+				.then(r => r.json())
+				.then(d => {
+					qSel.innerHTML = '<option value="">Frage…</option>';
+					d.questions.forEach(q => {
+					qSel.insertAdjacentHTML("beforeend",
+						`<option value="${q.id}">${q.text}</option>`);
+					});
+				});
+			});
+		
+		/*
+		send.addEventListener("click", () => {
+			const qId = qSel.value;
+			if (!qId) return alert("Bitte Frage wählen");
+
+			fetch("/send-question/", {
+				method: "POST",
+				headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
+				body: JSON.stringify({session_code: sess, question_id: qId})
+			})
+			.then(r => r.json())
+			.then(d => {
+				if (d.status === "success") {
+				document.getElementById("q-text").textContent =
+					qSel.options[qSel.selectedIndex].text;
+				// richtige Antwort via kleinem Zusatz‑Request holen
+				fetch(`/api/questions/${sess}/${catSel.value}/`)
+					.then(r => r.json())
+					.then(x => {
+						const hit = x.questions.find(q => q.id == qId);
+						document.getElementById("q-correct").textContent = hit.correct_answer || "—";
+					});
+				tbody.innerHTML = "";           // Tabelle leeren; Teilnehmer werden live nachgeladen
+				}
+			});
+			});
+		
+		function pollAnswers() {
+			fetch(`/api/live-answers/${sessionCode}/`)
+				.then(r => r.json())
+				.then(d => {
+				answerBody.innerHTML = "";
+				d.answers.forEach(a => {
+					answerBody.insertAdjacentHTML("beforeend", `
+					<tr id="row-${a.id}">
+						<td>${a.name}</td>
+						<td>${a.answer}</td>
+					</tr>
+					`);
+				});
+				});
+			}
+		setInterval(pollAnswers,3000);
+		pollAnswers();
+
+	
+		window.upd = (id, delta) => {
+			fetch("/api/update-score/", {
+				method: "POST",
+				headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
+				body: JSON.stringify({answer_id: id, delta})
+			})
+			.then(r => r.json())
+			.then(d => {
+				if (d.status === "success")
+					document.getElementById(`pts-${id}`).textContent = d.new_points;
+			});
+			};
+
+	
+		document.getElementById('category-selector').addEventListener('change', function() {
+        	const categoryId = this.value;
+        	const questionSelect = document.getElementById('question-selector');
+
+			// Leeren
+			questionSelect.innerHTML = '<option value="">Lade Fragen...</option>';
+
+			if (!categoryId) return;
+
+			fetch(`/api/category/${categoryId}/questions/`)
+				.then(response => response.json())
+				.then(data => {
+					questionSelect.innerHTML = '<option value="">Frage auswählen...</option>';
+					data.questions.forEach(q => {
+						const option = document.createElement('option');
+						option.value = q.id;
+						option.textContent = q.text;
+						questionSelect.appendChild(option);
+					});
+				});
+		});
+
+		*/
+
     </script>
 </body>
 </html>

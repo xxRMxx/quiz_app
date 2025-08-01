@@ -61,72 +61,210 @@
 </head>
 <body>
     <h1>Willkommen, {{ participant.name }}!</h1>
-    <h2>Session: {{ session.name }}</h2>
+    <!--<h2>Session: {{ session.name }}</h2>-->
 
-    <div id="quiz-area">
-        {% if current_question %}
-            <h3>Frage:</h3>
-            <p>{{ current_question.text }}</p>
-            <form id="answer-form">
-                {% csrf_token %}
-                <input type="hidden" name="question_id" value="{{ current_question.id }}">
-                {% for answer in answers %}
-                    <label>
-                        <input type="radio" name="chosen_answer_text" value="{{ answer }}" required>
-                        {{ answer }}
-                    </label>
-                {% endfor %}
-                
-                <div class="button-container">
-                    <button type="submit">Antwort abschicken</button>
-                    <button type="button" id="refresh-button">Seite aktualisieren</button> 
-                </div>
-            </form>
-        {% else %}
-            <p>Bitte warten Sie auf die nächste Frage...</p>
-        {% endif %}
-    </div>
+    <div id="live-question-area">
+    <h3 id="question-category">Bitte warten Sie auf die nächste Frage...</h3>
+    <h3 id="question-text"></h3>
 
-    <div id="status-message" style="margin-top: 20px; color: green;"></div>
+    <form id="answer-form" style="display:none;">
+        {% csrf_token %}
+        <input type="hidden" name="question_id" value="">
+        <div id="answers-container">
+            <!-- Hier werden die Antwort-Optionen als Radio-Buttons per JS eingefügt -->
+        </div>
+        <div class="button-container">
+            <button type="submit">Antwort abschicken</button>
+            <button type="button" id="refresh-button">Seite aktualisieren</button>
+        </div>
+    </form>
+</div>
+
+	<div id="status-message" style="margin-top: 20px; color: green;"></div>
 
     <script>
-        document.getElementById('answer-form').addEventListener('submit', function(event) {
-            event.preventDefault(); 
+		/*
+		NOTE: big garbage can (these were my first attempts to trigger communication between participants and admin dashboard)
 
-            const formData = new FormData(this);
-            const questionId = formData.get('question_id');
-            const chosenAnswerText = formData.get('chosen_answer_text'); 
+
+		const sessionId = "{{ session.id }}";
+	let currentQuestionId = null;
+
+	function createAnswerOption(answerText) {
+		const label = document.createElement('label');
+		label.style.display = 'block';
+		label.style.marginBottom = '5px';
+
+		const input = document.createElement('input');
+		input.type = 'radio';
+		input.name = 'chosen_answer_text';
+		input.value = answerText;
+		input.required = true;
+
+		label.appendChild(input);
+		label.append(' ' + answerText);
+
+		return label;
+	}
+
+	function fetchCurrentQuestion() {
+    fetch(`/api/current-question/${sessionId}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Netzwerkfehler beim Laden der Frage');
+            }
+            return response.json();
+        })
+        .then(data => {
+            const questionForm = document.getElementById('answer-form');
+            const questionTextElem = document.getElementById('question-text');
+            const questionCategoryElem = document.getElementById('question-category');
+            const answersContainer = document.getElementById('answers-container');
             const statusDiv = document.getElementById('status-message');
 
-            fetch('{% url "submit_answer" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-                },
-                body: JSON.stringify({
-                    question_id: questionId,
-                    chosen_answer_text: chosenAnswerText 
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                statusDiv.textContent = data.message;
-                if (data.status === 'success') {
-                    document.getElementById('answer-form').querySelector('button[type="submit"]').disabled = true;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                statusDiv.textContent = 'Ein Fehler ist aufgetreten.';
-            });
-        });
+            if (data.id && data.id !== currentQuestionId) {
+                currentQuestionId = data.id;
 
-        document.getElementById('refresh-button').addEventListener('click', function() {
-            location.reload(); 
-        });
+                // Frage und Kategorie anzeigen
+                questionTextElem.textContent = data.text;
+                questionCategoryElem.textContent = 'Kategorie: ' + data.category;
 
-        // Hier kommt später der WebSocket-Code für Live-Updates
-    </script>
+                // Verstecke Statusmeldung
+                statusDiv.textContent = '';
+
+                // Formular anzeigen
+                questionForm.style.display = 'block';
+
+                // Frage-ID setzen (für das Formular)
+                questionForm.querySelector('input[name="question_id"]').value = data.id;
+
+                // Antworten löschen und neu hinzufügen
+                answersContainer.innerHTML = '';
+                data.answers.forEach(answerText => {
+                    const option = createAnswerOption(answerText);
+                    answersContainer.appendChild(option);
+                });
+
+                // Submit-Button aktivieren (für den Fall, dass er deaktiviert wurde)
+                questionForm.querySelector('button[type="submit"]').disabled = false;
+            } else if (!data.id) {
+                // Keine Frage verfügbar -> Formular verstecken und Nachricht anzeigen
+                questionForm.style.display = 'none';
+                questionTextElem.textContent = '';
+                questionCategoryElem.textContent = 'Bitte warten Sie auf die nächste Frage...';
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Frage:', error);
+        });
+	}
+
+	// Initiales Laden + Intervall
+	fetchCurrentQuestion();
+	setInterval(fetchCurrentQuestion, 3000);
+
+	// Formular-Submit bleibt wie bisher:
+	document.getElementById('answer-form').addEventListener('submit', function(event) {
+		event.preventDefault();
+
+		const formData = new FormData(this);
+		const questionId = formData.get('question_id');
+		const chosenAnswerText = formData.get('chosen_answer_text');
+		const statusDiv = document.getElementById('status-message');
+		const participantId = "{{ participant.id }}";
+
+		fetch('{% url "submit_answer" %}', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+			},
+			body: JSON.stringify({
+				question_id: questionId,
+				chosen_answer_text: chosenAnswerText,
+				participant_id: participantId
+			})
+		})
+		.then(response => response.json())
+		.then(data => {
+			statusDiv.textContent = data.message;
+			if (data.status === 'success') {
+				document.getElementById('answer-form').querySelector('button[type="submit"]').disabled = true;
+			}
+		})
+		.catch(error => {
+			console.error('Error:', error);
+			statusDiv.textContent = 'Ein Fehler ist aufgetreten.';
+		});
+	});
+
+	document.getElementById('refresh-button').addEventListener('click', function() {
+		location.reload();
+	});
+
+
+	document.getElementById('answer-form').addEventListener('submit', function(event) {
+		event.preventDefault(); 
+
+		const formData = new FormData(this);
+		const questionId = formData.get('question_id');
+		const chosenAnswerText = formData.get('chosen_answer_text'); 
+		const statusDiv = document.getElementById('status-message');
+		const participantId = "{{ participant.id }}";
+
+		fetch('{% url "submit_answer" %}', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+			},
+			body: JSON.stringify({
+				question_id: questionId,
+				chosen_answer_text: chosenAnswerText,
+				participant_id: participantId
+			})
+		})
+		.then(response => response.json())
+		.then(data => {
+			statusDiv.textContent = data.message;
+			if (data.status === 'success') {
+				document.getElementById('answer-form').querySelector('button[type="submit"]').disabled = true;
+			}
+		})
+		.catch(error => {
+			console.error('Error:', error);
+			statusDiv.textContent = 'Ein Fehler ist aufgetreten.';
+		});
+	});
+
+	document.getElementById('refresh-button').addEventListener('click', function() {
+		location.reload(); 
+	});
+
+	const sessionId = {{ session.id }};  // Vom Django-Template übergeben
+	let currentQuestionId = null;
+
+	function fetchCurrentQuestion() {
+		fetch(`/api/current-question/${sessionId}/`)
+			.then(response => response.json())
+			.then(data => {
+				if (data.id && data.id !== currentQuestionId) {
+					currentQuestionId = data.id;
+					document.getElementById('question-text').textContent = data.text;
+					document.getElementById('question-category').textContent = 'Kategorie: ' + data.category;
+				}
+			})
+			.catch(error => console.error('Fehler beim Laden der Frage:', error));
+	}
+
+	// Alle 3 Sekunden nach neuer Frage fragen
+	setInterval(fetchCurrentQuestion, 3000);
+
+	// Direkt beim Laden einmal holen
+	fetchCurrentQuestion();
+
+	*/
+
+	</script>
 </body>
 </html>

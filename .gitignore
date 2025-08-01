@@ -21,7 +21,7 @@ wheels/
 .venv
 env/
 venv/
-myenv/ # FÜGE DIES HINZU, falls deine virtuelle Umgebung im Projektordner liegt
+myenv/
 *.lock
 
 # Editors
@@ -49,11 +49,7 @@ static/     # Wenn du ein gesammeltes statisches Verzeichnis hast
 # If your SECRET_KEY is in settings.py and pulled from an env var, this is less critical.
 # But if you hardcoded it, this file would ignore it.
 # Generally, keep SECRET_KEY out of Git.
-quiz_project/settings.py # <-- EXTREM WICHTIG: Füge dies HINZU, wenn du deinen SECRET_KEY direkt in settings.py hast
-                           # Oder du hast ihn als Env-Variable, dann reicht .env im root.
-                           # Wenn du den SECRET_KEY NICHT aus .env holst und ihn in settings.py hast,
-                           # solltest du ihn sicher aus settings.py entfernen und über eine
-                           # Umgebungsvariable oder eine separate, NICHT-gepushute Datei laden.
+quiz_project/settings.py
 
 # Channels stuff
 # if you use local file based channel layers (less common)

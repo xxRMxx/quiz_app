@@ -1,165 +1,210 @@
-# quiz_app/views.py
-from django.shortcuts import render, get_object_or_404, redirect # redirect importieren
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 import json
+from django.shortcuts import get_object_or_404, render, redirect
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 
-# Importiere die notwendigen Channels-Utilities
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
-
-from .models import QuizSession, Question, Participant, ParticipantAnswer 
-# QuizConsumer wird hier nicht mehr direkt für send_question_to_session benötigt
-# from .consumers import QuizConsumer 
-
-# --- NEU: Landing Page für die Code-Eingabe ---
-def join_quiz_session(request):
-    error_message = None
-    if request.method == 'POST':
-        join_code = request.POST.get('join_code')
-        if join_code:
-            try:
-                # Versuche, die Session mit dem join_code zu finden
-                session = QuizSession.objects.get(join_code=join_code)
-                # Wenn gefunden, leite zur Teilnehmerseite weiter
-                # Verwende die UUID für die Weiterleitung zur participant_view
-                return redirect('participant_view', session_code=str(session.session_code))
-            except QuizSession.DoesNotExist:
-                error_message = "Ungültiger Session-Code. Bitte versuchen Sie es erneut."
-        else:
-            error_message = "Bitte geben Sie einen Session-Code ein."
-
-    return render(request, 'quiz_app/join_session.html', {'error_message': error_message})
-# --- ENDE NEU ---
+from .models import (
+	Category,
+	Question,
+	Session,
+	Participant,
+	ParticipantAnswer,
+)
 
 
-def participant_view(request, session_code):
-    session = get_object_or_404(QuizSession, session_code=session_code)
-    
-    participant = None
-    participant_id = request.session.get('participant_id')
-    if participant_id:
-        participant = Participant.objects.filter(id=participant_id, session=session).first()
-    
-    if not participant:
-        participant_name = f"Gast_{Participant.objects.filter(session=session).count() + 1}"
-        participant = Participant.objects.create(session=session, name=participant_name)
-        request.session['participant_id'] = participant.id
+def landing_page(request):
+	
+	if request.method == "POST":
+		participant_name = request.POST.get("participant_name")
+		join_code = request.POST.get("join_code")
+		
+		try:
+			session = Session.objects.get(join_code=join_code)
+		except Session.DoesNotExist:
+			error_message = "Ungültiger Session-Code."
+			return render(request, "quiz_app/landing_page.html", {"error_message": error_message})
+		
+		# create a new participant
+		participant = Participant.objects.create(name=participant_name, session=session)
 
-    current_question = session.current_question if hasattr(session, 'current_question') else None
-    
-    context = {
-        'session': session,
-        'participant': participant,
-        'current_question': current_question,
-        'answers': current_question.get_all_answers() if current_question else [], # Wichtig für das Template
-    }
-    return render(request, 'quiz_app/participant_quiz.html', context)
+		return redirect("participant_quiz", join_code=join_code, participant_id=participant.id)
+
+	else:
+		return render(request, "quiz_app/landing_page.html")
 
 
-@csrf_exempt 
+def participant_quiz(request, join_code, participant_id):
+	session = get_object_or_404(Session, join_code=join_code)
+	participant = get_object_or_404(Participant, id=participant_id, session=session)
+
+	current_question = session.current_question
+	answers = []
+	current_category = None
+	if current_question:
+		answers = [current_question.correct_answer] + current_question.wrong_answers
+		import random
+
+		random.shuffle(answers)
+		current_category = current_question.category
+
+	return render(
+		request,
+		"quiz_app/participant_quiz.html",
+		{
+			"session": session,
+			"participant": participant,
+			"current_question": current_question,
+			"answers": answers,
+			"current_category": current_category,
+		},
+	)
+
+
+def admin_dashboard(request, join_code):
+	session = get_object_or_404(Session, join_code=join_code)
+	categories = Category.objects.all()
+	questions = Question.objects.all()
+	participants = Participant.objects.all().filter(session=session)
+
+	current_answers = (
+		ParticipantAnswer.objects.filter(question=session.current_question).select_related("participant")
+		if session.current_question
+		else []
+	)
+
+	return render(
+		request,
+		"quiz_app/admin_dashboard.html",
+		{
+			"session": session,
+			"categories": categories,
+			"questions": questions,
+			"current_answers": current_answers,
+			"participants": participants,
+		},
+	)
+
+
+
+
+
+def current_question(request, join_code):
+    session = get_object_or_404(Session, join_code=join_code)
+    current_question = session.current_question
+
+    if current_question:
+        data = {
+            "id": str(current_question.id),
+            "text": current_question.text,
+            "category": current_question.category.name,
+            "answers": current_question.get_answers_list(),
+        }
+    else:
+        data = {}
+
+    return JsonResponse(data)
+
+
+'''
+
+deprecated/not functional: the following functions were my first attempts to trigger communication between admin and participants
+
+'''
+@csrf_exempt
+@require_POST
 def send_question(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        session_code = data.get('session_code')
-        question_id = data.get('question_id')
 
-        try:
-            session = QuizSession.objects.get(session_code=session_code)
-            question = Question.objects.get(id=question_id)
+	data = json.loads(request.body)
+	session_code = data.get("session_code")
+	question_id = data.get("question_id")
 
-            session.current_question = question
-            session.save()
+	session = get_object_or_404(Session, join_code=session_code)
+	question = get_object_or_404(Question, id=question_id)
 
-            if not session.is_active:
-                session.is_active = True
-                session.save()
+	session.current_question = question
+	session.save(update_fields=["current_question"])
 
-            channel_layer = get_channel_layer()
-            if channel_layer is None:
-                print("Fehler: Channels Layer ist nicht verfügbar im send_question View.")
-                return JsonResponse({"status": "error", "message": "Channels Layer ist nicht verfügbar."}, status=500)
+	# Remove old answers of that question (if any) to start fresh
+	ParticipantAnswer.objects.filter(question=question, participant__session=session).delete()
 
-            message_data = {
-                'type': 'new_question',
-                'question_id': question.id,
-                'question_text': question.text,
-                'answers': question.get_all_answers(),
-            }
-
-            async_to_sync(channel_layer.group_send)(
-                f'quiz_{session_code}',
-                {
-                    'type': 'quiz_message', 
-                    'message': message_data
-                }
-            )
-            print(f"Frage {question_id} erfolgreich an Session {session_code} via WebSocket gesendet.")
-            return JsonResponse({"status": "success", "message": "Frage gesendet!"})
-
-        except QuizSession.DoesNotExist:
-            return JsonResponse({"status": "error", "message": "Session nicht gefunden."}, status=404)
-        except Question.DoesNotExist:
-            return JsonResponse({"status": "error", "message": "Frage nicht gefunden."}, status=404)
-        except Exception as e:
-            print(f"Ein unerwarteter Fehler im send_question View: {str(e)}")
-            return JsonResponse({"status": "error", "message": f"Fehler beim Senden der Frage: {str(e)}"}, status=500)
-    return JsonResponse({"status": "error", "message": "Ungültige Request-Methode."}, status=405)
+	return JsonResponse({"status": "success"})
 
 
-@csrf_exempt 
-def submit_answer_view(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            question_id = data.get('question_id')
-            chosen_answer_text = data.get('chosen_answer_text') 
+@csrf_exempt
+@require_POST
+def api_submit_answer(request):
+	data = json.loads(request.body)
+	question_id = data.get("question_id")
+	chosen_answer_text = data.get("chosen_answer_text")
+	participant_id = data.get("participant_id")
 
-            participant = None
-            participant_id = request.session.get('participant_id')
-            if participant_id:
-                participant = get_object_or_404(Participant, id=participant_id)
-            else:
-                return JsonResponse({"status": "error", "message": "Teilnehmer nicht identifiziert. Bitte Seite neu laden."}, status=403)
-            
-            question = get_object_or_404(Question, id=question_id)
-            
-            is_correct = (chosen_answer_text == question.correct_answer)
+	participant = get_object_or_404(Participant, id=participant_id)
+	question = get_object_or_404(Question, id=question_id)
 
-            ParticipantAnswer.objects.update_or_create(
-                participant=participant,
-                question=question,
-                defaults={
-                    'chosen_answer': chosen_answer_text,
-                    'is_correct': is_correct
-                }
-            )
+	answer, created = ParticipantAnswer.objects.get_or_create(
+		participant=participant,
+		question=question,
+		defaults={"chosen_answer": chosen_answer_text},
+	)
+	if not created:
+		return JsonResponse({"status": "error", "message": "Antwort bereits abgegeben."})
 
-            return JsonResponse({"status": "success", "message": "Antwort erfolgreich gespeichert."})
-        except json.JSONDecodeError:
-            return JsonResponse({"status": "error", "message": "Ungültiger JSON-Request."}, status=400)
-        except (Question.DoesNotExist, Participant.DoesNotExist):
-            return JsonResponse({"status": "error", "message": "Fehlende Daten (Frage oder Teilnehmer nicht gefunden)."}, status=404)
-        except Exception as e:
-            print(f"Serverfehler: {str(e)}", status=500)
-            return JsonResponse({"status": "error", "message": f"Serverfehler: {str(e)}"}, status=500)
-    return JsonResponse({"status": "error", "message": "Methode nicht erlaubt."}, status=405)
+	# Admin bewertet später → 0 Punkte erst einmal
+	return JsonResponse({"status": "success", "message": "Antwort gespeichert!"})
 
 
-from django.contrib.admin.views.decorators import staff_member_required
+@csrf_exempt
+@require_POST
+def api_update_answer_points(request):
+	data = json.loads(request.body)
+	answer_id = data.get("answer_id")
+	delta = int(data.get("delta", 0))
 
-@staff_member_required
-def admin_dashboard(request, session_code):
-    session = get_object_or_404(QuizSession, session_code=session_code)
-    questions = Question.objects.all()
-    current_answers = ParticipantAnswer.objects.filter(
-        question=session.current_question,
-        participant__session=session
-    ).select_related('participant')
+	answer = get_object_or_404(ParticipantAnswer, id=answer_id)
+	answer.points = (answer.points or 0) + delta
+	answer.save(update_fields=["points"])
 
-    context = {
-        'session': session,
-        'questions': questions,
-        'current_answers': current_answers,
-    }
-    return render(request, 'quiz_app/admin_dashboard.html', context)
+	# sync to participant.score
+	total_score = (
+		ParticipantAnswer.objects.filter(participant=answer.participant).aggregate(models.Sum("points"))[
+			"points__sum"
+		]
+		or 0
+	)
+	answer.participant.score = total_score
+	answer.participant.save(update_fields=["score"])
+
+	return JsonResponse({"status": "success", "new_points": answer.points})
+
+
+def api_get_questions_for_category(request, category_id):
+	qs = Question.objects.filter(category_id=category_id).values("id", "text")
+	return JsonResponse({"questions": list(qs)})
+
+
+def api_live_answers(request, session_code):
+	session = get_object_or_404(Session, join_code=session_code)
+	q = session.current_question
+	if not q:
+		return JsonResponse({"answers": []})
+
+	answers = ParticipantAnswer.objects.filter(question=q).select_related("participant")
+	return JsonResponse(
+		{
+			"answers": [
+				{
+					"id": a.id,
+					"name": a.participant.name,
+					"answer": a.chosen_answer,
+					"points": a.points,
+				}
+				for a in answers
+			]
+		}
+	)
+
+
+def api_scores(request, session_id):
+	participants = Participant.objects.filter(session_id=session_id).values("name", "points")
+	return JsonResponse({"scores": list(participants)})
