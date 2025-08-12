@@ -1,0 +1,493 @@
+{% load quiz_filters %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Ergebnisse - {{ session.name }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .session-title {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .session-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .info-item {
+            text-align: center;
+        }
+        
+        .info-value {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .info-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .section {
+            margin: 40px 0;
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        
+        .leaderboard {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .leaderboard-header {
+            background: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        
+        .podium {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+        }
+        
+        .podium-place {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .podium-place.first {
+            order: 2;
+            transform: translateY(-10px);
+        }
+        
+        .podium-place.second {
+            order: 1;
+        }
+        
+        .podium-place.third {
+            order: 3;
+        }
+        
+        .place-number {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-weight: bold;
+            font-size: 1.5em;
+            color: white;
+        }
+        
+        .first .place-number { background: #ffd700; }
+        .second .place-number { background: #c0c0c0; }
+        .third .place-number { background: #cd7f32; }
+        
+        .participant-name {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .participant-points {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #28a745;
+        }
+        
+        .full-leaderboard {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .rank {
+            text-align: center;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .points {
+            text-align: center;
+            font-weight: bold;
+            color: #28a745;
+        }
+        
+        .accuracy {
+            text-align: center;
+        }
+        
+        .question-analysis {
+            margin-top: 30px;
+        }
+        
+        .question-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .question-text {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .question-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-card.correct {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .stat-card.incorrect {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .correct-answer {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            margin: 15px 0;
+        }
+        
+        .actions {
+            text-align: center;
+            margin: 40px 0;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        @media (max-width: 768px) {
+            .container { padding: 20px; }
+            .podium { grid-template-columns: 1fr; }
+            .podium-place { transform: none !important; }
+            .session-info { grid-template-columns: 1fr 1fr; }
+            .question-stats { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="session-title">🏆 Quiz Ergebnisse</h1>
+            <h2>{{ session.name }}</h2>
+            
+            <div class="session-info">
+                <div class="info-item">
+                    <span class="info-value">{{ participants.count }}</span>
+                    <span class="info-label">Teilnehmer</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-value">{{ results_data|length }}</span>
+                    <span class="info-label">Fragen gestellt</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-value">{{ session.join_code }}</span>
+                    <span class="info-label">Session Code</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-value">{{ session.get_status_display }}</span>
+                    <span class="info-label">Status</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top 3 Podium -->
+        {% if participants|length >= 3 %}
+        <div class="section">
+            <h2>🥇 Top 3 Gewinner</h2>
+            <div class="podium">
+                {% for participant in participants|slice:":3" %}
+                <div class="podium-place {% if forloop.counter == 1 %}first{% elif forloop.counter == 2 %}second{% else %}third{% endif %}">
+                    <div class="place-number">{{ forloop.counter }}</div>
+                    <div class="participant-name">{{ participant.name }}</div>
+                    <div class="participant-points">{{ participant.points }} Punkte</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Full Leaderboard -->
+        <div class="section">
+            <h2>📊 Komplette Rangliste</h2>
+            <div class="full-leaderboard">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="rank">Rang</th>
+                            <th>Name</th>
+                            <th class="points">Punkte</th>
+                            <th class="accuracy">Antworten</th>
+                            <th class="accuracy">Richtig</th>
+                            <th class="accuracy">Genauigkeit</th>
+                            <th>Beigetreten</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for participant in participants %}
+                        <tr>
+                            <td class="rank">{{ forloop.counter }}</td>
+                            <td>
+                                <strong>{{ participant.name }}</strong>
+                                {% if not participant.is_connected %}
+                                    <small style="color: #6c757d;"> (offline)</small>
+                                {% endif %}
+                            </td>
+                            <td class="points">{{ participant.points }}</td>
+                            <td class="accuracy">{{ participant.get_total_answers_count }}</td>
+                            <td class="accuracy">{{ participant.get_correct_answers_count }}</td>
+                            <td class="accuracy">
+                                {{ participant.get_correct_answers_count }}/{{ participant.get_total_answers_count }} ({{ participant.get_accuracy_percentage }}%)
+                            </td>
+                            <td>{{ participant.joined_at|date:"H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Question Analysis -->
+        {% if results_data %}
+        <div class="section">
+            <h2>📝 Fragen-Analyse</h2>
+            <div class="question-analysis">
+                {% for result in results_data %}
+                <div class="question-card">
+                    <div class="question-text">
+                        Frage {{ forloop.counter }}: {{ result.question.question_text }}
+                    </div>
+                    
+                    <div class="question-stats">
+                        <div class="stat-card correct">
+                            <div style="font-size: 1.5em; font-weight: bold;">{{ result.correct_count }}</div>
+                            <div>Richtig</div>
+                        </div>
+                        <div class="stat-card incorrect">
+                            <div style="font-size: 1.5em; font-weight: bold;">{{ result.total_count|add:result.correct_count|sub:result.correct_count }}</div>
+                            <div>Falsch</div>
+                        </div>
+                        <div class="stat-card">
+                            <div style="font-size: 1.5em; font-weight: bold;">{{ result.total_count }}</div>
+                            <div>Gesamte Antworten</div>
+                        </div>
+                        <div class="stat-card">
+                            <div style="font-size: 1.5em; font-weight: bold;">{{ result.accuracy|floatformat:1 }}%</div>
+                            <div>Genauigkeit</div>
+                        </div>
+                    </div>
+                    
+                    <div class="correct-answer">
+                        <strong>✓ Richtige Antwort:</strong> {{ result.question.correct_answer }}
+                        {% if result.question.explanation %}
+                            <br><strong>Erklärung:</strong> {{ result.question.explanation }}
+                        {% endif %}
+                    </div>
+
+                    <!-- Individual Answers -->
+                    {% if result.answers %}
+                    <details style="margin-top: 15px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: #007bff;">
+                            Teilnehmer Antworten anzeigen ({{ result.answers.count }})
+                        </summary>
+                        <div style="margin-top: 15px; max-height: 200px; overflow-y: auto;">
+                            {% for answer in result.answers %}
+                            <div style="padding: 8px; margin: 5px 0; background: {% if answer.is_correct %}#d4edda{% else %}#f8d7da{% endif %}; border-radius: 5px;">
+                                <strong>{{ answer.participant.name }}:</strong> {{ answer.chosen_answer }}
+                                {% if answer.is_correct %}
+                                    <span style="color: #28a745;">✓ (+{{ answer.points_awarded }} Punkte)</span>
+                                {% else %}
+                                    <span style="color: #dc3545;">✗</span>
+                                {% endif %}
+                                {% if answer.time_taken %}
+                                    <small style="color: #6c757d;">({{ answer.time_taken|floatformat:1 }}s)</small>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="actions">
+            <a href="{% url 'admin_dashboard' session.join_code %}" class="btn btn-primary">
+                📊 Dashboard zurück
+            </a>
+            <a href="{% url 'create_session' %}" class="btn btn-success">
+                🆕 Neue Session erstellen
+            </a>
+            <button onclick="window.print()" class="btn btn-primary">
+                🖨️ Ergebnisse drucken
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Auto-update document title
+        document.title = `Quiz Ergebnisse - {{ session.name }}`;
+        
+        // Add some interactive features
+        document.addEventListener('DOMContentLoaded', function() {
+            // Highlight top performers
+            const topThree = document.querySelectorAll('.podium-place');
+            topThree.forEach((place, index) => {
+                setTimeout(() => {
+                    place.style.animation = 'fadeInUp 0.6s ease-out';
+                }, index * 200);
+            });
+            
+            // Add hover effects to table rows
+            const tableRows = document.querySelectorAll('tbody tr');
+            tableRows.forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = '#f8f9fa';
+                });
+                row.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = '';
+                });
+            });
+        });
+
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

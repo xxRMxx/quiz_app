@@ -1,21 +1,23 @@
-Server starten
-	python manage.py runserver
+REQUIREMENTS (tested on Linux)
+	* Python3.x
+	* pip3
+	* venv
+	* daphne server (sudo apt install daphne)
+	* redis-server (sudo apt install redis-server)
+	* optional: redis-tools (sudo apt install redis-tools)
 
-Admin-Page
-	localhost:8000/admin
+INSTALLATION
+	* create virtual environment: python3 -m venv <virtual_environment>
+	* activate venv: source <your_venv>/bin/activate
+	* pip3 install -r requirements
 
-Quiz-Session
-	localhost:8000/quiz/<session-code>
-	--> der Session-Code ist über das Admin-Dashboard einsehbar
+CREATE SUPERUSER IN DJANGO
+	* in venv: python3 manage.py createsuperuser
+	* export DJANGO_SETTINGS_MODULE=quiz_project.settings
+	* start daphne server: daphne -p 8000 quiz_project.asgi:application (if redis-server not yet running: sudo service redis-server (re-)start)
 
-Admin-Dashboard (zum Steuern vom Quiz)
-	localhost:8000/admin-dashboard/<session-code>
-
-Ablauf:
-1. Admin startet eine Session (legt einen Session-Code fest)
-2. Teilnehmer loggen sich über Session-Code ein (z.B. auf Startpage mit 1234)
-3. Admin wählt über Admin-Dashboard eine Frage aus Dropdown-Menü aus & sendet die Frage
-4. Teilnehmer aktualisiert Seite und sieht nächste Frage
-5. Teilnehmer wählt Antwort aus und schickt Antwort ab
-6. Admin aktualisiert Seite und sieht Antworten der Teilnehmer
-7. Steps von vorne
+PAGES
+	* admin section: localhost:8000/admin
+	* admin dashboard: localhost:8000/my-admin/<session_id>
+	* landing page for participants site: localhost:8000
+	* connect to existing session: localhost:8000/quiz/session-code>/<participant-id> <-- you can check every session and participant in admin panel

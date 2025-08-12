@@ -1,0 +1,4 @@
+daphne
+django
+channels_redis
+dotenv

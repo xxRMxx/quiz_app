@@ -1,270 +1,751 @@
+{% load quiz_filters %}
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dein Quiz</title>
+    <title>Quiz - {{ participant.name }}</title>
     <style>
-        /* Optional: Grundlegende Stile für bessere Lesbarkeit */
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            line-height: 1.6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* Stil für die Buttons und das Formular */
-        /* Wir setzen Flexbox direkt auf ein div, das die Buttons umschließt,
-           oder lassen es einfach auf dem Formular und passen die Anordnung an. */
-        
-        /* Die Labels der Radio-Buttons sollen untereinander bleiben */
-        #answer-form label {
-            display: block; /* Jedes Label in einer neuen Zeile */
-            margin-bottom: 5px;
+        .quiz-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
         }
 
-        /* Container für die Buttons, damit sie nebeneinander liegen */
-        .button-container {
-            display: flex; /* Nutzt Flexbox, um Elemente nebeneinander anzuordnen */
-            gap: 10px; /* Fügt Abstand zwischen den Buttons hinzu */
-            margin-top: 15px; /* Abstand zu den Radio-Buttons */
+        .participant-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
         }
 
-        .button-container button {
-            padding: 10px 20px; /* Gleiche Polsterung für beide Buttons */
-            font-size: 16px; /* Gleiche Schriftgröße */
+        .participant-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .participant-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .connection-status {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .connected { background: #28a745; color: white; }
+        .disconnected { background: #dc3545; color: white; }
+        .connecting { background: #ffc107; color: #212529; }
+
+        .question-area {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+            border: 2px solid #e9ecef;
+        }
+
+        .waiting-message {
+            color: #6c757d;
+            font-size: 1.2em;
+            font-style: italic;
+        }
+
+        .question-header {
+            margin-bottom: 25px;
+        }
+
+        .question-number {
+            background: #007bff;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .category-badge {
+            background: #6c757d;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+
+        .question-text {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 20px 0;
+            line-height: 1.4;
+        }
+
+        .timer {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+
+        .timer.warning { 
+            background: #f8d7da; 
+            border-color: #dc3545; 
+            color: #721c24; 
+        }
+
+        .answers-container {
+            margin: 30px 0;
+        }
+
+        .answer-option {
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
             cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            text-align: left;
+        }
+
+        .answer-option:hover {
+            border-color: #007bff;
+            background: #f8f9fa;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.1);
+        }
+
+        .answer-option.selected {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+
+        .answer-option.correct {
+            border-color: #28a745;
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .answer-option.incorrect {
+            border-color: #dc3545;
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .answer-option.disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .answer-label {
+            background: #007bff;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            float: left;
+        }
+
+        .answer-text {
+            font-size: 1.1em;
+            line-height: 1.4;
+            margin-left: 45px;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
             border: none;
-            border-radius: 5px; /* Abgerundete Ecken */
-            white-space: nowrap; /* Verhindert Zeilenumbruch im Button-Text */
+            padding: 15px 40px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 20px 0;
         }
 
-        /* Stil für den "Antwort abschicken" Button */
-        .button-container button[type="submit"] {
-            background-color: #007bff; /* Beispiel-Farbe Blau */
-            color: white;
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(40,167,69,0.3);
         }
 
-        .button-container button[type="submit"]:hover {
-            background-color: #0056b3;
+        .submit-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
-        /* Stil für den "Aktualisieren" Button */
-        #refresh-button { /* Da es nur einen Refresh-Button gibt, kann die ID genutzt werden */
-            background-color: #6c757d; /* Beispiel-Farbe Grau */
-            color: white;
+        .feedback-area {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
         }
 
-        #refresh-button:hover {
-            background-color: #5a6268;
+        .feedback-area.success {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+
+        .feedback-area.error {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        .explanation {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .leaderboard {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 30px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .leaderboard h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+
+        .leaderboard-rank {
+            font-weight: bold;
+            color: #007bff;
+            width: 30px;
+        }
+
+        .leaderboard-name {
+            flex-grow: 1;
+            text-align: left;
+            margin-left: 15px;
+        }
+
+        .leaderboard-points {
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .current-participant {
+            background: #fff3cd;
+            border-radius: 8px;
+            padding: 5px 10px;
+        }
+
+        /* Animation for new questions */
+        .question-appear {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .quiz-container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .participant-stats {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .answer-option {
+                padding: 15px;
+            }
+            
+            .answer-text {
+                font-size: 1em;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Willkommen, {{ participant.name }}!</h1>
-    <!--<h2>Session: {{ session.name }}</h2>-->
-
-    <div id="live-question-area">
-    <h3 id="question-category">Bitte warten Sie auf die nächste Frage...</h3>
-    <h3 id="question-text"></h3>
-
-    <form id="answer-form" style="display:none;">
-        {% csrf_token %}
-        <input type="hidden" name="question_id" value="">
-        <div id="answers-container">
-            <!-- Hier werden die Antwort-Optionen als Radio-Buttons per JS eingefügt -->
+    <div class="quiz-container">
+        <!-- Connection Status -->
+        <div id="connection-status" class="connection-status connecting">
+            Verbindung...
         </div>
-        <div class="button-container">
-            <button type="submit">Antwort abschicken</button>
-            <button type="button" id="refresh-button">Seite aktualisieren</button>
-        </div>
-    </form>
-</div>
 
-	<div id="status-message" style="margin-top: 20px; color: green;"></div>
+        <!-- Participant Info -->
+        <div class="participant-info">
+            <div class="participant-name">{{ participant.name }}</div>
+            <div class="participant-stats">
+                <div class="stat">
+                    <span class="stat-value" id="current-points">{{ participant.points }}</span>
+                    <span class="stat-label">Punkte</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value" id="current-rank">{{ rank }}</span>
+                    <span class="stat-label">Rang</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value" id="total-participants">{{ total_participants }}</span>
+                    <span class="stat-label">Teilnehmer</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Area -->
+        <div id="question-area" class="question-area">
+            {% if current_question %}
+                <div class="question-header">
+                    <span class="question-number">Frage {{ session.current_question_number }}</span>
+                    <span class="category-badge">{{ current_question.category.name }}</span>
+                </div>
+                
+                <div id="timer" class="timer" style="display: none;">
+                    Zeit: <span id="time-remaining">{{ current_question.time_limit }}</span> Sekunden
+                </div>
+                
+                <div class="question-text" id="question-text">
+                    {{ current_question.question_text }}
+                </div>
+
+                {% if user_answer %}
+                    <!-- User already answered -->
+                    <div class="feedback-area success" style="display: block;">
+                        <strong>Antwort bereits abgegeben!</strong><br>
+                        Ihre Antwort: {{ user_answer.chosen_answer }}<br>
+                        Punkte: {{ user_answer.points_awarded }}
+                    </div>
+                {% else %}
+                    <!-- Answer options -->
+                    <form id="answer-form" class="answers-container">
+                        {% for answer in answers %}
+                            <div class="answer-option" data-answer="{{ answer }}">
+                                <div class="answer-label">{{ forloop.counter|add:64|int2char }}</div>
+                                <div class="answer-text">{{ answer }}</div>
+                            </div>
+                        {% endfor %}
+                        
+                        <button type="submit" class="submit-btn" id="submit-btn" disabled>
+                            Antwort abschicken
+                        </button>
+                    </form>
+                {% endif %}
+            {% else %}
+                <div class="waiting-message" id="waiting-message">
+                    <h3>Warten auf die nächste Frage...</h3>
+                    <p>Der Quiz-Moderator wird bald eine Frage stellen.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Feedback Area -->
+        <div id="feedback-area" class="feedback-area"></div>
+
+        <!-- Leaderboard (hidden by default) -->
+        <div id="leaderboard" class="leaderboard" style="display: none;">
+            <h3>🏆 Rangliste</h3>
+            <div id="leaderboard-content"></div>
+        </div>
+    </div>
 
     <script>
-		/*
-		NOTE: big garbage can (these were my first attempts to trigger communication between participants and admin dashboard)
+        // Global variables
+        const participantId = "{{participant.id}}";
+        const sessionCode = "{{ session.session_code }}";
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/quiz/${sessionCode}/`;
+        
+        let socket;
+        let currentQuestion = null;
+        let selectedAnswer = null;
+        let questionStartTime = null;
+        let timerInterval = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
 
+        // Elements
+        const connectionStatus = document.getElementById('connection-status');
+        const questionArea = document.getElementById('question-area');
+        const answerForm = document.getElementById('answer-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const feedbackArea = document.getElementById('feedback-area');
+        const leaderboard = document.getElementById('leaderboard');
 
-		const sessionId = "{{ session.id }}";
-	let currentQuestionId = null;
-
-	function createAnswerOption(answerText) {
-		const label = document.createElement('label');
-		label.style.display = 'block';
-		label.style.marginBottom = '5px';
-
-		const input = document.createElement('input');
-		input.type = 'radio';
-		input.name = 'chosen_answer_text';
-		input.value = answerText;
-		input.required = true;
-
-		label.appendChild(input);
-		label.append(' ' + answerText);
-
-		return label;
-	}
-
-	function fetchCurrentQuestion() {
-    fetch(`/api/current-question/${sessionId}/`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Netzwerkfehler beim Laden der Frage');
+        function updateConnectionStatus(status) {
+            connectionStatus.className = `connection-status ${status}`;
+            switch(status) {
+                case 'connected':
+                    connectionStatus.textContent = '●';
+                    break;
+                case 'disconnected':
+                    connectionStatus.textContent = '○';
+                    break;
+                case 'connecting':
+                    connectionStatus.textContent = '◐';
+                    break;
             }
-            return response.json();
-        })
-        .then(data => {
-            const questionForm = document.getElementById('answer-form');
-            const questionTextElem = document.getElementById('question-text');
-            const questionCategoryElem = document.getElementById('question-category');
-            const answersContainer = document.getElementById('answers-container');
-            const statusDiv = document.getElementById('status-message');
+        }
 
-            if (data.id && data.id !== currentQuestionId) {
-                currentQuestionId = data.id;
+        function connectWebSocket() {
+            updateConnectionStatus('connecting');
+            socket = new WebSocket(wsUrl);
 
-                // Frage und Kategorie anzeigen
-                questionTextElem.textContent = data.text;
-                questionCategoryElem.textContent = 'Kategorie: ' + data.category;
+            socket.onopen = function(event) {
+                console.log('WebSocket connected');
+                updateConnectionStatus('connected');
+                reconnectAttempts = 0;
+                
+                // Notify that participant joined
+                socket.send(JSON.stringify({
+                    type: 'participant_join',
+                    participant_id: participantId
+                }));
+            };
 
-                // Verstecke Statusmeldung
-                statusDiv.textContent = '';
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
 
-                // Formular anzeigen
-                questionForm.style.display = 'block';
+            socket.onclose = function(event) {
+                console.log('WebSocket disconnected');
+                updateConnectionStatus('disconnected');
+                
+                // Attempt to reconnect
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    setTimeout(connectWebSocket, 3000 * reconnectAttempts);
+                }
+            };
 
-                // Frage-ID setzen (für das Formular)
-                questionForm.querySelector('input[name="question_id"]').value = data.id;
+            socket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                updateConnectionStatus('disconnected');
+            };
+        }
 
-                // Antworten löschen und neu hinzufügen
-                answersContainer.innerHTML = '';
-                data.answers.forEach(answerText => {
-                    const option = createAnswerOption(answerText);
-                    answersContainer.appendChild(option);
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'new_question':
+                    displayNewQuestion(data.question);
+                    break;
+                case 'show_correct_answer':
+                    showCorrectAnswer(data.correct_answer, data.explanation);
+                    break;
+                case 'show_leaderboard':
+                    displayLeaderboard(data.leaderboard);
+                    break;
+                case 'answer_submitted':
+                    showFeedback(data);
+                    break;
+                case 'connection_established':
+                    console.log('Connection established');
+                    break;
+                default:
+                    console.log('Unknown message type:', data.type);
+            }
+        }
+
+        function displayNewQuestion(question) {
+            currentQuestion = question;
+            selectedAnswer = null;
+            questionStartTime = Date.now();
+            
+            // Hide leaderboard and feedback
+            leaderboard.style.display = 'none';
+            feedbackArea.style.display = 'none';
+            
+            // Update question area
+            questionArea.className = 'question-area question-appear';
+            questionArea.innerHTML = `
+                <div class="question-header">
+                    <span class="question-number">Frage ${question.number}</span>
+                    <span class="category-badge">${question.category}</span>
+                </div>
+                
+                <div id="timer" class="timer">
+                    Zeit: <span id="time-remaining">${question.time_limit}</span> Sekunden
+                </div>
+                
+                <div class="question-text">${question.text}</div>
+
+                <form id="answer-form" class="answers-container">
+                    ${question.answers.map((answer, index) => `
+                        <div class="answer-option" data-answer="${answer}">
+                            <div class="answer-label">${String.fromCharCode(65 + index)}</div>
+                            <div class="answer-text">${answer}</div>
+                        </div>
+                    `).join('')}
+                    
+                    <button type="submit" class="submit-btn" id="submit-btn" disabled>
+                        Antwort abschicken
+                    </button>
+                </form>
+            `;
+            
+            // Re-bind event listeners
+            bindAnswerEvents();
+            startTimer(question.time_limit);
+        }
+
+        function bindAnswerEvents() {
+            const answerOptions = document.querySelectorAll('.answer-option');
+            const submitBtn = document.getElementById('submit-btn');
+            const answerForm = document.getElementById('answer-form');
+
+            answerOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    if (this.classList.contains('disabled')) return;
+                    
+                    // Remove previous selection
+                    answerOptions.forEach(opt => opt.classList.remove('selected'));
+                    
+                    // Select this option
+                    this.classList.add('selected');
+                    selectedAnswer = this.dataset.answer;
+                    submitBtn.disabled = false;
                 });
+            });
 
-                // Submit-Button aktivieren (für den Fall, dass er deaktiviert wurde)
-                questionForm.querySelector('button[type="submit"]').disabled = false;
-            } else if (!data.id) {
-                // Keine Frage verfügbar -> Formular verstecken und Nachricht anzeigen
-                questionForm.style.display = 'none';
-                questionTextElem.textContent = '';
-                questionCategoryElem.textContent = 'Bitte warten Sie auf die nächste Frage...';
+            answerForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                submitAnswer();
+            });
+        }
+
+        function startTimer(timeLimit) {
+            let timeRemaining = timeLimit;
+            const timerElement = document.getElementById('time-remaining');
+            const timerContainer = document.getElementById('timer');
+            
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                timerElement.textContent = timeRemaining;
+                
+                if (timeRemaining <= 10) {
+                    timerContainer.classList.add('warning');
+                }
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    disableAnswers();
+                    showFeedback({
+                        status: 'error',
+                        message: 'Zeit abgelaufen! Keine Antwort abgegeben.'
+                    });
+                }
+            }, 1000);
+        }
+
+        function submitAnswer() {
+            if (!selectedAnswer || !currentQuestion) return;
+            
+            const timeTaken = (Date.now() - questionStartTime) / 1000;
+            
+            const message = {
+                type: 'participant_submit_answer',
+                participant_id: participantId,
+                question_id: currentQuestion.id,
+                chosen_answer: selectedAnswer,
+                time_taken: timeTaken
+            };
+
+            socket.send(JSON.stringify(message));
+            
+            // Disable form
+            disableAnswers();
+            clearInterval(timerInterval);
+            
+            // Show waiting feedback
+            showFeedback({
+                status: 'info',
+                message: 'Antwort gesendet! Warten auf Bewertung...'
+            });
+        }
+
+        function disableAnswers() {
+            const answerOptions = document.querySelectorAll('.answer-option');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            answerOptions.forEach(option => {
+                option.classList.add('disabled');
+                option.style.cursor = 'not-allowed';
+            });
+            
+            if (submitBtn) {
+                submitBtn.disabled = true;
             }
-        })
-        .catch(error => {
-            console.error('Fehler beim Laden der Frage:', error);
+        }
+
+        function showCorrectAnswer(correctAnswer, explanation) {
+            const answerOptions = document.querySelectorAll('.answer-option');
+            
+            answerOptions.forEach(option => {
+                const answerText = option.dataset.answer;
+                if (answerText === correctAnswer) {
+                    option.classList.add('correct');
+                } else if (answerText === selectedAnswer) {
+                    option.classList.add('incorrect');
+                }
+            });
+            
+            let feedbackHTML = `<strong>Richtige Antwort:</strong> ${correctAnswer}`;
+            if (explanation) {
+                feedbackHTML += `<div class="explanation"><strong>Erklärung:</strong> ${explanation}</div>`;
+            }
+            
+            feedbackArea.innerHTML = feedbackHTML;
+            feedbackArea.className = 'feedback-area';
+            feedbackArea.style.display = 'block';
+        }
+
+        function showFeedback(data) {
+            let className = 'feedback-area';
+            let message = data.message;
+            
+            if (data.status === 'success') {
+                className += ' success';
+                if (data.is_correct) {
+                    message += ` 🎉<br><strong>+${data.points_awarded} Punkte</strong>`;
+                }
+                // Update points display
+                document.getElementById('current-points').textContent = data.total_points || document.getElementById('current-points').textContent;
+            } else if (data.status === 'error') {
+                className += ' error';
+            }
+            
+            feedbackArea.innerHTML = message;
+            feedbackArea.className = className;
+            feedbackArea.style.display = 'block';
+        }
+
+        function displayLeaderboard(leaderboardData) {
+            const content = document.getElementById('leaderboard-content');
+            const currentParticipantId = participantId;
+            
+            content.innerHTML = leaderboardData.map((participant, index) => {
+                const isCurrentParticipant = participant.id === currentParticipantId;
+                const itemClass = isCurrentParticipant ? 'leaderboard-item current-participant' : 'leaderboard-item';
+                
+                return `
+                    <div class="${itemClass}">
+                        <span class="leaderboard-rank">${index + 1}.</span>
+                        <span class="leaderboard-name">${participant.name}</span>
+                        <span class="leaderboard-points">${participant.points} Pkt</span>
+                    </div>
+                `;
+            }).join('');
+            
+            leaderboard.style.display = 'block';
+            
+            // Update current rank
+            const currentRank = leaderboardData.findIndex(p => p.id === currentParticipantId) + 1;
+            document.getElementById('current-rank').textContent = currentRank || '-';
+        }
+
+        // Initialize
+        connectWebSocket();
+
+        // Bind events for existing form if present
+        if (answerForm) {
+            bindAnswerEvents();
+        }
+
+        // Heartbeat to keep connection alive
+        setInterval(() => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({type: 'ping'}));
+            }
+        }, 30000);
+
+        // Handle page visibility change (pause timer when tab is hidden)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // Page is hidden
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                }
+            } else {
+                // Page is visible again - you might want to re-sync timer here
+            }
         });
-	}
-
-	// Initiales Laden + Intervall
-	fetchCurrentQuestion();
-	setInterval(fetchCurrentQuestion, 3000);
-
-	// Formular-Submit bleibt wie bisher:
-	document.getElementById('answer-form').addEventListener('submit', function(event) {
-		event.preventDefault();
-
-		const formData = new FormData(this);
-		const questionId = formData.get('question_id');
-		const chosenAnswerText = formData.get('chosen_answer_text');
-		const statusDiv = document.getElementById('status-message');
-		const participantId = "{{ participant.id }}";
-
-		fetch('{% url "submit_answer" %}', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-			},
-			body: JSON.stringify({
-				question_id: questionId,
-				chosen_answer_text: chosenAnswerText,
-				participant_id: participantId
-			})
-		})
-		.then(response => response.json())
-		.then(data => {
-			statusDiv.textContent = data.message;
-			if (data.status === 'success') {
-				document.getElementById('answer-form').querySelector('button[type="submit"]').disabled = true;
-			}
-		})
-		.catch(error => {
-			console.error('Error:', error);
-			statusDiv.textContent = 'Ein Fehler ist aufgetreten.';
-		});
-	});
-
-	document.getElementById('refresh-button').addEventListener('click', function() {
-		location.reload();
-	});
-
-
-	document.getElementById('answer-form').addEventListener('submit', function(event) {
-		event.preventDefault(); 
-
-		const formData = new FormData(this);
-		const questionId = formData.get('question_id');
-		const chosenAnswerText = formData.get('chosen_answer_text'); 
-		const statusDiv = document.getElementById('status-message');
-		const participantId = "{{ participant.id }}";
-
-		fetch('{% url "submit_answer" %}', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-			},
-			body: JSON.stringify({
-				question_id: questionId,
-				chosen_answer_text: chosenAnswerText,
-				participant_id: participantId
-			})
-		})
-		.then(response => response.json())
-		.then(data => {
-			statusDiv.textContent = data.message;
-			if (data.status === 'success') {
-				document.getElementById('answer-form').querySelector('button[type="submit"]').disabled = true;
-			}
-		})
-		.catch(error => {
-			console.error('Error:', error);
-			statusDiv.textContent = 'Ein Fehler ist aufgetreten.';
-		});
-	});
-
-	document.getElementById('refresh-button').addEventListener('click', function() {
-		location.reload(); 
-	});
-
-	const sessionId = {{ session.id }};  // Vom Django-Template übergeben
-	let currentQuestionId = null;
-
-	function fetchCurrentQuestion() {
-		fetch(`/api/current-question/${sessionId}/`)
-			.then(response => response.json())
-			.then(data => {
-				if (data.id && data.id !== currentQuestionId) {
-					currentQuestionId = data.id;
-					document.getElementById('question-text').textContent = data.text;
-					document.getElementById('question-category').textContent = 'Kategorie: ' + data.category;
-				}
-			})
-			.catch(error => console.error('Fehler beim Laden der Frage:', error));
-	}
-
-	// Alle 3 Sekunden nach neuer Frage fragen
-	setInterval(fetchCurrentQuestion, 3000);
-
-	// Direkt beim Laden einmal holen
-	fetchCurrentQuestion();
-
-	*/
-
-	</script>
+    </script>
 </body>
 </html>

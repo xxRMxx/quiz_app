@@ -3,350 +3,692 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard für {{ session.session_code }}</title>
+    <title>Admin Dashboard - {{ session.name }}</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f4f7f6; }
-        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1, h2 { color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #e2e6ea; }
-        .correct { color: green; font-weight: bold; }
-        .incorrect { color: red; font-weight: bold; }
-        button {
-            padding: 10px 15px;
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background-color: #f5f7fa; 
+        }
+        .container { 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            background-color: #fff; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .session-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .session-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        h1, h2, h3 { 
+            color: #2c3e50; 
+            margin-top: 0;
+        }
+        .section {
+            background: #fff;
+            margin-bottom: 30px;
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 15px; 
+        }
+        th, td { 
+            border: 1px solid #dee2e6; 
+            padding: 12px; 
+            text-align: left; 
+        }
+        th { 
+            background-color: #f8f9fa; 
+            font-weight: 600;
+            color: #495057;
+        }
+        .correct { 
+            color: #28a745; 
+            font-weight: bold; 
+        }
+        .incorrect { 
+            color: #dc3545; 
+            font-weight: bold; 
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-waiting { background: #ffc107; color: #856404; }
+        .status-active { background: #28a745; color: white; }
+        .status-finished { background: #6c757d; color: white; }
+        
+        /* Button Styles */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .btn-primary {
             background-color: #007bff;
             color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+        .btn-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        
+        /* Form Styles */
+        select, input {
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
             margin-right: 10px;
         }
-        button:hover { background-color: #0056b3; }
+        select {
+            min-width: 200px;
+        }
+        
+        /* Connection Status */
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 6px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+        }
+        .connected { background-color: #28a745; }
+        .disconnected { background-color: #dc3545; }
+        .connecting { background-color: #ffc107; color: #212529; }
+        
+        /* Live Updates */
+        .new-answer {
+            animation: highlightNew 2s ease-in-out;
+        }
+        @keyframes highlightNew {
+            0% { background-color: #fff3cd; }
+            100% { background-color: transparent; }
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            .header { flex-direction: column; align-items: stretch; }
+            .session-stats { grid-template-columns: 1fr 1fr; }
+            table { font-size: 14px; }
+            th, td { padding: 8px; }
+        }
     </style>
 </head>
-
-
 <body>
+    <!-- Connection Status -->
+    <div id="connection-status" class="connection-status connecting">
+        Verbindung wird hergestellt...
+    </div>
+
     <div class="container">
-        <h1>Admin Dashboard für Session: {{ session.join_code }}</h1>
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>Quiz Administration</h1>
+                <div class="session-info">
+                    <h2>{{ session.name }}</h2>
+                    <p><strong>Join Code:</strong> {{ session.join_code }}</p>
+                    <p><strong>Status:</strong> 
+                        <span class="status-badge status-{{ session.status }}">{{ session.get_status_display }}</span>
+                    </p>
+                </div>
+            </div>
+        </div>
 
-		<h2>Teilnehmer & Punkte</h2>
-			<table>
-				<thead>
-					<tr>
-						<th>Teilnehmer</th>
-						<th>Punkte</th>
-						<th>aktuelle Antwort</th>
-					</tr>
-				</thead>
-				<tbody>
-					{% for participant in participants %}
-					<tr id="answer-{{ answer.id }}">
-						<td>{{ participant.name }}</td>
-						<td class="points" id="points-{{ answer.id }}">
-							<button onclick="updateScore({{ participant.points }}, -1)">-1</button>
-							<span class="score-value">{{ participant.points }}</span>
-							<button onclick="updateScore({{ participants.points }}, +1)">+1</button>
-						</td>
-						<td>{{ participantanswer.chosen_answer }}</td>
-					</tr>
-					{% endfor %}
-				</tbody>
-			</table>
+        <!-- Session Statistics -->
+        <div class="session-stats">
+            <div class="stat-card">
+                <div class="stat-number" id="participant-count">{{ stats.total_participants }}</div>
+                <div class="stat-label">Teilnehmer</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="connected-count">{{ stats.connected_participants }}</div>
+                <div class="stat-label">Online</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="question-count">{{ stats.total_questions_asked }}</div>
+                <div class="stat-label">Fragen gestellt</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="average-score">{{ stats.average_score|floatformat:1 }}</div>
+                <div class="stat-label">Ø Punkte</div>
+            </div>
+        </div>
 
+        <!-- Current Question Section -->
+        <div class="section">
+            <h3>Aktuelle Frage</h3>
+            <div id="current-question-display">
+                {% if session.current_question %}
+                    <p><strong>Frage {{ session.current_question_number }}:</strong> {{ session.current_question.question_text }}</p>
+                    <p><strong>Kategorie:</strong> {{ session.current_question.category.name }}</p>
+                    <p><strong>Richtige Antwort:</strong> <span class="correct">{{ session.current_question.correct_answer }}</span></p>
+                    {% if session.current_question.explanation %}
+                        <p><strong>Erklärung:</strong> {{ session.current_question.explanation }}</p>
+                    {% endif %}
+                {% else %}
+                    <p>Keine aktuelle Frage. Wählen Sie eine Frage aus, um zu beginnen.</p>
+                {% endif %}
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button id="show-answers-btn" class="btn btn-warning">Antworten zeigen</button>
+                <button id="show-leaderboard-btn" class="btn btn-success">Rangliste zeigen</button>
+            </div>
+        </div>
 
-		<h1> Aktuelle Frage </h1>
-			{% if current_question %}
-	<p><strong>Frage:</strong> {{ current_question.text }}</p>
-		<p><strong>Antwort:</strong> {{ current_question.correct_answer }}</p>
-		{% else %}
-		<p>Aktuell keine Frage in dieser Session.</p>
-		{% endif %}
+        <!-- Send Question Section -->
+        <div class="section">
+            <h3>Nächste Frage senden</h3>
+            <div style="margin-bottom: 15px;">
+                <select id="category-selector">
+                    <option value="">Kategorie auswählen...</option>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select id="question-selector" disabled>
+                    <option value="">Erst Kategorie wählen...</option>
+                </select>
+                
+                <button id="send-question-btn" class="btn btn-primary" disabled>Frage senden</button>
+            </div>
+            <div id="question-preview" style="background: #f8f9fa; padding: 15px; border-radius: 6px; display: none;">
+                <h4>Vorschau:</h4>
+                <p id="preview-text"></p>
+                <p><strong>Richtige Antwort:</strong> <span id="preview-correct"></span></p>
+                <p><strong>Falsche Antworten:</strong> <span id="preview-wrong"></span></p>
+            </div>
+        </div>
 
-		<!--
-		<h2 id="question-category">1) Kategorie auswählen</h2>
-        <select id="category-selector" style="padding: 8px; margin-right: 10px;">
-            <option value="">Kategorie auswählen...</option>
-            {% for category in categories %}
-				<option value="{{ category.id }}">{{ category.name }}</option>
-			{% endfor %}
-        </select>
-		-->
+        <!-- Live Answers Section -->
+        <div class="section">
+            <h3>Live Antworten</h3>
+            <div style="margin-bottom: 15px;">
+                <button id="refresh-answers-btn" class="btn btn-primary btn-sm">Aktualisieren</button>
+                <span id="answer-count" style="margin-left: 15px; color: #6c757d;">0 Antworten</span>
+            </div>
+            <table id="answers-table">
+                <thead>
+                    <tr>
+                        <th>Teilnehmer</th>
+                        <th>Antwort</th>
+                        <th>Status</th>
+                        <th>Zeit (s)</th>
+                        <th>Punkte</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody id="answers-tbody">
+                    {% for answer in current_answers %}
+                    <tr data-answer-id="{{ answer.id }}">
+                        <td>{{ answer.participant.name }}</td>
+                        <td>{{ answer.chosen_answer }}</td>
+                        <td>
+                            {% if answer.is_correct %}
+                                <span class="correct">✓ Richtig</span>
+                            {% else %}
+                                <span class="incorrect">✗ Falsch</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ answer.time_taken|default:"-" }}</td>
+                        <td class="points-cell" data-answer-id="{{ answer.id }}">
+                            <span class="points-value">{{ answer.points_awarded }}</span>
+                            <button class="btn btn-sm btn-success" onclick="updatePoints({{ answer.id }}, 10)">+10</button>
+                            <button class="btn btn-sm btn-danger" onclick="updatePoints({{ answer.id }}, -10)">-10</button>
+                        </td>
+                        <td>
+                            <input type="number" class="points-input" value="{{ answer.points_awarded }}" min="0" max="1000" style="width: 80px;">
+                            <button class="btn btn-sm btn-primary" onclick="setPoints({{ answer.id }})">Set</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-		<h1> Nächste Frage </h1>
-		<!--<h2 id="question-text">2) Frage auswählen</h2>-->
-        <select id="question-selector" style="padding: 8px; margin-right: 10px;">
-            <option value="">Frage auswählen...</option>
-            {% for question in questions %}
-                <option value="{{ question.id }}">{{ question.question_text }}</option>
-            {% endfor %}
-        </select>
-		<span id="q-correct">{% if session.current_question %}{{ session.current_question.correct_answer }}{% endif %}</span>
-        
-		<button id="send-question-button">Frage senden</button>
-        <p id="send-status-message" style="margin-top: 10px;"></p>
+        <!-- Participants Section -->
+        <div class="section">
+            <h3>Teilnehmer Rangliste</h3>
+            <table id="participants-table">
+                <thead>
+                    <tr>
+                        <th>Rang</th>
+                        <th>Name</th>
+                        <th>Punkte</th>
+                        <th>Antworten</th>
+                        <th>Status</th>
+                        <th>Beigetreten</th>
+                    </tr>
+                </thead>
+                <tbody id="participants-tbody">
+                    {% for participant in participants %}
+                    <tr data-participant-id="{{ participant.id }}">
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ participant.name }}</td>
+                        <td class="participant-points">{{ participant.points }}</td>
+                        <td>{{ participant.answers.count }}</td>
+                        <td>
+                            {% if participant.is_connected %}
+                                <span style="color: #28a745;">●</span> Online
+                            {% else %}
+                                <span style="color: #6c757d;">●</span> Offline
+                            {% endif %}
+                        </td>
+                        <td>{{ participant.joined_at|date:"H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
-		/*
-
-		NOTE: big garbage can (these were several tries to trigger communication between admin dashboard and participants)
-
+        // WebSocket connection
         const sessionCode = "{{ session.session_code }}";
-		const sessCode = "{{ session.session_code }}";
-        const questionSelector = document.getElementById('question-selector');
-		const categorySelector = document.getElementById('category-selector');
-        const sendQuestionButton = document.getElementById('send-question-button');
-        const sendStatusMessage = document.getElementById('send-status-message');
-        const answersTableBody = document.querySelector('#answers-table tbody');
-        const currentQuestionDisplay = document.getElementById('current-question-display');
-		const sess = document.body.dataset.sessionCode;
-		const catSel = document.getElementById("cat");
-		const qSel   = document.getElementById("question");
-		const send   = document.getElementById("send");
-		const csrf   = "{{ csrf_token }}";   // wenn du JS inline einbettest
-		const tbody  = document.getElementById("answer-body");
-		const answerBody = document.getElementById("answer-body");
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/quiz/${sessionCode}/`;
+        let socket;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
 
-		function fetchCurrentQuestion(){
-			fetch(`/api/current-question/${sessCode}/`)
-				.then(r=>r.json())
-				.then(d=>{
-					if(d.id){
-						document.getElementById("question-category").textContent =
-							"Kategorie: " + d.category;
-						document.getElementById("question-text").textContent = d.text;
-				}
-			});
-		}
-		setInterval(fetchCurrentQuestion, 3000);
-		fetchCurrentQuestion();
+        // Connection status elements
+        const connectionStatus = document.getElementById('connection-status');
 
+        function updateConnectionStatus(status) {
+            connectionStatus.className = `connection-status ${status}`;
+            switch(status) {
+                case 'connected':
+                    connectionStatus.textContent = 'Verbunden';
+                    break;
+                case 'disconnected':
+                    connectionStatus.textContent = 'Verbindung getrennt';
+                    break;
+                case 'connecting':
+                    connectionStatus.textContent = 'Verbindung wird hergestellt...';
+                    break;
+            }
+        }
 
-        sendQuestionButton.onclick = function() {
-			const sendQuestionUrl = "{% url 'send_question' %}";
-            const selectedQuestionId = questionSelector.value;
-            if (selectedQuestionId) {
-                fetch(sendQuestionUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}' // Django CSRF-Token einbinden
-                    },
-                    body: JSON.stringify({
-                        session_code: sessionCode,
-                        question_id: selectedQuestionId
-                    })
+        function connectWebSocket() {
+            updateConnectionStatus('connecting');
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = function(event) {
+                console.log('WebSocket connected');
+                updateConnectionStatus('connected');
+                reconnectAttempts = 0;
+            };
+
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            socket.onclose = function(event) {
+                console.log('WebSocket disconnected');
+                updateConnectionStatus('disconnected');
+                
+                // Attempt to reconnect
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    setTimeout(connectWebSocket, 3000 * reconnectAttempts);
+                }
+            };
+
+            socket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                updateConnectionStatus('disconnected');
+            };
+        }
+
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'participant_answered':
+                    addNewAnswer(data.answer);
+                    break;
+                case 'participant_joined':
+                    addNewParticipant(data.participant);
+                    updateStats();
+                    break;
+                case 'leaderboard_updated':
+                    updateLeaderboard(data.leaderboard);
+                    break;
+                case 'connection_established':
+                    console.log('Connection established');
+                    break;
+                default:
+                    console.log('Unknown message type:', data.type);
+            }
+        }
+
+        function addNewAnswer(answer) {
+            const tbody = document.getElementById('answers-tbody');
+            const newRow = document.createElement('tr');
+            newRow.className = 'new-answer';
+            newRow.setAttribute('data-answer-id', answer.id);
+            
+            const statusClass = answer.is_correct ? 'correct' : 'incorrect';
+            const statusIcon = answer.is_correct ? '✓ Richtig' : '✗ Falsch';
+            
+            newRow.innerHTML = `
+                <td>${answer.participant_name}</td>
+                <td>${answer.chosen_answer}</td>
+                <td><span class="${statusClass}">${statusIcon}</span></td>
+                <td>${answer.time_taken || '-'}</td>
+                <td class="points-cell" data-answer-id="${answer.id}">
+                    <span class="points-value">${answer.points_awarded}</span>
+                    <button class="btn btn-sm btn-success" onclick="updatePoints(${answer.id}, 10)">+10</button>
+                    <button class="btn btn-sm btn-danger" onclick="updatePoints(${answer.id}, -10)">-10</button>
+                </td>
+                <td>
+                    <input type="number" class="points-input" value="${answer.points_awarded}" min="0" max="1000" style="width: 80px;">
+                    <button class="btn btn-sm btn-primary" onclick="setPoints(${answer.id})">Set</button>
+                </td>
+            `;
+            
+            tbody.insertBefore(newRow, tbody.firstChild);
+            updateAnswerCount();
+        }
+
+        function addNewParticipant(participant) {
+            const tbody = document.getElementById('participants-tbody');
+            const newRow = document.createElement('tr');
+            newRow.setAttribute('data-participant-id', participant.id);
+            
+            const rank = tbody.children.length + 1;
+            const now = new Date().toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+            
+            newRow.innerHTML = `
+                <td>${rank}</td>
+                <td>${participant.name}</td>
+                <td class="participant-points">${participant.points}</td>
+                <td>0</td>
+                <td><span style="color: #28a745;">●</span> Online</td>
+                <td>${now}</td>
+            `;
+            
+            tbody.appendChild(newRow);
+        }
+
+        function updateLeaderboard(leaderboard) {
+            const tbody = document.getElementById('participants-tbody');
+            tbody.innerHTML = '';
+            
+            leaderboard.forEach((participant, index) => {
+                const row = document.createElement('tr');
+                row.setAttribute('data-participant-id', participant.id);
+                
+                const statusColor = participant.is_connected ? '#28a745' : '#6c757d';
+                const statusText = participant.is_connected ? 'Online' : 'Offline';
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${participant.name}</td>
+                    <td class="participant-points">${participant.points}</td>
+                    <td>-</td>
+                    <td><span style="color: ${statusColor};">●</span> ${statusText}</td>
+                    <td>-</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateStats() {
+            const participantRows = document.querySelectorAll('#participants-tbody tr');
+            const connectedRows = document.querySelectorAll('#participants-tbody tr span[style*="#28a745"]');
+            
+            document.getElementById('participant-count').textContent = participantRows.length;
+            document.getElementById('connected-count').textContent = connectedRows.length;
+        }
+
+        function updateAnswerCount() {
+            const answerRows = document.querySelectorAll('#answers-tbody tr');
+            document.getElementById('answer-count').textContent = `${answerRows.length} Antworten`;
+        }
+
+        // Admin actions
+        function sendQuestion() {
+            const questionId = document.getElementById('question-selector').value;
+            if (!questionId) {
+                alert('Bitte wählen Sie eine Frage aus.');
+                return;
+            }
+
+            const message = {
+                type: 'admin_send_question',
+                question_id: parseInt(questionId)
+            };
+
+            socket.send(JSON.stringify(message));
+            
+            // Update UI
+            const selectedOption = document.querySelector('#question-selector option:checked');
+            document.getElementById('current-question-display').innerHTML = `
+                <p><strong>Frage gesendet:</strong> ${selectedOption.textContent}</p>
+                <p style="color: #28a745;">Warte auf Antworten...</p>
+            `;
+            
+            // Clear answers table
+            document.getElementById('answers-tbody').innerHTML = '';
+            updateAnswerCount();
+        }
+
+        function showAnswers() {
+            const message = {
+                type: 'admin_show_answers'
+            };
+            socket.send(JSON.stringify(message));
+        }
+
+        function showLeaderboard() {
+            const message = {
+                type: 'admin_show_leaderboard'
+            };
+            socket.send(JSON.stringify(message));
+        }
+
+        function updatePoints(answerId, delta) {
+            const pointsElement = document.querySelector(`[data-answer-id="${answerId}"] .points-value`);
+            const currentPoints = parseInt(pointsElement.textContent) || 0;
+            const newPoints = Math.max(0, currentPoints + delta);
+            
+            fetch('/update_answer_points/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    answer_id: answerId,
+                    new_points: newPoints
                 })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    pointsElement.textContent = data.new_points;
+                }
+            })
+            .catch(error => console.error('Error updating points:', error));
+        }
+
+        function setPoints(answerId) {
+            const input = document.querySelector(`[data-answer-id="${answerId}"] .points-input`);
+            const newPoints = parseInt(input.value) || 0;
+            
+            fetch('/update_answer_points/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    answer_id: answerId,
+                    new_points: newPoints
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const pointsElement = document.querySelector(`[data-answer-id="${answerId}"] .points-value`);
+                    pointsElement.textContent = data.new_points;
+                }
+            })
+            .catch(error => console.error('Error setting points:', error));
+        }
+
+        // Category/Question selection
+        document.getElementById('category-selector').addEventListener('change', function() {
+            const categoryId = this.value;
+            const questionSelector = document.getElementById('question-selector');
+            const sendBtn = document.getElementById('send-question-btn');
+            
+            if (!categoryId) {
+                questionSelector.innerHTML = '<option value="">Erst Kategorie wählen...</option>';
+                questionSelector.disabled = true;
+                sendBtn.disabled = true;
+                return;
+            }
+
+            questionSelector.innerHTML = '<option value="">Lade Fragen...</option>';
+            questionSelector.disabled = true;
+
+            fetch(`/get-questions-for-category/${categoryId}/`)
                 .then(response => response.json())
                 .then(data => {
-                    if (data.status === 'success') {
-                        sendStatusMessage.textContent = 'Frage erfolgreich gesendet!';
-                        sendStatusMessage.style.color = 'green';
-                        // Optional: Lade die Seite neu oder update die UI, um die neue Frage anzuzeigen
-                        // Im echten Szenario würde man hier auch Channels für Live-Updates nutzen
-                        currentQuestionDisplay.textContent = questionSelector.options[questionSelector.selectedIndex].text;
-                        answersTableBody.innerHTML = '<tr><td colspan="4">Warten auf neue Antworten...</td></tr>'; // Tabelle leeren
-                    } else {
-                        sendStatusMessage.textContent = 'Fehler beim Senden der Frage: ' + data.message;
-                        sendStatusMessage.style.color = 'red';
-                    }
+                    questionSelector.innerHTML = '<option value="">Frage auswählen...</option>';
+                    data.questions.forEach(q => {
+                        const option = document.createElement('option');
+                        option.value = q.id;
+                        option.textContent = q.question_text;
+                        option.dataset.correct = q.correct_answer;
+                        option.dataset.wrong = JSON.stringify(q.wrong_answers);
+                        questionSelector.appendChild(option);
+                    });
+                    questionSelector.disabled = false;
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    sendStatusMessage.textContent = 'Netzwerkfehler beim Senden der Frage.';
-                    sendStatusMessage.style.color = 'red';
+                    console.error('Error loading questions:', error);
+                    questionSelector.innerHTML = '<option value="">Fehler beim Laden</option>';
                 });
+        });
+
+        document.getElementById('question-selector').addEventListener('change', function() {
+            const sendBtn = document.getElementById('send-question-btn');
+            const preview = document.getElementById('question-preview');
+            const selectedOption = this.options[this.selectedIndex];
+            
+            if (this.value) {
+                sendBtn.disabled = false;
+                
+                // Show preview
+                document.getElementById('preview-text').textContent = selectedOption.textContent;
+                document.getElementById('preview-correct').textContent = selectedOption.dataset.correct || 'N/A';
+                document.getElementById('preview-wrong').textContent = selectedOption.dataset.wrong || '[]';
+                preview.style.display = 'block';
             } else {
-                sendStatusMessage.textContent = 'Bitte wähle eine Frage aus.';
-                sendStatusMessage.style.color = 'orange';
+                sendBtn.disabled = true;
+                preview.style.display = 'none';
             }
-        };
+        });
 
-		categorySelector.onchange = function () {
-			const categoryId = categorySelector.value;
+        // Event listeners
+        document.getElementById('send-question-btn').addEventListener('click', sendQuestion);
+        document.getElementById('show-answers-btn').addEventListener('click', showAnswers);
+        document.getElementById('show-leaderboard-btn').addEventListener('click', showLeaderboard);
+        document.getElementById('refresh-answers-btn').addEventListener('click', () => location.reload());
 
-			if (categoryId) {
-				fetch(`/get-questions-for-category/${categoryId}/`)
-					.then(response => response.json())
-					.then(data => {
-						const questions = data.questions;
+        // Initialize
+        connectWebSocket();
+        updateAnswerCount();
 
-						// Bestehende Optionen im Frage-Selector löschen
-						questionSelector.innerHTML = '<option value="">Frage auswählen...</option>';
-
-						// Neue Fragen hinzufügen
-						questions.forEach(q => {
-							const option = document.createElement('option');
-							option.value = q.id;
-							option.textContent = q.text;
-							questionSelector.appendChild(option);
-						});
-					})
-					.catch(error => {
-						console.error("Fehler beim Laden der Fragen für die Kategorie:", error);
-					});
-			} else {
-				// Wenn keine Kategorie ausgewählt ist, Option zurücksetzen
-				questionSelector.innerHTML = '<option value="">Frage auswählen...</option>';
-			}
-		};
-
-		function updateScore(answerId, delta) {
-			fetch("{% url 'update_answer_points' %}", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"X-CSRFToken": "{{ csrf_token }}"
-				},
-				body: JSON.stringify({
-					answer_id: answerId,
-					delta: delta
-				})
-			})
-			.then(response => response.json())
-			.then(data => {
-				if (data.status === "success") {
-					const pointsElement = document.querySelector(`#points-${answerId} .score-value`);
-					pointsElement.textContent = data.new_points;
-				} else {
-					alert("Fehler: " + (data.message || "Unbekannter Fehler"));
-				}
-			})
-			.catch(error => {
-				console.error("Fehler beim Aktualisieren der Punkte:", error);
-			});
-		}
-
-
-		function fetchScores() {
-    		fetch('/api/scores/{{ session.id }}/')  // oder mit JS: `/api/scores/${sessionId}/`
-        		.then(response => response.json())
-        		.then(data => {
-					const tbody = document.getElementById("score-table-body");
-					tbody.innerHTML = "A"; // Tabelle leeren
-
-					data.scores.forEach(participant => {
-						const row = document.createElement("tr");
-						row.innerHTML = `
-							<td>${participant.name}</td>
-							<td>${participant.points}</td>
-						`;
-						tbody.appendChild(row);
-					});
-				})
-				.catch(err => {
-					console.error("Fehler beim Abrufen der Punktzahlen:", err);
-				});
-		}
-
-		// alle 5 Sekunden aktualisieren
-		setInterval(fetchScores, 5000);
-
-		// einmal sofort laden
-		fetchScores();
-
-
-		catSel.addEventListener("change", () => {
-			const id = catSel.value;
-			if (!id) return qSel.innerHTML = "<option>Frage…</option>";
-
-			fetch(`/api/questions/${sess}/${id}/`)
-				.then(r => r.json())
-				.then(d => {
-					qSel.innerHTML = '<option value="">Frage…</option>';
-					d.questions.forEach(q => {
-					qSel.insertAdjacentHTML("beforeend",
-						`<option value="${q.id}">${q.text}</option>`);
-					});
-				});
-			});
-		
-		/*
-		send.addEventListener("click", () => {
-			const qId = qSel.value;
-			if (!qId) return alert("Bitte Frage wählen");
-
-			fetch("/send-question/", {
-				method: "POST",
-				headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
-				body: JSON.stringify({session_code: sess, question_id: qId})
-			})
-			.then(r => r.json())
-			.then(d => {
-				if (d.status === "success") {
-				document.getElementById("q-text").textContent =
-					qSel.options[qSel.selectedIndex].text;
-				// richtige Antwort via kleinem Zusatz‑Request holen
-				fetch(`/api/questions/${sess}/${catSel.value}/`)
-					.then(r => r.json())
-					.then(x => {
-						const hit = x.questions.find(q => q.id == qId);
-						document.getElementById("q-correct").textContent = hit.correct_answer || "—";
-					});
-				tbody.innerHTML = "";           // Tabelle leeren; Teilnehmer werden live nachgeladen
-				}
-			});
-			});
-		
-		function pollAnswers() {
-			fetch(`/api/live-answers/${sessionCode}/`)
-				.then(r => r.json())
-				.then(d => {
-				answerBody.innerHTML = "";
-				d.answers.forEach(a => {
-					answerBody.insertAdjacentHTML("beforeend", `
-					<tr id="row-${a.id}">
-						<td>${a.name}</td>
-						<td>${a.answer}</td>
-					</tr>
-					`);
-				});
-				});
-			}
-		setInterval(pollAnswers,3000);
-		pollAnswers();
-
-	
-		window.upd = (id, delta) => {
-			fetch("/api/update-score/", {
-				method: "POST",
-				headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
-				body: JSON.stringify({answer_id: id, delta})
-			})
-			.then(r => r.json())
-			.then(d => {
-				if (d.status === "success")
-					document.getElementById(`pts-${id}`).textContent = d.new_points;
-			});
-			};
-
-	
-		document.getElementById('category-selector').addEventListener('change', function() {
-        	const categoryId = this.value;
-        	const questionSelect = document.getElementById('question-selector');
-
-			// Leeren
-			questionSelect.innerHTML = '<option value="">Lade Fragen...</option>';
-
-			if (!categoryId) return;
-
-			fetch(`/api/category/${categoryId}/questions/`)
-				.then(response => response.json())
-				.then(data => {
-					questionSelect.innerHTML = '<option value="">Frage auswählen...</option>';
-					data.questions.forEach(q => {
-						const option = document.createElement('option');
-						option.value = q.id;
-						option.textContent = q.text;
-						questionSelect.appendChild(option);
-					});
-				});
-		});
-
-		*/
-
+        // Heartbeat to keep connection alive
+        setInterval(() => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({type: 'ping'}));
+            }
+        }, 30000);
     </script>
 </body>
 </html>
