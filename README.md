@@ -1,5 +1,6 @@
 REQUIREMENTS (tested on Linux)
 	* Python3.x
+	* python3-venv (sudo apt install libpython3-dev python3-venv )
 	* pip3
 	* venv
 	* daphne server (sudo apt install daphne)
@@ -9,7 +10,7 @@ REQUIREMENTS (tested on Linux)
 INSTALLATION
 	* create virtual environment: python3 -m venv <virtual_environment>
 	* activate venv: source <your_venv>/bin/activate
-	* pip3 install -r requirements
+	* pip3 install -r requirements.txt
 
 CREATE SUPERUSER IN DJANGO
 	* in venv: python3 manage.py createsuperuser
