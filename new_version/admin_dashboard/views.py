@@ -13,13 +13,13 @@ from django.contrib import messages
 import json
 from QuizGame.models import Quiz, QuizQuestion, QuizParticipant, QuizAnswer, QuizSession
 from sorting_ladder.models import SortingLadderGame, SortingLadderParticipant, SortingQuestion, SortingItem, SortingLadderSession
-from Assign.models import AssignQuiz, AssignQuestion
-from Estimation.models import EstimationQuiz, EstimationQuestion
-from where_is_this.models import WhereQuiz, WhereQuestion
-from black_jack_quiz.models import BlackJackQuiz, BlackJackQuestion
+from Assign.models import AssignQuiz, AssignQuestion, AssignParticipant
+from Estimation.models import EstimationQuiz, EstimationQuestion, EstimationParticipant
+from where_is_this.models import WhereQuiz, WhereQuestion, WhereParticipant
+from black_jack_quiz.models import BlackJackQuiz, BlackJackQuestion, BlackJackParticipant
 from clue_rush.models import ClueRushGame, ClueRushParticipant, ClueQuestion, Clue, ClueAnswer, ClueRushSession
-from who_is_that.models import WhoThatQuiz, WhoThatQuestion
-from who_is_lying.models import WhoQuiz, WhoQuestion
+from who_is_that.models import WhoThatQuiz, WhoThatQuestion, WhoThatParticipant
+from who_is_lying.models import WhoQuiz, WhoQuestion, WhoParticipant
 from games_hub.models import HubSession, HubParticipant, HubGameStep
 from games_website.services import sync_all_models_to_supabase, restore_all_models_from_supabase
 
@@ -27,6 +27,14 @@ from games_website.services import sync_all_models_to_supabase, restore_all_mode
 def is_admin(user):
     """Check if user is admin/staff"""
     return user.is_authenticated and (user.is_staff or user.is_superuser)
+
+
+def _get_lobby_url(request, room_code):
+    """Return the full participant lobby URL for a game room_code, or None."""
+    step = HubGameStep.objects.filter(room_code=room_code).select_related('session').first()
+    if step:
+        return f"{request.scheme}://{request.get_host()}/hub/lobby/{step.session.code}/"
+    return None
 
 
 def admin_required(view_func):
@@ -285,6 +293,7 @@ def clue_rush_monitor(request, room_code):
         'participant_count': participants.count(),
         'available_questions': available_questions,
         'quiz_session': quiz_session,
+        'lobby_url': _get_lobby_url(request, room_code),
     }
     return render(request, 'admin_dashboard/clue_rush_monitor.html', context)
 
@@ -328,6 +337,8 @@ def sorting_ladder_monitor(request, room_code):
         'participant_count': participants.count(),
         'available_questions': available_questions,
         'session': session,
+        'lobby_url': _get_lobby_url(request, room_code),
+        'hub_session': hub_session or '',
     }
     return render(request, 'admin_dashboard/sorting_ladder_monitor.html', context)
 
@@ -1100,12 +1111,52 @@ def admin_home(request):
     # Convert game key to display name
     game_display_names = dict(HubGameStep.GAME_CHOICES)
     
+    # Collect all currently active/running games across all game types
+    # Build mapping: game room_code -> hub session code (single query)
+    room_code_to_hub_session = {
+        step.room_code: step.session.code
+        for step in HubGameStep.objects.select_related('session').exclude(room_code='')
+    }
+
+    active_games = []
+
+    def _add_games(queryset, game_type, game_type_display, monitor_url_name, score_field='total_score'):
+        for game in queryset:
+            try:
+                participant_count = game.participants.filter(is_active=True).count()
+            except Exception:
+                participant_count = 0
+            hub_session_code = room_code_to_hub_session.get(game.room_code)
+            active_games.append({
+                'title': game.title,
+                'room_code': game.room_code,
+                'game_type': game_type,
+                'game_type_display': game_type_display,
+                'monitor_url_name': monitor_url_name,
+                'participant_count': participant_count,
+                'started_at': getattr(game, 'started_at', None),
+                'hub_session_code': hub_session_code,
+            })
+
+    _add_games(Quiz.objects.filter(status='active'), 'quiz', 'Quick Quiz', 'admin_dashboard:quiz_monitor')
+    _add_games(EstimationQuiz.objects.filter(status='active'), 'estimation', 'Estimation', 'admin_dashboard:estimation_monitor')
+    _add_games(AssignQuiz.objects.filter(status='active'), 'assign', 'Assign', 'admin_dashboard:assign_monitor')
+    _add_games(WhereQuiz.objects.filter(status='active'), 'where', 'Where Is This?', 'admin_dashboard:where_monitor')
+    _add_games(WhoQuiz.objects.filter(status='active'), 'who', 'Who Is Lying?', 'admin_dashboard:who_monitor')
+    _add_games(WhoThatQuiz.objects.filter(status='active'), 'who_that', 'Who Is That?', 'admin_dashboard:who_that_monitor')
+    _add_games(BlackJackQuiz.objects.filter(status='active'), 'blackjack', 'Black Jack Quiz', 'admin_dashboard:blackjack_monitor')
+    _add_games(ClueRushGame.objects.filter(status='active'), 'clue_rush', 'Clue Rush', 'admin_dashboard:clue_rush_monitor')
+    _add_games(SortingLadderGame.objects.filter(status='active'), 'sorting_ladder', 'Sorting Ladder', 'admin_dashboard:sorting_ladder_monitor')
+
+    active_games.sort(key=lambda g: g['started_at'] or timezone.now(), reverse=True)
+
     # Prepare context
     context = {
         'total_sessions': total_sessions,
         'active_sessions': active_sessions,
         'total_players': total_players,
         'most_played_game': game_display_names.get(most_played_game['game_key'], 'N/A') if most_played_game else 'N/A',
+        'active_games': active_games,
         'recent_sessions': [{
             'name': session.name,
             'code': session.code,
@@ -1117,7 +1168,7 @@ def admin_home(request):
             'ended_at': session.ended_at
         } for session in recent_sessions]
     }
-    
+
     return render(request, 'admin_dashboard/index.html', context)
 
 
@@ -1685,6 +1736,7 @@ def quiz_monitor(request, room_code):
         'participant_count': participants.count(),
         'available_questions': available_questions,
         'quiz_session': quiz_session,
+        'lobby_url': _get_lobby_url(request, room_code),
     }
     return render(request, 'admin_dashboard/quiz_monitor.html', context)
 
@@ -2454,6 +2506,7 @@ def where_monitor(request, room_code):
         'participant_count': participants.count(),
         'available_questions': available_questions,
         'quiz_session': quiz_session,
+        'lobby_url': _get_lobby_url(request, room_code),
     }
     return render(request, 'admin_dashboard/where_monitor.html', context)
 
@@ -3355,6 +3408,8 @@ def assign_monitor(request, room_code):
         'participant_count': participants.count(),
         'available_questions': available_questions,
         'quiz_session': quiz_session,
+        'lobby_url': _get_lobby_url(request, room_code),
+        'hub_session': hub_session or '',
     }
     return render(request, 'admin_dashboard/assign_monitor.html', context)
 
@@ -4432,6 +4487,7 @@ def estimation_monitor(request, room_code):
         'participant_count': participants.count(),
         'available_questions': available_questions,
         'quiz_session': quiz_session,
+        'lobby_url': _get_lobby_url(request, room_code),
     }
     return render(request, 'admin_dashboard/estimation_monitor.html', context)
 
@@ -4772,6 +4828,7 @@ def who_monitor(request, room_code):
         'participant_count': participants.count(),
         'available_questions': available_questions,
         'quiz_session': quiz_session,
+        'lobby_url': _get_lobby_url(request, room_code),
     }
     return render(request, 'admin_dashboard/who_lying_monitor.html', context)
 
@@ -5450,6 +5507,7 @@ def who_that_monitor(request, room_code):
         'participant_count': participants.count(),
         'available_questions': available_questions,
         'quiz_session': quiz_session,
+        'lobby_url': _get_lobby_url(request, room_code),
     }
     return render(request, 'admin_dashboard/who_that_monitor.html', context)
 
@@ -6156,6 +6214,7 @@ def blackjack_monitor(request, room_code):
         'participant_count': participants.count(),
         'available_questions': available_questions,
         'quiz_session': quiz_session,
+        'lobby_url': _get_lobby_url(request, room_code),
     }
     return render(request, 'admin_dashboard/blackjack_monitor.html', context)
 
@@ -7036,3 +7095,132 @@ def get_who_that_questions(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ===========================
+# Manual Score Adjustment
+# ===========================
+
+@admin_required
+@require_POST
+def set_quiz_participant_score(request):
+    try:
+        data = json.loads(request.body)
+        participant = get_object_or_404(QuizParticipant, id=data['participant_id'])
+        participant.total_score = int(data['score'])
+        participant.save(update_fields=['total_score'])
+        return JsonResponse({'success': True, 'new_score': participant.total_score})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@admin_required
+@require_POST
+def set_estimation_participant_score(request):
+    try:
+        data = json.loads(request.body)
+        participant = get_object_or_404(EstimationParticipant, id=data['participant_id'])
+        participant.total_score = int(data['score'])
+        participant.save(update_fields=['total_score'])
+        return JsonResponse({'success': True, 'new_score': participant.total_score})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@admin_required
+@require_POST
+def set_assign_participant_score(request):
+    try:
+        data = json.loads(request.body)
+        participant = get_object_or_404(AssignParticipant, id=data['participant_id'])
+        participant.total_score = int(data['score'])
+        participant.save(update_fields=['total_score'])
+        return JsonResponse({'success': True, 'new_score': participant.total_score})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@admin_required
+@require_POST
+def set_where_participant_score(request):
+    try:
+        data = json.loads(request.body)
+        participant = get_object_or_404(WhereParticipant, id=data['participant_id'])
+        participant.total_score = int(data['score'])
+        participant.save(update_fields=['total_score'])
+        return JsonResponse({'success': True, 'new_score': participant.total_score})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@admin_required
+@require_POST
+def set_who_participant_score(request):
+    try:
+        data = json.loads(request.body)
+        participant = get_object_or_404(WhoParticipant, id=data['participant_id'])
+        participant.total_score = int(data['score'])
+        participant.save(update_fields=['total_score'])
+        return JsonResponse({'success': True, 'new_score': participant.total_score})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@admin_required
+@require_POST
+def set_who_that_participant_score(request):
+    try:
+        data = json.loads(request.body)
+        participant = get_object_or_404(WhoThatParticipant, id=data['participant_id'])
+        participant.total_score = int(data['score'])
+        participant.save(update_fields=['total_score'])
+        return JsonResponse({'success': True, 'new_score': participant.total_score})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@admin_required
+@require_POST
+def set_blackjack_participant_score(request):
+    """Setzt total_points manuell und berechnet final_score neu."""
+    try:
+        data = json.loads(request.body)
+        participant = get_object_or_404(BlackJackParticipant, id=data['participant_id'])
+        new_points = int(data['score'])
+        participant.total_points = new_points
+        if new_points > 21:
+            participant.is_busted = True
+            participant.final_score = 999
+        else:
+            participant.is_busted = False
+            participant.final_score = abs(21 - new_points)
+        participant.save(update_fields=['total_points', 'is_busted', 'final_score'])
+        return JsonResponse({'success': True, 'new_score': participant.total_points})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@admin_required
+@require_POST
+def set_clue_rush_participant_score(request):
+    try:
+        data = json.loads(request.body)
+        participant = get_object_or_404(ClueRushParticipant, id=data['participant_id'])
+        participant.total_score = int(data['score'])
+        participant.save(update_fields=['total_score'])
+        return JsonResponse({'success': True, 'new_score': participant.total_score})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@admin_required
+@require_POST
+def set_sorting_ladder_participant_score(request):
+    try:
+        data = json.loads(request.body)
+        participant = get_object_or_404(SortingLadderParticipant, id=data['participant_id'])
+        participant.total_score = int(data['score'])
+        participant.save(update_fields=['total_score'])
+        return JsonResponse({'success': True, 'new_score': participant.total_score})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)

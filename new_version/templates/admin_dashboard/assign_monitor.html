@@ -26,6 +26,15 @@
                             <i data-lucide="clock"></i>
                             <span id="quizTimer">00:00</span>
                         </span>
+                        {% if lobby_url %}
+                        <span class="meta-item">
+                            <i data-lucide="link"></i>
+                            <a href="{{ lobby_url }}" target="_blank" style="font-size:0.85rem;word-break:break-all;">{{ lobby_url }}</a>
+                            <button class="btn btn-link btn-sm p-0 ms-1 copy-lobby-btn-monitor" title="Kopieren" data-url="{{ lobby_url }}" style="vertical-align:middle;">
+                                <i data-lucide="copy" style="width:13px;height:13px;"></i>
+                            </button>
+                        </span>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -44,12 +53,11 @@
                             <i data-lucide="square"></i>
                             End Quiz
                         </button>
-                    {% elif quiz.status == 'completed' %}
-                        <button class="btn btn-primary" id="backToHubBtn">
-                            <i data-lucide="arrow-left"></i>
-                            Back to Hub
-                        </button>
                     {% endif %}
+                    <button type="button" class="btn btn-outline-secondary" id="backToHubBtn">
+                        <i data-lucide="arrow-left"></i>
+                        Back to Overview
+                    </button>
                 </div>
             </div>
         </div>
@@ -209,9 +217,16 @@
                             </div>
                             <div class="participant-info">
                                 <div class="participant-name">{{ participant.name }}</div>
-                                <div class="participant-score">{{ participant.total_score }} pts</div>
+                                <div class="participant-score" id="score-{{ participant.id }}">{{ participant.total_score }} pts</div>
                             </div>
                             <div class="participant-status">
+                                <button class="btn btn-link btn-sm p-0 me-1 edit-score-btn" title="Punkte manuell setzen"
+                                    data-participant-id="{{ participant.id }}"
+                                    data-participant-name="{{ participant.name }}"
+                                    data-current-score="{{ participant.total_score }}"
+                                    data-bs-toggle="modal" data-bs-target="#editScoreModal">
+                                    <i data-lucide="pencil" style="width:14px;height:14px;color:#6c757d;"></i>
+                                </button>
                                 <div class="status-dot {% if participant.is_active %}online{% else %}offline{% endif %}"></div>
                             </div>
                         </div>
@@ -756,6 +771,14 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Save hub_session immediately for Back to Overview button
+    (function() {
+        try {
+            var _hub = new URLSearchParams(window.location.search).get('hub_session');
+            if (_hub) { window.__hubCode = _hub; sessionStorage.setItem('_hub_admin', _hub); }
+        } catch(_) {}
+    })();
+
     lucide.createIcons();
     
     // Assign Quiz Monitor Class
@@ -959,7 +982,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Also notify hub directly (in case backend mirror is unavailable)
                 try {
                     const qs = new URLSearchParams(window.location.search);
-                    const hub = qs.get('hub_session');
+                    const hub = qs.get('hub_session') || window.__hubCode || (function(){ try { return sessionStorage.getItem("_hub_admin"); } catch(_) { return null; } })();
                     if (hub) {
                         const hubWs = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/hub/' + hub + '/');
                         hubWs.onopen = () => {
@@ -984,7 +1007,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Also notify hub directly (in case backend mirror is unavailable)
                 // try {
                 //     const qs = new URLSearchParams(window.location.search);
-                //     const hub = qs.get('hub_session');
+                //     const hub = qs.get('hub_session') || window.__hubCode || (function(){ try { return sessionStorage.getItem("_hub_admin"); } catch(_) { return null; } })();
                 //     if (hub) {
                 //         const hubWs = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/hub/' + hub + '/');
                 //         hubWs.onopen = () => {
@@ -1005,15 +1028,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         backToHub() {
-            try {
-                const qs = new URLSearchParams(window.location.search);
-                const hub = qs.get('hub_session');
-                if (hub) {
-                    setTimeout(() => {
-                        window.location.href = `/hub/monitor/${hub}/`;
-                    }, 200);
-                }
-            } catch(_) {}
+            const qs = new URLSearchParams(window.location.search);
+            const hub = '{{ hub_session }}'
+                || qs.get('hub_session')
+                || window.__hubCode
+                || (function(){ try { return sessionStorage.getItem("_hub_admin"); } catch(_) { return null; } })();
+            console.log('[backToHub] hub_session resolved:', hub, '| URL:', window.location.search);
+            if (hub) {
+                window.location.href = `/hub/monitor/${hub}/`;
+            } else {
+                window.location.href = "{% url 'admin_dashboard:home' %}";
+            }
         }
         
         sendQuestion(questionId) {
@@ -1145,9 +1170,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="participant-info">
                     <div class="participant-name">${participant.name}</div>
-                    <div class="participant-score">${participant.total_score || 0} pts</div>
+                    <div class="participant-score" id="score-${participant.id}">${participant.total_score || 0} pts</div>
                 </div>
                 <div class="participant-status">
+                    <button class="btn btn-link btn-sm p-0 me-1 edit-score-btn" title="Punkte manuell setzen"
+                        data-participant-id="${participant.id}"
+                        data-participant-name="${participant.name}"
+                        data-current-score="${participant.total_score || 0}"
+                        data-bs-toggle="modal" data-bs-target="#editScoreModal">
+                        <i data-lucide="pencil" style="width:14px;height:14px;color:#6c757d;"></i>
+                    </button>
                     <div class="status-dot online"></div>
                 </div>
             `;
@@ -1251,6 +1283,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const params = new URLSearchParams(window.location.search);
         const hubCode = params.get('hub_session');
+    if (hubCode) { window.__hubCode = hubCode; try { sessionStorage.setItem("_hub_admin", hubCode); } catch(_) {} }
         console.log("[HubScript] hub_session param:", hubCode);
 
         if (!hubCode) {
@@ -1286,6 +1319,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 who: `/admin-dashboard/who/${step.room_code}/monitor/`,
                 who_that: `/admin-dashboard/who-that/${step.room_code}/monitor/`,
                 blackjack: `/admin-dashboard/blackjack/${step.room_code}/monitor/`,
+            clue_rush: `/admin-dashboard/clue-rush/${step.room_code}/monitor/`,
+            sorting_ladder: `/admin-dashboard/sorting-ladder/${step.room_code}/monitor/`,
             };
 
             const base = routes[step.game_key];
@@ -1328,4 +1363,80 @@ document.addEventListener('DOMContentLoaded', function() {
     })();
 });
 </script>
+
+<!-- Score Edit Modal -->
+<div class="modal fade" id="editScoreModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Punkte bearbeiten</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-2">Teilnehmer: <strong id="editScoreName"></strong></p>
+        <div class="mb-3">
+          <label class="form-label">Neue Punktzahl</label>
+          <input type="number" class="form-control" id="editScoreInput" min="0" step="1">
+        </div>
+        <div id="editScoreError" class="text-danger small d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-primary btn-sm" id="editScoreSave">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+    const modal = document.getElementById('editScoreModal');
+    if (!modal) return;
+    let currentParticipantId = null;
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.edit-score-btn');
+        if (!btn) return;
+        currentParticipantId = btn.dataset.participantId;
+        document.getElementById('editScoreName').textContent = btn.dataset.participantName;
+        document.getElementById('editScoreInput').value = btn.dataset.currentScore;
+        document.getElementById('editScoreError').classList.add('d-none');
+    });
+    document.getElementById('editScoreSave').addEventListener('click', function() {
+        const score = parseInt(document.getElementById('editScoreInput').value, 10);
+        const errEl = document.getElementById('editScoreError');
+        if (isNaN(score) || score < 0) { errEl.textContent = 'Bitte eine gültige Zahl (≥ 0) eingeben.'; errEl.classList.remove('d-none'); return; }
+        errEl.classList.add('d-none');
+        this.disabled = true;
+        fetch('{% url "admin_dashboard:set_assign_participant_score" %}', {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json'},
+            body: JSON.stringify({participant_id: currentParticipantId, score: score})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const el = document.getElementById('score-' + currentParticipantId);
+                if (el) el.textContent = data.new_score + ' pts';
+                const btn = document.querySelector(`.edit-score-btn[data-participant-id="${currentParticipantId}"]`);
+                if (btn) btn.dataset.currentScore = data.new_score;
+                bootstrap.Modal.getInstance(modal).hide();
+            } else { errEl.textContent = data.error || 'Fehler.'; errEl.classList.remove('d-none'); }
+        })
+        .catch(() => { errEl.textContent = 'Netzwerkfehler.'; errEl.classList.remove('d-none'); })
+        .finally(() => { this.disabled = false; });
+    });
+})();
+</script>
+<script>
+document.querySelectorAll('.copy-lobby-btn-monitor').forEach(btn => {
+    btn.addEventListener('click', function() {
+        navigator.clipboard.writeText(this.dataset.url).then(() => {
+            const icon = this.querySelector('i');
+            icon.setAttribute('data-lucide', 'check');
+            lucide.createIcons();
+            setTimeout(() => { icon.setAttribute('data-lucide', 'copy'); lucide.createIcons(); }, 1500);
+        });
+    });
+});
+</script>
+
 {% endblock %}

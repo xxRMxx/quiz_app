@@ -318,6 +318,14 @@ class ClueRushGameConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+            # If quiz is already active, send quiz_started directly to this participant
+            quiz = await self.get_quiz()
+            if quiz and quiz.status == 'active':
+                await self.send(text_data=json.dumps({
+                    'type': 'quiz_started',
+                    'message': 'Quiz is already in progress'
+                }))
+
     async def handle_admin_accept_close_answer(self, data):
         """Admin approves a close answer to award points as correct."""
         participant_name = data.get('participant_name')

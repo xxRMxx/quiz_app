@@ -2,7 +2,8 @@ import random
 import string
 import json
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
+from django.db.models import Max
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, Http404
 from django.db.models import Sum, F, Case, When, Value, IntegerField, Q
@@ -238,6 +239,17 @@ def get_leaderboard_data(session):
                     participants_data[name]['total_score'] += data['score']
                     participants_data[name]['weighted_score'] += all_player_results[name]['game_score']
         
+        # Apply score adjustments from HubParticipant
+        hub_participants = {
+            hp.nickname: hp
+            for hp in HubParticipant.objects.filter(session=session)
+        }
+        for name, pdata in participants_data.items():
+            hp = hub_participants.get(name)
+            pdata['hub_participant_id'] = hp.id if hp else None
+            pdata['score_adjustment'] = hp.score_adjustment if hp else 0
+            pdata['total_score'] += hp.score_adjustment if hp else 0
+
         # Convert to list and sort by weighted score
         participants = sorted(participants_data.values(), key=lambda x: x['weighted_score'], reverse=True)
     except Exception as e:
@@ -247,6 +259,20 @@ def get_leaderboard_data(session):
         'participants': participants,
         'instances': instance_meta,
     }
+
+@login_required
+@require_POST
+def set_hub_participant_score(request):
+    """Manually set the score adjustment for a HubParticipant."""
+    try:
+        data = json.loads(request.body)
+        participant = get_object_or_404(HubParticipant, id=data['participant_id'])
+        participant.score_adjustment = int(data['score'])
+        participant.save(update_fields=['score_adjustment'])
+        return JsonResponse({'success': True, 'new_score': participant.score_adjustment})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
 
 def session_leaderboard_api(request, session_code):
     """API endpoint to get leaderboard data for a session"""
@@ -325,6 +351,49 @@ def monitor(request, session_code: str):
         'ip': ip,
         'waiting_games': waiting_games,
         'session_players': session_players,
+    })
+
+
+@login_required
+@require_POST
+def add_step_to_session(request, session_code):
+    """Add a new game step to a running session."""
+    session = get_object_or_404(HubSession, code=session_code)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    game_key = data.get('game_key', '').strip()
+    title = data.get('title', '').strip()
+
+    valid_keys = [choice[0] for choice in HubGameStep.GAME_CHOICES]
+    if game_key not in valid_keys:
+        return JsonResponse({'error': 'Ungültiger Spieltyp'}, status=400)
+
+    next_order = (session.steps.aggregate(Max('order'))['order__max'] or -1) + 1
+    quiz_title = title or f"{session.name or session.code} - {game_key.replace('_', ' ').title()} {next_order + 1}"
+
+    room_code = auto_create_game_quiz(game_key, request.user, quiz_title)
+    if not room_code:
+        return JsonResponse({'error': 'Spiel konnte nicht erstellt werden'}, status=500)
+
+    step = HubGameStep.objects.create(
+        session=session,
+        order=next_order,
+        game_key=game_key,
+        room_code=room_code,
+        title=quiz_title,
+    )
+    return JsonResponse({
+        'success': True,
+        'step': {
+            'order': step.order,
+            'game_key': step.game_key,
+            'game_key_display': step.get_game_key_display(),
+            'room_code': step.room_code,
+            'title': step.title,
+        }
     })
 
 

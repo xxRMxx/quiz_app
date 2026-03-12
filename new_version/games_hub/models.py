@@ -23,6 +23,7 @@ class HubParticipant(SyncBase):
     joined_at = models.DateTimeField(default=timezone.now)
     is_active = models.BooleanField(default=True)
     last_seen = models.DateTimeField(default=timezone.now)
+    score_adjustment = models.IntegerField(default=0)
 
     class Meta:
         unique_together = ('session', 'nickname')

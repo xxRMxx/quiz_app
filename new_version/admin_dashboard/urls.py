@@ -261,4 +261,15 @@ path('clue-rush/<str:room_code>/monitor/', views.clue_rush_monitor, name='clue_r
 # CLUE RUSH API
 path('api/clue-rush/str:room_code/participants/', views.api_clue_rush_participants, name='api_clue_rush_participants'),
 path('api/clue-rush/str:room_code/stats/', views.api_clue_rush_stats, name='api_clue_rush_stats'),
+
+    # Manual Score Adjustment
+    path('api/score/quiz/', views.set_quiz_participant_score, name='set_quiz_participant_score'),
+    path('api/score/estimation/', views.set_estimation_participant_score, name='set_estimation_participant_score'),
+    path('api/score/assign/', views.set_assign_participant_score, name='set_assign_participant_score'),
+    path('api/score/where/', views.set_where_participant_score, name='set_where_participant_score'),
+    path('api/score/who/', views.set_who_participant_score, name='set_who_participant_score'),
+    path('api/score/who-that/', views.set_who_that_participant_score, name='set_who_that_participant_score'),
+    path('api/score/blackjack/', views.set_blackjack_participant_score, name='set_blackjack_participant_score'),
+    path('api/score/clue-rush/', views.set_clue_rush_participant_score, name='set_clue_rush_participant_score'),
+    path('api/score/sorting-ladder/', views.set_sorting_ladder_participant_score, name='set_sorting_ladder_participant_score'),
 ]

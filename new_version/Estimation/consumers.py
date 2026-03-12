@@ -250,6 +250,14 @@ class EstimationConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+            # If quiz is already active, send quiz_started directly to this participant
+            quiz = await self.get_quiz()
+            if quiz and quiz.status == 'active':
+                await self.send(text_data=json.dumps({
+                    'type': 'quiz_started',
+                    'message': 'Quiz is already in progress'
+                }))
+
     async def handle_ping(self):
         """Handle ping for keeping connection alive"""
         await self.send(text_data=json.dumps({
