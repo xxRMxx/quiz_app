@@ -1,0 +1,317 @@
+{% extends 'admin_dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Session Monitor – {{ session.name|default:session.code }}{% endblock %}
+
+{% block page_title %}Session Monitor{% endblock %}
+{% block page_subtitle %}{{ session.name|default:'' }} · Code: {{ session.code }}{% endblock %}
+
+{% block content %}
+<div class="monitor-wrap">
+
+    <!-- Top bar: lobby link + end session -->
+    <div class="card mb-4">
+        <div class="card-body py-3">
+            <div class="row align-items-center g-3">
+                <div class="col-12 col-md-7">
+                    <label class="form-label fw-semibold mb-1">
+                        <i data-lucide="link" class="me-1"></i> Participant Lobby Link
+                    </label>
+                    <div class="input-group">
+                        <input type="text" class="form-control font-monospace" id="lobbyLink"
+                               value="{{ request.scheme }}://{{ ip }}:8000{% url 'games_hub:lobby' session_code=session.code %}"
+                               readonly>
+                        <button class="btn btn-outline-secondary" type="button" id="copyLinkBtn">
+                            <i data-lucide="copy" class="me-1"></i> Copy
+                        </button>
+                    </div>
+                    <small class="text-muted">Share this link — participants enter their name and join the session</small>
+                </div>
+                <div class="col-12 col-md-5 d-flex align-items-center justify-content-md-end gap-3">
+                    <div id="wsStatus" class="d-flex align-items-center gap-2 text-muted">
+                        <span class="status-dot connecting"></span>
+                        <span class="status-text">Connecting…</span>
+                    </div>
+                    <button id="endSessionBtn" class="btn btn-outline-danger">
+                        <i data-lucide="square" class="me-1"></i> End Session
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Left: Game Steps -->
+        <div class="col-12 col-lg-7">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i data-lucide="list-ordered" class="me-2"></i>Game Plan</h5>
+                    <span class="badge bg-secondary">{{ steps|length }} game{{ steps|length|pluralize }}</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="steps-list" id="stepsList">
+                        {% for s in steps %}
+                        <div class="step-row {% if forloop.first %}step-first{% endif %}" id="step-{{ forloop.counter0 }}"
+                             data-game-key="{{ s.game_key }}" data-room-code="{{ s.room_code }}">
+                            <div class="step-num">{{ forloop.counter }}</div>
+                            <div class="step-info">
+                                <div class="step-name">{{ s.get_game_key_display }}</div>
+                                {% if s.title %}
+                                <div class="step-sub text-muted small">{{ s.title }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="step-badge">
+                                <span class="game-tag game-{{ s.game_key }}">{{ s.game_key|cut:"_"|title }}</span>
+                            </div>
+                            {% if s.room_code %}
+                            <a href="{{ request.scheme }}://{{ ip }}:8000{% url 'admin_dashboard:home' %}"
+                               class="btn btn-sm btn-primary launch-btn"
+                               data-game-key="{{ s.game_key }}" data-room-code="{{ s.room_code }}"
+                               data-session="{{ session.code }}">
+                                <i data-lucide="play" class="me-1"></i> Open
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-5 text-muted">
+                            <i data-lucide="alert-circle" class="me-2"></i>
+                            No games configured for this session
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Players -->
+        <div class="col-12 col-lg-5">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i data-lucide="users" class="me-2"></i>Players</h5>
+                    <span class="badge bg-secondary" id="playerCount">{{ session_players|length }}</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if session_players %}
+                    <ul class="player-list">
+                        {% for p in session_players %}
+                        <li class="player-row">
+                            <div class="player-avatar">{{ p.name|slice:":1"|upper }}</div>
+                            <div class="player-name">{{ p.name }}</div>
+                            <div class="badge bg-primary-subtle text-primary fw-semibold">{{ p.total_score|default:0 }} pts</div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i data-lucide="users" class="mb-2"></i>
+                        <p class="mb-0">No players yet — share the lobby link</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a class="btn btn-outline-primary w-100"
+                       href="{% url 'games_hub:session_leaderboard' session_code=session.code %}">
+                        <i data-lucide="trophy" class="me-1"></i> View Leaderboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.monitor-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* WS status dot */
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.status-dot.connecting { background: #f59e0b; animation: pulse 1.5s infinite; }
+.status-dot.connected  { background: #22c55e; }
+.status-dot.error      { background: #ef4444; }
+@keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+/* Steps list */
+.steps-list { padding: 0.5rem 0; }
+
+.step-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.15s;
+}
+.step-row:last-child { border-bottom: none; }
+.step-row:hover { background: var(--bg-secondary); }
+.step-row.active { background: var(--primary-50); border-left: 3px solid var(--color-primary); }
+.step-row.completed { opacity: 0.6; }
+
+.step-num {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+.step-row.active .step-num {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+.step-info { flex: 1; min-width: 0; }
+.step-name { font-weight: 600; font-size: 0.95rem; }
+.step-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.game-tag {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    background: var(--primary-100);
+    color: var(--color-primary);
+}
+
+.launch-btn { flex-shrink: 0; }
+
+/* Players */
+.player-list { list-style: none; margin: 0; padding: 0.25rem 0; }
+.player-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.player-row:last-child { border-bottom: none; }
+.player-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--primary-100);
+    color: var(--color-primary);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+}
+.player-name { flex: 1; font-weight: 500; }
+</style>
+
+<script>
+const SESSION_CODE = '{{ session.code }}';
+
+// Game monitor routes
+const MONITOR_ROUTES = {
+    quiz:           (rc) => `/admin-dashboard/quiz/${rc}/monitor/`,
+    clue_rush:      (rc) => `/admin-dashboard/clue-rush/${rc}/monitor/`,
+    assign:         (rc) => `/admin-dashboard/assign/${rc}/monitor/`,
+    estimation:     (rc) => `/admin-dashboard/estimation/${rc}/monitor/`,
+    where:          (rc) => `/admin-dashboard/where/monitor/${rc}/`,
+    who:            (rc) => `/admin-dashboard/who/${rc}/monitor/`,
+    who_that:       (rc) => `/admin-dashboard/who-that/${rc}/monitor/`,
+    blackjack:      (rc) => `/admin-dashboard/blackjack/${rc}/monitor/`,
+    sorting_ladder: (rc) => `/admin-dashboard/sorting-ladder/${rc}/monitor/`,
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    lucide.createIcons();
+
+    // ── "Open" buttons → redirect lobby participants + navigate admin ──
+    document.querySelectorAll('.launch-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            const gameKey  = this.dataset.gameKey;
+            const roomCode = this.dataset.roomCode;
+            const route    = MONITOR_ROUTES[gameKey];
+            if (!route) return;
+
+            // 1. Tell all lobby participants to navigate to this game
+            ws.send(JSON.stringify({
+                type: 'navigate_direct',
+                game_key: gameKey,
+                room_code: roomCode,
+            }));
+
+            // 2. Navigate admin to the game-specific monitor
+            window.location.href = route(roomCode) + `?hub_session=${SESSION_CODE}`;
+        });
+    });
+
+    // ── Copy lobby link ──
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+        const input = document.getElementById('lobbyLink');
+        input.select();
+        document.execCommand('copy');
+        const btn = document.getElementById('copyLinkBtn');
+        btn.innerHTML = '<i data-lucide="check" class="me-1"></i> Copied!';
+        lucide.createIcons();
+        setTimeout(() => {
+            btn.innerHTML = '<i data-lucide="copy" class="me-1"></i> Copy';
+            lucide.createIcons();
+        }, 2000);
+    });
+
+    // ── WebSocket ──
+    const statusDot  = document.querySelector('.status-dot');
+    const statusText = document.querySelector('.status-text');
+    const ws = new WebSocket(
+        (location.protocol === 'https:' ? 'wss://' : 'ws://') +
+        location.host + '/ws/hub/' + SESSION_CODE + '/'
+    );
+
+    function setStatus(state, text) {
+        statusDot.className = 'status-dot ' + state;
+        statusText.textContent = text;
+    }
+
+    ws.onopen  = () => setStatus('connected', 'Connected');
+    ws.onerror = () => setStatus('error', 'Connection error');
+    ws.onclose = (e) => {
+        setStatus('error', 'Disconnected');
+        if (!e.wasClean) setTimeout(() => location.reload(), 3000);
+    };
+
+    ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'session_ended') {
+            setStatus('error', 'Session ended');
+        } else if (data.type === 'navigate' && data.step) {
+            const step = data.step;
+            const route = MONITOR_ROUTES[step.game_key];
+            if (route && step.room_code) {
+                const url = route(step.room_code);
+                window.location.href = url + `?hub_session=${SESSION_CODE}`;
+            }
+        }
+    };
+
+    // ── End session ──
+    let manualEnd = false;
+    document.getElementById('endSessionBtn').addEventListener('click', () => {
+        if (!confirm('End this session? All game instances will be marked as inactive.')) return;
+        manualEnd = true;
+        ws.send(JSON.stringify({ type: 'end_session' }));
+        document.getElementById('endSessionBtn').disabled = true;
+    });
+    ws.onclose = () => {
+        setStatus('error', 'Disconnected');
+        if (!manualEnd) setTimeout(() => location.reload(), 3000);
+    };
+});
+</script>
+{% endblock %}

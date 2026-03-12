@@ -1,0 +1,821 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Dashboard - QuizMaster{% endblock %}</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <!-- Custom Theme CSS -->
+    <link rel="stylesheet" href="{% static 'theme.css' %}">
+    
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Admin Layout Container -->
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <!-- Sidebar Header -->
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <i data-lucide="brain-circuit" class="sidebar-brand-icon"></i>
+                    <span class="sidebar-brand-text">QuizMaster</span>
+                </div>
+                <button class="sidebar-toggle d-lg-none" id="sidebarClose">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <!-- Sidebar Navigation -->
+            <nav class="sidebar-nav">
+                <ul class="nav flex-column">
+                    <!-- Dashboard -->
+                    <li class="nav-item">
+                        <a href="{% url 'admin_dashboard:home' %}" class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+                            <i data-lucide="layout-dashboard"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+
+                    <!-- <li class="nav-item">
+                        <a href="{% url 'games_hub:create_session' %}" class="nav-link">
+                            <i data-lucide="plus"></i>
+                            <span>Create Game Session</span>
+                        </a>
+                    </li> -->
+                    
+                    <!-- Games Section -->
+                    <li class="nav-item nav-section">
+                        <div class="nav-section-title">
+                            <i data-lucide="gamepad-2"></i>
+                            <span>Games</span>
+                            <i data-lucide="chevron-down" class="nav-section-arrow"></i>
+                        </div>
+                        <ul class="nav-section-content">
+                            <li class="nav-item">
+                                <a href="{% url 'admin_dashboard:quiz_management' %}" class="nav-link {% if request.resolver_match.url_name == 'quiz_management' or request.resolver_match.url_name == 'quiz_monitor' %}active{% endif %}">
+                                    <span>Quick Quiz</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{% url 'admin_dashboard:clue_rush_management' %}" class="nav-link {% if request.resolver_match.url_name == 'clue_rush_management' or request.resolver_match.url_name == 'clue_rush_management' %}active{% endif %}">
+                                    <span>Clue Rush</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{% url 'admin_dashboard:where_management' %}" class="nav-link {% if request.resolver_match.url_name == 'where_management' or request.resolver_match.url_name == 'where_game_details' %}active{% endif %}">
+                                    <span>Where is this?</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{% url 'admin_dashboard:assign_management' %}" class="nav-link {% if request.resolver_match.url_name == 'assign_management' or request.resolver_match.url_name == 'assign_management' %}active{% endif %}">
+                                    <span>Assign</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{% url 'admin_dashboard:estimation_management' %}" class="nav-link {% if request.resolver_match.url_name == 'estimation_management' or request.resolver_match.url_name == 'estimation_management' %}active{% endif %}">
+                                    <span>Estimation</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{% url 'admin_dashboard:who_management' %}" class="nav-link {% if request.resolver_match.url_name == 'who_management' or request.resolver_match.url_name == 'who_management' %}active{% endif %}">
+                                    <span>Who is Lying</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{% url 'admin_dashboard:who_that_management' %}" class="nav-link {% if request.resolver_match.url_name == 'who_that_management' or request.resolver_match.url_name == 'who_that_management' %}active{% endif %}">
+                                    <span>Who is That</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{% url 'admin_dashboard:blackjack_management' %}" class="nav-link {% if request.resolver_match.url_name == 'blackjack_management' or request.resolver_match.url_name == 'blackjack_management' %}active{% endif %}">
+                                    <span>Black Jack Quiz</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{% url 'admin_dashboard:sorting_ladder_management' %}" class="nav-link {% if request.resolver_match.url_name == 'sorting_ladder_management' or request.resolver_match.url_name == 'sorting_ladder_management' %}active{% endif %}">
+                                    <span>Sorting Ladder</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- User Management -->
+                    <!-- <li class="nav-item">
+                        <a href="{% url 'admin_dashboard:users' %}" class="nav-link {% if request.resolver_match.url_name == 'users' %}active{% endif %}">
+                            <i data-lucide="users"></i>
+                            <span>Users</span>
+                        </a>
+                    </li> -->
+
+                    <!-- Analytics -->
+                    <!-- <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i data-lucide="bar-chart-3"></i>
+                            <span>Analytics</span>
+                        </a>
+                    </li> -->
+
+                    <!-- Settings -->
+                    <!-- <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i data-lucide="settings"></i>
+                            <span>Settings</span>
+                        </a>
+                    </li> -->
+                </ul>
+            </nav>
+
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <i data-lucide="user"></i>
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
+                        <div class="user-role">Administrator</div>
+                    </div>
+                    <div class="dropdown">
+                        <button class="user-menu-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i data-lucide="more-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'admin_dashboard:logout' %}">
+                                <i data-lucide="log-out" class="me-2"></i>Sign Out
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <!-- Top Navbar -->
+            <header class="navbar-top">
+                <div class="navbar-content">
+                    <div class="navbar-left">
+                        <button class="sidebar-toggle" id="sidebarToggle">
+                            <i data-lucide="menu"></i>
+                        </button>
+                        <div class="page-title">
+                            <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                            <p class="page-subtitle">{% block page_subtitle %}Welcome back! Here's what's happening with your quiz platform.{% endblock %}</p>
+                        </div>
+                    </div>
+                    <div class="navbar-right">
+                        <div class="navbar-divider"></div>
+                        <div class="user-dropdown">
+                            <div class="dropdown">
+                                <button class="user-dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <div class="user-avatar-sm">
+                                        <i data-lucide="user"></i>
+                                    </div>
+                                    <span>{{ user.first_name|default:user.username }}</span>
+                                    <i data-lucide="chevron-down"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><h6 class="dropdown-header">{{ user.get_full_name|default:user.username }}</h6></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'admin_dashboard:logout' %}">
+                                        <i data-lucide="log-out" class="me-2"></i>Sign Out
+                                    </a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="page-content">
+                {% block content %}
+                {% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Mobile Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom Admin JS -->
+    <script>
+        // Initialize Lucide icons
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+
+        // Sidebar functionality
+        class AdminSidebar {
+            constructor() {
+                this.sidebar = document.getElementById('sidebar');
+                this.sidebarToggle = document.getElementById('sidebarToggle');
+                this.sidebarClose = document.getElementById('sidebarClose');
+                this.sidebarOverlay = document.getElementById('sidebarOverlay');
+                this.mainContent = document.getElementById('mainContent');
+                
+                this.init();
+            }
+
+            init() {
+                // Toggle sidebar
+                this.sidebarToggle?.addEventListener('click', () => this.toggleSidebar());
+                this.sidebarClose?.addEventListener('click', () => this.closeSidebar());
+                this.sidebarOverlay?.addEventListener('click', () => this.closeSidebar());
+
+                // Handle section toggles
+                this.initSectionToggles();
+
+                // Handle resize
+                window.addEventListener('resize', () => this.handleResize());
+                
+                // Set initial state
+                this.handleResize();
+            }
+
+            toggleSidebar() {
+                this.sidebar.classList.toggle('active');
+                this.sidebarOverlay.classList.toggle('active');
+                document.body.classList.toggle('sidebar-open');
+            }
+
+            closeSidebar() {
+                this.sidebar.classList.remove('active');
+                this.sidebarOverlay.classList.remove('active');
+                document.body.classList.remove('sidebar-open');
+            }
+
+            handleResize() {
+                if (window.innerWidth >= 992) {
+                    this.sidebar.classList.remove('active');
+                    this.sidebarOverlay.classList.remove('active');
+                    document.body.classList.remove('sidebar-open');
+                }
+            }
+
+            initSectionToggles() {
+                const sectionTitles = document.querySelectorAll('.nav-section-title');
+                sectionTitles.forEach(title => {
+                    title.addEventListener('click', () => {
+                        const section = title.closest('.nav-section');
+                        section.classList.toggle('expanded');
+                    });
+                });
+
+                // Expand active section
+                const activeLink = document.querySelector('.nav-section .nav-link.active');
+                if (activeLink) {
+                    activeLink.closest('.nav-section')?.classList.add('expanded');
+                }
+            }
+        }
+
+        // Initialize sidebar
+        new AdminSidebar();
+
+        // Smooth transitions for cards and buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add loading states to buttons
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    if (!this.classList.contains('no-loading')) {
+                        this.style.transform = 'scale(0.98)';
+                        setTimeout(() => {
+                            this.style.transform = '';
+                        }, 150);
+                    }
+                });
+            });
+        });
+    </script>
+
+    <style>
+        /* ==========================================================================
+           Admin Dashboard Specific Styles
+           ========================================================================== */
+
+        .admin-layout {
+            min-height: 100vh;
+            display: flex;
+            background-color: var(--bg-secondary);
+        }
+
+        /* ==========================================================================
+           Sidebar Styles
+           ========================================================================== */
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+            color: var(--text-white);
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(-100%);
+            transition: transform var(--transition-normal);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .sidebar.active {
+            transform: translateX(0);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .sidebar-brand-icon {
+            width: 32px;
+            height: 32px;
+            color: var(--accent-400);
+        }
+
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-fast);
+        }
+
+        .sidebar-toggle:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Sidebar Navigation */
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem 0;
+        }
+
+        .sidebar-nav .nav {
+            --bs-nav-link-padding-x: 0;
+            --bs-nav-link-padding-y: 0;
+        }
+
+        .nav-item {
+            margin: 0.25rem 0;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1.5rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            border-radius: 0;
+            transition: all var(--transition-fast);
+            position: relative;
+        }
+
+        .nav-link:hover {
+            color: var(--text-white);
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link.active {
+            color: var(--text-white);
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .nav-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: var(--accent-400);
+        }
+
+        .nav-link i {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        /* Nav Sections */
+        .nav-section {
+            margin: 0.5rem 0;
+        }
+
+        .nav-section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1.5rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-section-title:hover {
+            color: var(--text-white);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-section-arrow {
+            width: 16px;
+            height: 16px;
+            margin-left: auto;
+            transition: transform var(--transition-fast);
+        }
+
+        .nav-section.expanded .nav-section-arrow {
+            transform: rotate(180deg);
+        }
+
+        .nav-section-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height var(--transition-normal);
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .nav-section.expanded .nav-section-content {
+            max-height: 500px;
+        }
+
+        .nav-section-content .nav-link {
+            padding-left: 3.5rem;
+            font-size: 0.875rem;
+        }
+
+        /* Sidebar Footer */
+        .sidebar-footer {
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: var(--border-radius);
+            transition: all var(--transition-fast);
+        }
+
+        .user-info:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--accent-400);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .user-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-role {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .user-menu-toggle {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            padding: 0.25rem;
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .user-menu-toggle:hover {
+            color: var(--text-white);
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* ==========================================================================
+           Main Content Styles
+           ========================================================================== */
+
+        .main-content {
+            flex: 1;
+            margin-left: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            transition: margin-left var(--transition-normal);
+        }
+
+        .navbar-top {
+            background-color: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 var(--admin-content-padding);
+            height: var(--navbar-height);
+            display: flex;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .navbar-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .navbar-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .page-title h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        .page-subtitle {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .navbar-btn {
+            position: relative;
+            background: none;
+            border: none;
+            padding: 0.75rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-fast);
+            color: var(--text-secondary);
+        }
+
+        .navbar-btn:hover {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .navbar-btn .badge {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: var(--color-error);
+            color: var(--text-white);
+            font-size: 0.625rem;
+            font-weight: 600;
+            padding: 0.125rem 0.375rem;
+            border-radius: 10px;
+            min-width: 1.25rem;
+            height: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .navbar-divider {
+            width: 1px;
+            height: 2rem;
+            background-color: var(--border-color);
+            margin: 0 0.5rem;
+        }
+
+        .user-dropdown-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: none;
+            border: none;
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .user-dropdown-toggle:hover {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .user-avatar-sm {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--color-primary);
+            color: var(--text-white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .page-content {
+            flex: 1;
+            padding: var(--admin-content-padding);
+        }
+
+        /* ==========================================================================
+           Sidebar Overlay for Mobile
+           ========================================================================== */
+
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--bg-overlay);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all var(--transition-fast);
+        }
+
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* ==========================================================================
+           Responsive Design
+           ========================================================================== */
+
+        @media (min-width: 992px) {
+            .sidebar {
+                position: fixed;
+                transform: translateX(0);
+                left: 0;
+                top: 0;
+                height: 100vh;
+                z-index: 1000;
+            }
+
+            .main-content {
+                margin-left: var(--sidebar-width);
+                min-height: 100vh;
+            }
+
+            .sidebar-overlay {
+                display: none;
+            }
+
+            .admin-layout {
+                display: block; /* Change from flex to block for desktop */
+            }
+        }
+
+        @media (max-width: 991.98px) {
+            .page-title h1 {
+                font-size: 1.25rem;
+            }
+
+            .page-subtitle {
+                display: none;
+            }
+
+            .navbar-content {
+                gap: 0.5rem;
+            }
+
+            .user-dropdown-toggle span {
+                display: none;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .navbar-right .navbar-btn:not(.user-dropdown-toggle) {
+                padding: 0.5rem;
+            }
+
+            .page-content {
+                padding: 1rem;
+            }
+
+            .sidebar-header {
+                padding: 1rem;
+            }
+
+            .nav-link {
+                padding: 0.75rem 1rem;
+            }
+        }
+
+        /* ==========================================================================
+           Additional Animations
+           ========================================================================== */
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .page-content > * {
+            animation: slideIn 0.4s ease-out;
+        }
+
+        /* Scrollbar Styling */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+    </style>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
