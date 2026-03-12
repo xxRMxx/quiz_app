@@ -32,6 +32,9 @@
                         <span class="status-dot connecting"></span>
                         <span class="status-text">Connecting…</span>
                     </div>
+                    <a href="{% url 'admin_dashboard:home' %}" class="btn btn-outline-secondary">
+                        <i data-lucide="layout-dashboard" class="me-1"></i> Dashboard
+                    </a>
                     <button id="endSessionBtn" class="btn btn-outline-danger">
                         <i data-lucide="square" class="me-1"></i> End Session
                     </button>
@@ -46,7 +49,12 @@
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i data-lucide="list-ordered" class="me-2"></i>Game Plan</h5>
-                    <span class="badge bg-secondary">{{ steps|length }} game{{ steps|length|pluralize }}</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-secondary" id="stepCount">{{ steps|length }} game{{ steps|length|pluralize }}</span>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addGameModal">
+                            <i data-lucide="plus" style="width:14px;height:14px;"></i> Spiel hinzufügen
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     <div class="steps-list" id="stepsList">
@@ -97,7 +105,18 @@
                         <li class="player-row">
                             <div class="player-avatar">{{ p.name|slice:":1"|upper }}</div>
                             <div class="player-name">{{ p.name }}</div>
-                            <div class="badge bg-primary-subtle text-primary fw-semibold">{{ p.total_score|default:0 }} pts</div>
+                            <div class="badge bg-primary-subtle text-primary fw-semibold" id="hub-score-{{ p.hub_participant_id }}">{{ p.total_score|default:0 }} pts</div>
+                            {% if p.hub_participant_id %}
+                            <button type="button"
+                                    class="btn btn-link btn-sm p-0 ms-1 edit-hub-score-btn"
+                                    data-participant-id="{{ p.hub_participant_id }}"
+                                    data-participant-name="{{ p.name }}"
+                                    data-current-adjustment="{{ p.score_adjustment|default:0 }}"
+                                    data-total-score="{{ p.total_score|default:0 }}"
+                                    title="Punkte anpassen">
+                                <i data-lucide="pencil" style="width:13px;height:13px;color:#6c757d;"></i>
+                            </button>
+                            {% endif %}
                         </li>
                         {% endfor %}
                     </ul>
@@ -117,6 +136,45 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Add Game Modal -->
+<div class="modal fade" id="addGameModal" tabindex="-1" aria-labelledby="addGameModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="addGameModalLabel"><i data-lucide="plus-circle" style="width:16px;height:16px;" class="me-1"></i>Spiel zur Session hinzufügen</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Spieltyp</label>
+          <select class="form-select" id="addGameType">
+            <option value="quiz">Quick Quiz</option>
+            <option value="estimation">Estimation</option>
+            <option value="assign">Assign</option>
+            <option value="where">Where is This?</option>
+            <option value="who">Who is Lying?</option>
+            <option value="who_that">Who is That?</option>
+            <option value="blackjack">Black Jack</option>
+            <option value="sorting_ladder">Sorting Ladder</option>
+            <option value="clue_rush">Clue Rush</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">Titel <span class="text-muted fw-normal">(optional)</span></label>
+          <input type="text" class="form-control" id="addGameTitle" placeholder="Wird automatisch generiert wenn leer">
+        </div>
+        <div id="addGameError" class="text-danger small d-none mt-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-primary btn-sm" id="addGameSave">
+          <i data-lucide="plus" style="width:14px;height:14px;"></i> Hinzufügen
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -241,11 +299,13 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!route) return;
 
             // 1. Tell all lobby participants to navigate to this game
-            ws.send(JSON.stringify({
-                type: 'navigate_direct',
-                game_key: gameKey,
-                room_code: roomCode,
-            }));
+            try {
+                ws.send(JSON.stringify({
+                    type: 'navigate_direct',
+                    game_key: gameKey,
+                    room_code: roomCode,
+                }));
+            } catch (_) { /* WebSocket may not be connected yet – navigate admin anyway */ }
 
             // 2. Navigate admin to the game-specific monitor
             window.location.href = route(roomCode) + `?hub_session=${SESSION_CODE}`;
@@ -300,6 +360,94 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    // ── Add Game Step ──
+    const addGameModal = document.getElementById('addGameModal');
+    document.getElementById('addGameSave').addEventListener('click', function () {
+        const gameKey = document.getElementById('addGameType').value;
+        const title   = document.getElementById('addGameTitle').value.trim();
+        const errEl   = document.getElementById('addGameError');
+        errEl.classList.add('d-none');
+        this.disabled = true;
+
+        fetch(`/hub/api/session/{{ session.code }}/add-step/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({ game_key: gameKey, title: title }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                errEl.textContent = data.error || 'Fehler beim Hinzufügen.';
+                errEl.classList.remove('d-none');
+                return;
+            }
+            const step = data.step;
+
+            // Append the new step row to the list
+            const stepsList = document.getElementById('stepsList');
+            const noGames = stepsList.querySelector('.text-center');
+            if (noGames) noGames.remove();
+
+            const stepNum = step.order + 1;
+            const div = document.createElement('div');
+            div.className = 'step-row';
+            div.id = `step-${step.order}`;
+            div.dataset.gameKey  = step.game_key;
+            div.dataset.roomCode = step.room_code;
+            div.innerHTML = `
+                <div class="step-num">${stepNum}</div>
+                <div class="step-info">
+                    <div class="step-name">${step.game_key_display}</div>
+                    ${step.title ? `<div class="step-sub text-muted small">${step.title}</div>` : ''}
+                </div>
+                <div class="step-badge">
+                    <span class="game-tag game-${step.game_key}">${step.game_key.replace('_','').toUpperCase().slice(0,8)}</span>
+                </div>
+                <a href="#" class="btn btn-sm btn-primary launch-btn"
+                   data-game-key="${step.game_key}" data-room-code="${step.room_code}"
+                   data-session="{{ session.code }}">
+                    <i data-lucide="play" class="me-1"></i> Open
+                </a>
+            `;
+            stepsList.appendChild(div);
+
+            // Update count badge
+            const countBadge = document.getElementById('stepCount');
+            if (countBadge) {
+                const n = stepsList.querySelectorAll('.step-row').length;
+                countBadge.textContent = `${n} game${n !== 1 ? 's' : ''}`;
+            }
+
+            // Bind the new Open button
+            div.querySelector('.launch-btn').addEventListener('click', function(e) {
+                e.preventDefault();
+                const route = MONITOR_ROUTES[this.dataset.gameKey];
+                if (!route) return;
+                try {
+                    ws.send(JSON.stringify({
+                        type: 'navigate_direct',
+                        game_key: this.dataset.gameKey,
+                        room_code: this.dataset.roomCode,
+                    }));
+                } catch (_) { /* WebSocket may not be connected yet – navigate admin anyway */ }
+                window.location.href = route(this.dataset.roomCode) + `?hub_session=${SESSION_CODE}`;
+            });
+
+            lucide.createIcons();
+            bootstrap.Modal.getInstance(addGameModal).hide();
+            // Reset form
+            document.getElementById('addGameTitle').value = '';
+        })
+        .catch(() => {
+            errEl.textContent = 'Netzwerkfehler.';
+            errEl.classList.remove('d-none');
+        })
+        .finally(() => { this.disabled = false; });
+    });
+
     // ── End session ──
     let manualEnd = false;
     document.getElementById('endSessionBtn').addEventListener('click', () => {
@@ -313,5 +461,93 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!manualEnd) setTimeout(() => location.reload(), 3000);
     };
 });
+</script>
+
+<!-- Score Edit Modal -->
+<div class="modal fade" id="editHubScoreModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Punkte anpassen</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-1">Spieler: <strong id="editHubScoreName"></strong></p>
+        <p class="text-muted small mb-2">Gesamtpunkte: <strong id="editHubScoreTotal"></strong></p>
+        <div class="mb-3">
+          <label class="form-label">Manuelle Anpassung (±)</label>
+          <input type="number" class="form-control" id="editHubScoreInput" step="1">
+          <div class="form-text">Positiv = Bonus, Negativ = Abzug</div>
+        </div>
+        <div id="editHubScoreError" class="text-danger small d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-primary btn-sm" id="editHubScoreSave">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+    const modal = document.getElementById('editHubScoreModal');
+    if (!modal) return;
+    let currentParticipantId = null;
+    let currentTotalScore = 0;
+    let currentAdjustment = 0;
+
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.edit-hub-score-btn');
+        if (!btn) return;
+        currentParticipantId = btn.dataset.participantId;
+        currentAdjustment = parseInt(btn.dataset.currentAdjustment, 10) || 0;
+        currentTotalScore = parseInt(btn.dataset.totalScore, 10) || 0;
+        document.getElementById('editHubScoreName').textContent = btn.dataset.participantName;
+        document.getElementById('editHubScoreTotal').textContent = currentTotalScore + ' pts';
+        document.getElementById('editHubScoreInput').value = currentAdjustment;
+        document.getElementById('editHubScoreError').classList.add('d-none');
+        new bootstrap.Modal(modal).show();
+    });
+
+    document.getElementById('editHubScoreSave').addEventListener('click', function() {
+        const adjustment = parseInt(document.getElementById('editHubScoreInput').value, 10);
+        const errEl = document.getElementById('editHubScoreError');
+        if (isNaN(adjustment)) {
+            errEl.textContent = 'Bitte eine gültige Zahl eingeben.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+        errEl.classList.add('d-none');
+        this.disabled = true;
+        fetch('{% url "games_hub:set_hub_participant_score" %}', {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json'},
+            body: JSON.stringify({participant_id: currentParticipantId, score: adjustment})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const diff = adjustment - currentAdjustment;
+                const scoreEl = document.getElementById('hub-score-' + currentParticipantId);
+                if (scoreEl) {
+                    const newTotal = currentTotalScore + diff;
+                    scoreEl.textContent = newTotal + ' pts';
+                }
+                const editBtn = document.querySelector(`.edit-hub-score-btn[data-participant-id="${currentParticipantId}"]`);
+                if (editBtn) {
+                    editBtn.dataset.currentAdjustment = adjustment;
+                    editBtn.dataset.totalScore = currentTotalScore + diff;
+                }
+                bootstrap.Modal.getInstance(modal).hide();
+            } else {
+                errEl.textContent = data.error || 'Fehler.';
+                errEl.classList.remove('d-none');
+            }
+        })
+        .catch(() => { errEl.textContent = 'Netzwerkfehler.'; errEl.classList.remove('d-none'); })
+        .finally(() => { this.disabled = false; });
+    });
+})();
 </script>
 {% endblock %}

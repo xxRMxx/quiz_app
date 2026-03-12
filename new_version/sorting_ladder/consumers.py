@@ -335,6 +335,14 @@ class SortingLadderGameConsumer(AsyncWebsocketConsumer):
             'participant': participant_payload,
         })
 
+        # If game is already active, send quiz_started directly to this participant
+        game = await self.get_quiz()
+        if game and game.status == 'active':
+            await self.send(text_data=json.dumps({
+                'type': 'quiz_started',
+                'message': 'Game is already in progress'
+            }))
+
     async def handle_participant_submit_move(self, data):
         """
         Player attempts to place the active element between two reference items.
