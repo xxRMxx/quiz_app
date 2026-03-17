@@ -135,6 +135,7 @@ class Participant(models.Model):
     name = models.CharField(max_length=80)
     points = models.IntegerField(default=0)
     is_connected = models.BooleanField(default=True)
+    tutorial_completed = models.BooleanField(default=False)
     joined_at = models.DateTimeField(default=timezone.now)
     last_seen = models.DateTimeField(auto_now=True)
 

@@ -55,3 +55,16 @@ class HubGameStep(SyncBase):
 
     def __str__(self):
         return f"{self.order}: {self.get_game_key_display()} ({self.session.code})"
+
+
+class GameVote(models.Model):
+    session = models.ForeignKey(HubSession, related_name='votes', on_delete=models.CASCADE)
+    participant_nickname = models.CharField(max_length=50)
+    step = models.ForeignKey(HubGameStep, related_name='votes', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ('session', 'participant_nickname')
+
+    def __str__(self):
+        return f"{self.participant_nickname} → {self.step} ({self.session.code})"

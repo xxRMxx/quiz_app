@@ -39,6 +39,10 @@ class QuizConsumer(AsyncWebsocketConsumer):
             
             if message_type == 'admin_send_question':
                 await self.handle_admin_send_question(text_data_json)
+            elif message_type == 'admin_start_tutorial':
+                await self.handle_admin_start_tutorial(text_data_json)
+            elif message_type == 'tutorial_completed':
+                await self.handle_tutorial_completed(text_data_json)
             elif message_type == 'participant_submit_answer':
                 await self.handle_participant_submit_answer(text_data_json)
             elif message_type == 'admin_update_points':
@@ -57,6 +61,44 @@ class QuizConsumer(AsyncWebsocketConsumer):
                 'type': 'error',
                 'message': 'Invalid JSON'
             }))
+
+    async def handle_admin_start_tutorial(self, data):
+        """Admin startet das Tutorial für alle Teilnehmer"""
+        session = await self.get_session()
+        if not session:
+            return
+
+        await self.activate_session(session)
+        await self.reset_tutorial_completed(session)
+
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'tutorial_start',
+                'message': 'Tutorial gestartet'
+            }
+        )
+
+    async def handle_tutorial_completed(self, data):
+        """Teilnehmer hat das Tutorial abgeschlossen"""
+        participant_id = data.get('participant_id')
+        await self.mark_tutorial_completed(participant_id)
+
+        session = await self.get_session()
+        if not session:
+            return
+
+        completed, total = await self.get_tutorial_progress(session)
+
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'tutorial_progress',
+                'completed': completed,
+                'total': total,
+                'all_done': completed >= total
+            }
+        )
 
     async def handle_admin_send_question(self, data):
         """Handle admin sending a new question"""
@@ -258,6 +300,22 @@ class QuizConsumer(AsyncWebsocketConsumer):
             'participant': event['participant']
         }))
 
+    async def tutorial_start(self, event):
+        """Broadcast tutorial start to all clients"""
+        await self.send(text_data=json.dumps({
+            'type': 'tutorial_start',
+            'message': event['message']
+        }))
+
+    async def tutorial_progress(self, event):
+        """Broadcast tutorial progress to all clients"""
+        await self.send(text_data=json.dumps({
+            'type': 'tutorial_progress',
+            'completed': event['completed'],
+            'total': event['total'],
+            'all_done': event['all_done']
+        }))
+
     # Database operations
     @database_sync_to_async
     def get_session(self):
@@ -334,6 +392,30 @@ class QuizConsumer(AsyncWebsocketConsumer):
             return True
         except ParticipantAnswer.DoesNotExist:
             return False
+
+    @database_sync_to_async
+    def activate_session(self, session):
+        if session.status == 'waiting':
+            session.start_session()
+
+    @database_sync_to_async
+    def reset_tutorial_completed(self, session):
+        session.participants.all().update(tutorial_completed=False)
+
+    @database_sync_to_async
+    def mark_tutorial_completed(self, participant_id):
+        try:
+            participant = Participant.objects.get(id=participant_id)
+            participant.tutorial_completed = True
+            participant.save(update_fields=['tutorial_completed'])
+        except Participant.DoesNotExist:
+            pass
+
+    @database_sync_to_async
+    def get_tutorial_progress(self, session):
+        total = session.participants.count()
+        completed = session.participants.filter(tutorial_completed=True).count()
+        return completed, total
 
     @database_sync_to_async
     def get_leaderboard(self):

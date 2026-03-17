@@ -182,6 +182,45 @@
             100% { background-color: transparent; }
         }
         
+        /* Tutorial Progress */
+        .tutorial-section {
+            background: linear-gradient(135deg, #f8f9ff 0%, #eef2ff 100%);
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        .tutorial-section h3 { color: #4a5568; margin-bottom: 15px; }
+        .tutorial-progress-bar-wrap {
+            background: #e2e8f0;
+            border-radius: 20px;
+            height: 14px;
+            margin: 10px 0 15px;
+            overflow: hidden;
+        }
+        .tutorial-progress-bar {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            height: 100%;
+            border-radius: 20px;
+            transition: width 0.5s ease;
+        }
+        .tutorial-count {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 5px;
+        }
+        .all-ready-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .container { padding: 15px; }
@@ -211,6 +250,30 @@
                     </p>
                 </div>
             </div>
+        </div>
+
+        <!-- Spiel starten / Tutorial-Bereich -->
+        {% if session.status == 'waiting' %}
+        <div class="tutorial-section">
+            <h3>🎮 Spiel starten</h3>
+            <p style="color:#555; margin-bottom:15px;">Wenn alle Teilnehmer in der Lobby sind, starte das Spiel. Alle Teilnehmer sehen dann ein interaktives Tutorial.</p>
+            <button id="start-tutorial-btn" class="btn btn-primary" onclick="startTutorial()">
+                ▶ Spiel starten &amp; Tutorial senden
+            </button>
+        </div>
+        {% endif %}
+
+        <!-- Tutorial-Fortschritt (sichtbar sobald Tutorial gestartet) -->
+        <div id="tutorial-progress-section" class="tutorial-section" style="display:{% if session.status == 'active' %}block{% else %}none{% endif %};">
+            <h3>📋 Tutorial-Fortschritt</h3>
+            <div class="tutorial-count">
+                <span id="tutorial-completed-count">0</span> / <span id="tutorial-total-count">{{ stats.total_participants }}</span> Teilnehmer bereit
+                <span id="all-ready-badge" class="all-ready-badge" style="display:none;">✓ Alle bereit!</span>
+            </div>
+            <div class="tutorial-progress-bar-wrap">
+                <div class="tutorial-progress-bar" id="tutorial-progress-bar" style="width:0%;"></div>
+            </div>
+            <p style="color:#718096; font-size:0.9em; margin:0;">Sobald alle Teilnehmer das Tutorial abgeschlossen haben, kannst du die erste Frage senden.</p>
         </div>
 
         <!-- Session Statistics -->
@@ -433,11 +496,47 @@
                 case 'leaderboard_updated':
                     updateLeaderboard(data.leaderboard);
                     break;
+                case 'tutorial_progress':
+                    updateTutorialProgress(data.completed, data.total, data.all_done);
+                    break;
                 case 'connection_established':
                     console.log('Connection established');
                     break;
                 default:
                     console.log('Unknown message type:', data.type);
+            }
+        }
+
+        function startTutorial() {
+            const btn = document.getElementById('start-tutorial-btn');
+            if (btn) btn.disabled = true;
+
+            socket.send(JSON.stringify({ type: 'admin_start_tutorial' }));
+
+            // Tutorial-Fortschrittsbereich einblenden
+            const progressSection = document.getElementById('tutorial-progress-section');
+            progressSection.style.display = 'block';
+
+            // Start-Button-Bereich ausblenden
+            const startSection = btn ? btn.closest('.tutorial-section') : null;
+            if (startSection) startSection.style.display = 'none';
+
+            // Teilnehmeranzahl initialisieren
+            const totalEl = document.getElementById('tutorial-total-count');
+            const rows = document.querySelectorAll('#participants-tbody tr');
+            totalEl.textContent = rows.length || totalEl.textContent;
+        }
+
+        function updateTutorialProgress(completed, total, allDone) {
+            document.getElementById('tutorial-completed-count').textContent = completed;
+            document.getElementById('tutorial-total-count').textContent = total;
+
+            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+            document.getElementById('tutorial-progress-bar').style.width = pct + '%';
+
+            const badge = document.getElementById('all-ready-badge');
+            if (allDone) {
+                badge.style.display = 'inline-block';
             }
         }
 

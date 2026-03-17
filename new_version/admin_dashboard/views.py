@@ -4,9 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.core.paginator import Paginator
 from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods, require_POST
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
+from django.views.decorators.http import require_POST
 from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from django.contrib import messages
@@ -72,6 +70,47 @@ def admin_logout_view(request):
     logout(request)
     messages.info(request, 'You have been logged out successfully.')
     return redirect('admin_dashboard:login')
+
+
+@login_required
+@require_POST
+def end_session(request):
+    """End (close) a single hub session by code"""
+    if not is_admin(request.user):
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    try:
+        import json
+        data = json.loads(request.body)
+        session_code = data.get('session_code')
+        if not session_code:
+            return JsonResponse({'success': False, 'error': 'session_code required'}, status=400)
+        session = HubSession.objects.get(code=session_code)
+        session.ended_at = timezone.now()
+        session.is_active = False
+        session.save(update_fields=['ended_at', 'is_active'])
+        return JsonResponse({'success': True})
+    except HubSession.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Session nicht gefunden'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def delete_session(request):
+    """Delete a single hub session by code"""
+    if not is_admin(request.user):
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    try:
+        import json
+        data = json.loads(request.body)
+        session_code = data.get('session_code')
+        if not session_code:
+            return JsonResponse({'success': False, 'error': 'session_code required'}, status=400)
+        HubSession.objects.filter(code=session_code).delete()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required
@@ -1102,8 +1141,17 @@ def admin_home(request):
         .order_by('-count')
     most_played_game = most_played.first()
     
-    # Get recent sessions (last 10)
-    recent_sessions = HubSession.objects.order_by('-created_at')[:10].annotate(
+    # Active hub sessions (not yet ended)
+    active_sessions_qs = HubSession.objects.filter(
+        ended_at__isnull=True
+    ).order_by('-created_at').annotate(
+        players_count=Count('participants', distinct=True)
+    )
+
+    # Get recent sessions (last 10, only ended)
+    recent_sessions = HubSession.objects.filter(
+        ended_at__isnull=False
+    ).order_by('-ended_at')[:10].annotate(
         games_count=Count('steps', distinct=True),
         players_count=Count('participants', distinct=True)
     )
@@ -1120,7 +1168,7 @@ def admin_home(request):
 
     active_games = []
 
-    def _add_games(queryset, game_type, game_type_display, monitor_url_name, score_field='total_score'):
+    def _add_games(queryset, game_type, game_type_display, monitor_url_name, end_url_name, score_field='total_score'):
         for game in queryset:
             try:
                 participant_count = game.participants.filter(is_active=True).count()
@@ -1133,20 +1181,21 @@ def admin_home(request):
                 'game_type': game_type,
                 'game_type_display': game_type_display,
                 'monitor_url_name': monitor_url_name,
+                'end_url_name': end_url_name,
                 'participant_count': participant_count,
                 'started_at': getattr(game, 'started_at', None),
                 'hub_session_code': hub_session_code,
             })
 
-    _add_games(Quiz.objects.filter(status='active'), 'quiz', 'Quick Quiz', 'admin_dashboard:quiz_monitor')
-    _add_games(EstimationQuiz.objects.filter(status='active'), 'estimation', 'Estimation', 'admin_dashboard:estimation_monitor')
-    _add_games(AssignQuiz.objects.filter(status='active'), 'assign', 'Assign', 'admin_dashboard:assign_monitor')
-    _add_games(WhereQuiz.objects.filter(status='active'), 'where', 'Where Is This?', 'admin_dashboard:where_monitor')
-    _add_games(WhoQuiz.objects.filter(status='active'), 'who', 'Who Is Lying?', 'admin_dashboard:who_monitor')
-    _add_games(WhoThatQuiz.objects.filter(status='active'), 'who_that', 'Who Is That?', 'admin_dashboard:who_that_monitor')
-    _add_games(BlackJackQuiz.objects.filter(status='active'), 'blackjack', 'Black Jack Quiz', 'admin_dashboard:blackjack_monitor')
-    _add_games(ClueRushGame.objects.filter(status='active'), 'clue_rush', 'Clue Rush', 'admin_dashboard:clue_rush_monitor')
-    _add_games(SortingLadderGame.objects.filter(status='active'), 'sorting_ladder', 'Sorting Ladder', 'admin_dashboard:sorting_ladder_monitor')
+    _add_games(Quiz.objects.filter(status='active'), 'quiz', 'Quick Quiz', 'admin_dashboard:quiz_monitor', 'admin_dashboard:end_quiz_by_room_code')
+    _add_games(EstimationQuiz.objects.filter(status='active'), 'estimation', 'Estimation', 'admin_dashboard:estimation_monitor', 'admin_dashboard:end_estimation_quiz_by_room_code')
+    _add_games(AssignQuiz.objects.filter(status='active'), 'assign', 'Assign', 'admin_dashboard:assign_monitor', 'admin_dashboard:end_assign_quiz_by_room_code')
+    _add_games(WhereQuiz.objects.filter(status='active'), 'where', 'Where Is This?', 'admin_dashboard:where_monitor', 'admin_dashboard:end_where_quiz_by_room_code')
+    _add_games(WhoQuiz.objects.filter(status='active'), 'who', 'Who Is Lying?', 'admin_dashboard:who_monitor', 'admin_dashboard:end_who_quiz_by_room_code')
+    _add_games(WhoThatQuiz.objects.filter(status='active'), 'who_that', 'Who Is That?', 'admin_dashboard:who_that_monitor', 'admin_dashboard:end_who_that_quiz_by_room_code')
+    _add_games(BlackJackQuiz.objects.filter(status='active'), 'blackjack', 'Black Jack Quiz', 'admin_dashboard:blackjack_monitor', 'admin_dashboard:end_blackjack_quiz_by_room_code')
+    _add_games(ClueRushGame.objects.filter(status='active'), 'clue_rush', 'Clue Rush', 'admin_dashboard:clue_rush_monitor', None)
+    _add_games(SortingLadderGame.objects.filter(status='active'), 'sorting_ladder', 'Sorting Ladder', 'admin_dashboard:sorting_ladder_monitor', 'admin_dashboard:end_sorting_ladder_game_by_room_code')
 
     active_games.sort(key=lambda g: g['started_at'] or timezone.now(), reverse=True)
 
@@ -1157,6 +1206,7 @@ def admin_home(request):
         'total_players': total_players,
         'most_played_game': game_display_names.get(most_played_game['game_key'], 'N/A') if most_played_game else 'N/A',
         'active_games': active_games,
+        'active_hub_sessions': active_sessions_qs,
         'recent_sessions': [{
             'name': session.name,
             'code': session.code,
@@ -2419,9 +2469,8 @@ def api_live_responses(request, room_code):
     
 
 
-# WHERE IS THIS GAME VIEWS - Add these to admin_dashboard/views.py
+# WHERE IS THIS GAME VIEWS
 
-# Add this import to the top of admin_dashboard/views.py
 from where_is_this.models import WhereQuiz, WhereQuestion, WhereParticipant, WhereAnswer, WhereSession
 
 @admin_required
@@ -3363,12 +3412,9 @@ def api_where_questions(request):
         }, status=500)
 
 
-# ASSIGN GAMES VIEWS 
+# ASSIGN GAMES VIEWS
 
-# Add these imports to the top of admin_dashboard/views.py
 from Assign.models import AssignQuiz, AssignQuestion, AssignParticipant, AssignAnswer, AssignSession
-
-# Add these view functions to admin_dashboard/views.py
 
 @admin_required
 def assign_management(request):
@@ -3932,65 +3978,7 @@ def api_assign_live_responses(request, room_code):
     
 
 
-# ESTIMATION GAME VIEWS 
-
-from Estimation.models import EstimationQuestion, EstimationSession, EstimationAnswer
-
-
-@admin_required
-def estimation_management(request):
-    """Estimation game management page"""
-    quizzes = EstimationQuiz.objects.all().order_by('-created_at')
-    # Get recent questions
-    questions = EstimationQuestion.objects.filter(created_by=request.user).order_by('-created_at')[:20]
-    
-    # Get game statistics
-    total_questions = EstimationQuestion.objects.filter(is_active=True).count()
-    user_questions = EstimationQuestion.objects.filter(created_by=request.user, is_active=True).count()
-    
-    # Get recent game sessions
-    recent_games = EstimationSession.objects.order_by('-completed_at')[:10]
-    # recent_games = EstimationSession.objects.filter(status='completed').order_by('-completed_at')[:10]
-    
-    # Get difficulty breakdown with default values
-    difficulty_stats = EstimationQuestion.objects.filter(is_active=True).values('difficulty').annotate(
-        count=Count('id')
-    )
-    
-    # Initialize with default values to avoid KeyError
-    difficulty_counts = {
-        'easy': 0,
-        'medium': 0,
-        'hard': 0
-    }
-    
-    # Update with actual counts
-    for stat in difficulty_stats:
-        if stat['difficulty'] in difficulty_counts:
-            difficulty_counts[stat['difficulty']] = stat['count']
-    
-    # Get player statistics
-    total_games = EstimationSession.objects.filter(status='completed').count()
-    total_players = EstimationSession.objects.values('player_name').distinct().count()
-    
-    # Get average accuracy
-    from django.db.models import Avg
-    avg_accuracy = EstimationAnswer.objects.aggregate(avg_accuracy=Avg('accuracy_percentage'))['avg_accuracy'] or 0
-    
-    context = {
-        'questions': questions,
-        'quizzes': quizzes,
-        'total_questions': total_questions,
-        'user_questions': user_questions,
-        'recent_games': recent_games,
-        'difficulty_counts': difficulty_counts,
-        'total_games': total_games,
-        'total_players': total_players,
-        'average_accuracy': round(avg_accuracy, 1),
-    }
-
-    return render(request, 'admin_dashboard/estimation_management.html', context)
-
+# ESTIMATION GAME VIEWS
 
 @admin_required
 @require_POST
@@ -4166,20 +4154,6 @@ def delete_estimation_question(request):
 
 
 @admin_required
-def estimation_game_details(request, session_id):
-    """View detailed results of a specific estimation game session"""
-    session = get_object_or_404(EstimationSession, session_id=session_id)
-    answers = EstimationAnswer.objects.filter(session=session).select_related('question').order_by('question_order')
-    
-    context = {
-        'session': session,
-        'answers': answers,
-    }
-    
-    return render(request, 'admin_dashboard/estimation_game_details.html', context)
-
-
-@admin_required
 def api_estimation_stats(request):
     """Get estimation game statistics for dashboard"""
     try:
@@ -4302,10 +4276,7 @@ def api_estimation_questions(request):
 
 
 
-# Add this import to the top of admin_dashboard/views.py
 from Estimation.models import EstimationQuiz, EstimationQuestion, EstimationParticipant, EstimationAnswer, EstimationSession
-
-# Add these view functions to admin_dashboard/views.py
 
 @admin_required
 def estimation_management(request):
@@ -4785,10 +4756,7 @@ def api_estimation_live_responses(request, room_code):
 
 
 
-        # Add these imports to the top of admin_dashboard/views.py
 from who_is_lying.models import WhoQuiz, WhoQuestion, WhoParticipant, WhoAnswer, WhoSession
-
-# Add these view functions to admin_dashboard/views.py
 
 @admin_required
 def who_management(request):
@@ -5391,10 +5359,7 @@ def api_who_questions(request):
         }, status=500)
 
 
-# Add these imports to the top of admin_dashboard/views.py
 from who_is_that.models import WhoThatQuiz, WhoThatQuestion, WhoThatParticipant, WhoThatAnswer, WhoThatSession
-
-# Add these view functions to admin_dashboard/views.py
 
 @admin_required
 def who_that_management(request):
@@ -6070,10 +6035,7 @@ def api_who_that_questions(request):
         }, status=500)
     
 
-# Add these imports to the top of admin_dashboard/views.py
 from black_jack_quiz.models import BlackJackQuiz, BlackJackQuestion, BlackJackParticipant, BlackJackAnswer, BlackJackSession
-
-# Add these view functions to admin_dashboard/views.py
 
 @admin_required
 def blackjack_management(request):

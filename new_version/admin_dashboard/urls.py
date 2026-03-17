@@ -7,10 +7,12 @@ urlpatterns = [
     # Authentication
     path('login/', views.admin_login, name='login'),
     path('logout/', views.admin_logout_view, name='logout'),
-    
+
     # Dashboard home
     path('', views.admin_home, name='home'),
     path('sessions/clear/', views.clear_all_sessions, name='clear_sessions'),
+    path('sessions/end/', views.end_session, name='end_session'),
+    path('sessions/delete/', views.delete_session, name='delete_session'),
     path('sync/supabase/', views.sync_supabase, name='sync_supabase'),
     path('restore/supabase/', views.restore_supabase, name='restore_supabase'),
     path('quiz/questions/', views.get_quiz_questions, name='get_quiz_questions'),
@@ -20,7 +22,7 @@ urlpatterns = [
     path('where/questions/', views.get_where_questions, name='get_where_questions'),
     path('black-jack/questions/', views.get_black_jack_questions, name='get_black_jack_questions'),
     path('who-that/questions/', views.get_who_that_questions, name='get_who_that_questions'),
-    
+
     # Quiz Game Management
     path('quiz/', views.quiz_game_management, name='quiz_management'),
     path('quiz/create/', views.create_quiz, name='create_quiz'),
@@ -57,60 +59,50 @@ urlpatterns = [
     path('sorting-ladder/<str:room_code>/send-topic/', views.send_sorting_ladder_topic, name='send_sorting_ladder_topic'),
     path('sorting-ladder/<str:room_code>/end-round/', views.end_sorting_ladder_round, name='end_sorting_ladder_round'),
 
-# Add these URL patterns to the existing urlpatterns list in admin_dashboard/urls.py
+    # Estimation Game Management
+    path('estimation/', views.estimation_management, name='estimation_management'),
+    path('estimation/create/', views.create_estimation_quiz, name='create_estimation_quiz'),
+    path('estimation/create-custom/', views.create_estimation_custom_quiz, name='create_estimation_custom_quiz'),
+    path('estimation/update-custom/', views.update_estimation_custom_quiz, name='update_estimation_custom_quiz'),
+    path('estimation/add-question/', views.add_estimation_question, name='add_estimation_question'),
+    path('estimation/update-question/', views.update_estimation_question, name='update_estimation_question'),
+    path('estimation/question/<int:question_id>/', views.get_estimation_question_detail, name='get_estimation_question_detail'),
+    path('estimation/delete-question/', views.delete_estimation_question, name='delete_estimation_question'),
+    path('estimation/end/', views.end_estimation_quiz, name='end_estimation_quiz'),
+    path('estimation/<str:room_code>/monitor/', views.estimation_monitor, name='estimation_monitor'),
+    path('estimation/<str:room_code>/start/', views.start_estimation_quiz, name='start_estimation_quiz'),
+    path('estimation/<str:room_code>/end/', views.end_estimation_quiz_by_room_code, name='end_estimation_quiz_by_room_code'),
+    path('estimation/<str:room_code>/send-question/', views.send_estimation_question, name='send_estimation_question'),
+    path('estimation/<str:room_code>/end-question/', views.end_estimation_question, name='end_estimation_question'),
+    path('estimation/game/<int:quiz_id>/', views.estimation_game_details, name='estimation_game_details'),
+    path('estimation/<int:quiz_id>/selected-questions/', views.get_estimation_selected_questions, name='get_estimation_selected_questions'),
+    path('estimation/delete/', views.delete_estimation_quiz, name='delete_estimation_quiz'),
 
-# Add these URL patterns to the existing urlpatterns list in admin_dashboard/urls.py
-
-# ESTIMATION GAME Management - Add these lines to the urlpatterns list
-path('estimation/', views.estimation_management, name='estimation_management'),
-path('estimation/create/', views.create_estimation_quiz, name='create_estimation_quiz'),
-path('estimation/create-custom/', views.create_estimation_custom_quiz, name='create_estimation_custom_quiz'),
-path('estimation/update-custom/', views.update_estimation_custom_quiz, name='update_estimation_custom_quiz'),
-path('estimation/add-question/', views.add_estimation_question, name='add_estimation_question'),
-path('estimation/update-question/', views.update_estimation_question, name='update_estimation_question'),
-path('estimation/question/<int:question_id>/', views.get_estimation_question_detail, name='get_estimation_question_detail'),
-path('estimation/delete-question/', views.delete_estimation_question, name='delete_estimation_question'),
-path('estimation/end/', views.end_estimation_quiz, name='end_estimation_quiz'),
-path('estimation/<str:room_code>/monitor/', views.estimation_monitor, name='estimation_monitor'),
-path('estimation/<str:room_code>/start/', views.start_estimation_quiz, name='start_estimation_quiz'),
-path('estimation/<str:room_code>/end/', views.end_estimation_quiz_by_room_code, name='end_estimation_quiz_by_room_code'),
-path('estimation/<str:room_code>/send-question/', views.send_estimation_question, name='send_estimation_question'),
-path('estimation/<str:room_code>/end-question/', views.end_estimation_question, name='end_estimation_question'),
-path('estimation/game/<int:quiz_id>/', views.estimation_game_details, name='estimation_game_details'),
-path('estimation/<int:quiz_id>/selected-questions/', views.get_estimation_selected_questions, name='get_estimation_selected_questions'),
-path('estimation/delete/', views.delete_estimation_quiz, name='delete_estimation_quiz'),
-
-# ESTIMATION API endpoints
-path('api/estimation/<str:room_code>/stats/', views.api_estimation_quiz_stats, name='api_estimation_quiz_stats'),
-path('api/estimation/<str:room_code>/participants/', views.api_estimation_participants, name='api_estimation_participants'),
-path('api/estimation/<str:room_code>/responses/', views.api_estimation_live_responses, name='api_estimation_live_responses'),
-path('api/estimation/stats/', views.api_estimation_stats, name='api_estimation_stats'),
-path('api/estimation/questions/', views.api_estimation_questions, name='api_estimation_questions'),
+    # Estimation API endpoints
+    path('api/estimation/<str:room_code>/stats/', views.api_estimation_quiz_stats, name='api_estimation_quiz_stats'),
+    path('api/estimation/<str:room_code>/participants/', views.api_estimation_participants, name='api_estimation_participants'),
+    path('api/estimation/<str:room_code>/responses/', views.api_estimation_live_responses, name='api_estimation_live_responses'),
+    path('api/estimation/stats/', views.api_estimation_stats, name='api_estimation_stats'),
+    path('api/estimation/questions/', views.api_estimation_questions, name='api_estimation_questions'),
 
     # User Management
     path('users/', views.users_management, name='users'),
 
-    # Analytics  
+    # Analytics
     path('analytics/', views.analytics, name='analytics'),
 
     # Settings
     path('settings/', views.settings, name='settings'),
-    
-    # API Endpoints for real-time data - Quiz Game
+
+    # Quiz API endpoints
     path('api/quiz/<str:room_code>/stats/', views.api_quiz_stats, name='api_quiz_stats'),
     path('api/quiz/<str:room_code>/participants/', views.api_participants, name='api_participants'),
     path('api/quiz/<str:room_code>/responses/', views.api_live_responses, name='api_live_responses'),
-    
 
- # WHERE VIEWS 
-
+    # Where Is This Game Management
     path('where/', views.where_management, name='where_management'),
-    
-    # Quiz monitoring
     path('where/monitor/<str:room_code>/', views.where_monitor, name='where_monitor'),
     path('where/details/<int:quiz_id>/', views.where_game_details, name='where_game_details'),
-    
-    # Quiz management endpoints
     path('where/quiz/create/', views.create_where_quiz, name='create_where_quiz'),
     path('where/quiz/create-custom/', views.create_where_custom_quiz, name='create_where_custom_quiz'),
     path('where/quiz/update-custom/', views.update_where_custom_quiz, name='update_where_custom_quiz'),
@@ -119,24 +111,21 @@ path('api/estimation/questions/', views.api_estimation_questions, name='api_esti
     path('where/quiz/end/<str:room_code>/', views.end_where_quiz_by_room_code, name='end_where_quiz_by_room_code'),
     path('where/<int:quiz_id>/selected-questions/', views.get_where_selected_questions, name='get_where_selected_questions'),
     path('where/delete/', views.delete_where_quiz, name='delete_where_quiz'),
-    
-    # Question management endpoints
     path('where/question/add/', views.add_where_question, name='add_where_question'),
     path('where/question/update/', views.update_where_question, name='update_where_question'),
     path('where/question/<int:question_id>/', views.get_where_question_detail, name='get_where_question_detail'),
     path('where/question/delete/', views.delete_where_question, name='delete_where_question'),
     path('where/question/send/<str:room_code>/', views.send_where_question, name='send_where_question'),
     path('where/question/end/<str:room_code>/', views.end_where_question, name='end_where_question'),
-    
-    # API endpoints for real-time data
+
+    # Where API endpoints
     path('api/where/stats/', views.api_where_stats, name='api_where_stats'),
     path('api/where/questions/', views.api_where_questions, name='api_where_questions'),
     path('api/where/<str:room_code>/stats/', views.api_where_quiz_stats, name='api_where_quiz_stats'),
     path('api/where/<str:room_code>/participants/', views.api_where_participants, name='api_where_participants'),
     path('api/where/<str:room_code>/responses/', views.api_where_live_responses, name='api_where_live_responses'),
 
-
-    # ASSIGN GAME Management
+    # Assign Game Management
     path('assign/', views.assign_management, name='assign_management'),
     path('assign/create/', views.create_assign_quiz, name='create_assign_quiz'),
     path('assign/create-custom/', views.create_assign_custom_quiz, name='create_assign_custom_quiz'),
@@ -153,114 +142,107 @@ path('api/estimation/questions/', views.api_estimation_questions, name='api_esti
     path('assign/<str:room_code>/end-question/', views.end_assign_question, name='end_assign_question'),
     path('assign/<int:quiz_id>/selected-questions/', views.get_assign_selected_questions, name='get_assign_selected_questions'),
     path('assign/delete/', views.delete_assign_quiz, name='delete_assign_quiz'),
-    
-    # ASSIGN API endpoints  
+
+    # Assign API endpoints
     path('api/assign/<str:room_code>/stats/', views.api_assign_quiz_stats, name='api_assign_quiz_stats'),
     path('api/assign/<str:room_code>/participants/', views.api_assign_participants, name='api_assign_participants'),
     path('api/assign/<str:room_code>/responses/', views.api_assign_live_responses, name='api_assign_live_responses'),
 
-    # Add these URL patterns to the existing urlpatterns list in admin_dashboard/urls.py
+    # Who Is Lying Game Management
+    path('who/', views.who_management, name='who_management'),
+    path('who/create/', views.create_who_quiz, name='create_who_quiz'),
+    path('who/create-custom/', views.create_who_custom_quiz, name='create_who_custom_quiz'),
+    path('who/update-custom/', views.update_who_custom_quiz, name='update_who_custom_quiz'),
+    path('who/add-question/', views.add_who_question, name='add_who_question'),
+    path('who/update-question/', views.update_who_question, name='update_who_question'),
+    path('who/question/<int:question_id>/', views.get_who_question_detail, name='get_who_question_detail'),
+    path('who/delete-question/', views.delete_who_question, name='delete_who_question'),
+    path('who/end/', views.end_who_quiz, name='end_who_quiz'),
+    path('who/<str:room_code>/monitor/', views.who_monitor, name='who_monitor'),
+    path('who/<str:room_code>/start/', views.start_who_quiz, name='start_who_quiz'),
+    path('who/<str:room_code>/end/', views.end_who_quiz_by_room_code, name='end_who_quiz_by_room_code'),
+    path('who/<str:room_code>/send-question/', views.send_who_question, name='send_who_question'),
+    path('who/<str:room_code>/end-question/', views.end_who_question, name='end_who_question'),
+    path('who/game/<int:quiz_id>/', views.who_game_details, name='who_game_details'),
+    path('who/<int:quiz_id>/selected-questions/', views.get_who_selected_questions, name='get_who_selected_questions'),
+    path('who/delete/', views.delete_who_quiz, name='delete_who_quiz'),
 
-# WHO IS LYING GAME Management
-path('who/', views.who_management, name='who_management'),
-path('who/create/', views.create_who_quiz, name='create_who_quiz'),
-path('who/create-custom/', views.create_who_custom_quiz, name='create_who_custom_quiz'),
-path('who/update-custom/', views.update_who_custom_quiz, name='update_who_custom_quiz'),
-path('who/add-question/', views.add_who_question, name='add_who_question'),
-path('who/update-question/', views.update_who_question, name='update_who_question'),
-path('who/question/<int:question_id>/', views.get_who_question_detail, name='get_who_question_detail'),
-path('who/delete-question/', views.delete_who_question, name='delete_who_question'),
-path('who/end/', views.end_who_quiz, name='end_who_quiz'),
-path('who/<str:room_code>/monitor/', views.who_monitor, name='who_monitor'),
-path('who/<str:room_code>/start/', views.start_who_quiz, name='start_who_quiz'),
-path('who/<str:room_code>/end/', views.end_who_quiz_by_room_code, name='end_who_quiz_by_room_code'),
-path('who/<str:room_code>/send-question/', views.send_who_question, name='send_who_question'),
-path('who/<str:room_code>/end-question/', views.end_who_question, name='end_who_question'),
-path('who/game/<int:quiz_id>/', views.who_game_details, name='who_game_details'),
-path('who/<int:quiz_id>/selected-questions/', views.get_who_selected_questions, name='get_who_selected_questions'),
-path('who/delete/', views.delete_who_quiz, name='delete_who_quiz'),
+    # Who Is Lying API endpoints
+    path('api/who/<str:room_code>/stats/', views.api_who_quiz_stats, name='api_who_quiz_stats'),
+    path('api/who/<str:room_code>/participants/', views.api_who_participants, name='api_who_participants'),
+    path('api/who/<str:room_code>/responses/', views.api_who_live_responses, name='api_who_live_responses'),
+    path('api/who/stats/', views.api_who_stats, name='api_who_stats'),
+    path('api/who/questions/', views.api_who_questions, name='api_who_questions'),
 
-# WHO IS LYING API endpoints  
-path('api/who/<str:room_code>/stats/', views.api_who_quiz_stats, name='api_who_quiz_stats'),
-path('api/who/<str:room_code>/participants/', views.api_who_participants, name='api_who_participants'),
-path('api/who/<str:room_code>/responses/', views.api_who_live_responses, name='api_who_live_responses'),
-path('api/who/stats/', views.api_who_stats, name='api_who_stats'),
-path('api/who/questions/', views.api_who_questions, name='api_who_questions'),
+    # Who Is That Game Management
+    path('who-that/', views.who_that_management, name='who_that_management'),
+    path('who-that/create/', views.create_who_that_quiz, name='create_who_that_quiz'),
+    path('who-that/create-custom/', views.create_who_that_custom_quiz, name='create_who_that_custom_quiz'),
+    path('who-that/update-custom/', views.update_who_that_custom_quiz, name='update_who_that_custom_quiz'),
+    path('who-that/add-question/', views.add_who_that_question, name='add_who_that_question'),
+    path('who-that/update-question/', views.update_who_that_question, name='update_who_that_question'),
+    path('who-that/question/<int:question_id>/', views.get_who_that_question_detail, name='get_who_that_question_detail'),
+    path('who-that/delete-question/', views.delete_who_that_question, name='delete_who_that_question'),
+    path('who-that/end/', views.end_who_that_quiz, name='end_who_that_quiz'),
+    path('who-that/<str:room_code>/monitor/', views.who_that_monitor, name='who_that_monitor'),
+    path('who-that/<str:room_code>/start/', views.start_who_that_quiz, name='start_who_that_quiz'),
+    path('who-that/<str:room_code>/end/', views.end_who_that_quiz_by_room_code, name='end_who_that_quiz_by_room_code'),
+    path('who-that/<str:room_code>/send-question/', views.send_who_that_question, name='send_who_that_question'),
+    path('who-that/<str:room_code>/end-question/', views.end_who_that_question, name='end_who_that_question'),
+    path('who-that/game/<int:quiz_id>/', views.who_that_game_details, name='who_that_game_details'),
+    path('who-that/<int:quiz_id>/selected-questions/', views.get_who_that_selected_questions, name='get_who_that_selected_questions'),
+    path('who-that/delete/', views.delete_who_that_quiz, name='delete_who_that_quiz'),
 
-# Add these URL patterns to the existing urlpatterns list in admin_dashboard/urls.py
+    # Who Is That API endpoints
+    path('api/who-that/<str:room_code>/stats/', views.api_who_that_quiz_stats, name='api_who_that_quiz_stats'),
+    path('api/who-that/<str:room_code>/participants/', views.api_who_that_participants, name='api_who_that_participants'),
+    path('api/who-that/<str:room_code>/responses/', views.api_who_that_live_responses, name='api_who_that_live_responses'),
+    path('api/who-that/stats/', views.api_who_that_stats, name='api_who_that_stats'),
+    path('api/who-that/questions/', views.api_who_that_questions, name='api_who_that_questions'),
 
-# WHO IS THAT GAME Management
-path('who-that/', views.who_that_management, name='who_that_management'),
-path('who-that/create/', views.create_who_that_quiz, name='create_who_that_quiz'),
-path('who-that/create-custom/', views.create_who_that_custom_quiz, name='create_who_that_custom_quiz'),
-path('who-that/update-custom/', views.update_who_that_custom_quiz, name='update_who_that_custom_quiz'),
-path('who-that/add-question/', views.add_who_that_question, name='add_who_that_question'),
-path('who-that/update-question/', views.update_who_that_question, name='update_who_that_question'),
-path('who-that/question/<int:question_id>/', views.get_who_that_question_detail, name='get_who_that_question_detail'),
-path('who-that/delete-question/', views.delete_who_that_question, name='delete_who_that_question'),
-path('who-that/end/', views.end_who_that_quiz, name='end_who_that_quiz'),
-path('who-that/<str:room_code>/monitor/', views.who_that_monitor, name='who_that_monitor'),
-path('who-that/<str:room_code>/start/', views.start_who_that_quiz, name='start_who_that_quiz'),
-path('who-that/<str:room_code>/end/', views.end_who_that_quiz_by_room_code, name='end_who_that_quiz_by_room_code'),
-path('who-that/<str:room_code>/send-question/', views.send_who_that_question, name='send_who_that_question'),
-path('who-that/<str:room_code>/end-question/', views.end_who_that_question, name='end_who_that_question'),
-path('who-that/game/<int:quiz_id>/', views.who_that_game_details, name='who_that_game_details'),
-path('who-that/<int:quiz_id>/selected-questions/', views.get_who_that_selected_questions, name='get_who_that_selected_questions'),
-path('who-that/delete/', views.delete_who_that_quiz, name='delete_who_that_quiz'),
+    # Blackjack Game Management
+    path('blackjack/', views.blackjack_management, name='blackjack_management'),
+    path('blackjack/create/', views.create_blackjack_quiz, name='create_blackjack_quiz'),
+    path('blackjack/create-custom/', views.create_black_jack_custom_quiz, name='create_black_jack_custom_quiz'),
+    path('blackjack/update-custom/', views.update_black_jack_custom_quiz, name='update_black_jack_custom_quiz'),
+    path('blackjack/add-question/', views.add_blackjack_question, name='add_blackjack_question'),
+    path('blackjack/update-question/', views.update_blackjack_question, name='update_blackjack_question'),
+    path('blackjack/question/<int:question_id>/', views.get_blackjack_question_detail, name='get_blackjack_question_detail'),
+    path('blackjack/delete-question/', views.delete_blackjack_question, name='delete_blackjack_question'),
+    path('blackjack/end/', views.end_blackjack_quiz, name='end_blackjack_quiz'),
+    path('blackjack/<str:room_code>/monitor/', views.blackjack_monitor, name='blackjack_monitor'),
+    path('blackjack/<str:room_code>/start/', views.start_blackjack_quiz, name='start_blackjack_quiz'),
+    path('blackjack/<str:room_code>/end/', views.end_blackjack_quiz_by_room_code, name='end_blackjack_quiz_by_room_code'),
+    path('blackjack/<str:room_code>/send-question/', views.send_blackjack_question, name='send_blackjack_question'),
+    path('blackjack/<str:room_code>/end-question/', views.end_blackjack_question, name='end_blackjack_question'),
+    path('blackjack/game/<int:quiz_id>/', views.blackjack_game_details, name='blackjack_game_details'),
+    path('blackjack/<int:quiz_id>/selected-questions/', views.get_blackjack_selected_questions, name='get_blackjack_selected_questions'),
+    path('blackjack/delete/', views.delete_blackjack_quiz, name='delete_blackjack_quiz'),
 
-# WHO IS THAT API endpoints
-path('api/who-that/<str:room_code>/stats/', views.api_who_that_quiz_stats, name='api_who_that_quiz_stats'),
-path('api/who-that/<str:room_code>/participants/', views.api_who_that_participants, name='api_who_that_participants'),
-path('api/who-that/<str:room_code>/responses/', views.api_who_that_live_responses, name='api_who_that_live_responses'),
-path('api/who-that/stats/', views.api_who_that_stats, name='api_who_that_stats'),
-path('api/who-that/questions/', views.api_who_that_questions, name='api_who_that_questions'),
+    # Blackjack API endpoints
+    path('api/blackjack/<str:room_code>/stats/', views.api_blackjack_quiz_stats, name='api_blackjack_quiz_stats'),
+    path('api/blackjack/<str:room_code>/participants/', views.api_blackjack_participants, name='api_blackjack_participants'),
+    path('api/blackjack/<str:room_code>/responses/', views.api_blackjack_live_responses, name='api_blackjack_live_responses'),
+    path('api/blackjack/stats/', views.api_blackjack_stats, name='api_blackjack_stats'),
+    path('api/blackjack/questions/', views.api_blackjack_questions, name='api_blackjack_questions'),
 
-# Add these URL patterns to the existing urlpatterns list in admin_dashboard/urls.py
+    # Clue Rush Game Management
+    path('clue-rush/', views.clue_rush_management, name='clue_rush_management'),
+    path('clue-rush/create/', views.create_clue_rush_game, name='create_clue_rush_game'),
+    path('clue-rush/questions/', views.get_clue_rush_questions, name='get_clue_rush_questions'),
+    path('clue-rush/create-custom/', views.create_clue_rush_custom_game, name='create_clue_rush_custom_game'),
+    path('clue-rush/update-custom/', views.update_clue_rush_custom_game, name='update_clue_rush_custom_game'),
+    path('clue-rush/add-question/', views.add_clue_rush_question, name='add_clue_rush_question'),
+    path('clue-rush/update-question/', views.update_clue_rush_question, name='update_clue_rush_question'),
+    path('clue-rush/question/<int:question_id>/', views.get_clue_rush_question_detail, name='get_clue_rush_question_detail'),
+    path('clue-rush/delete-question/', views.delete_clue_rush_question, name='delete_clue_rush_question'),
+    path('clue-rush/<int:quiz_id>/selected-questions/', views.get_clue_rush_selected_questions, name='get_clue_rush_selected_questions'),
+    path('clue-rush/delete/', views.delete_clue_rush_game, name='delete_clue_rush_game'),
+    path('clue-rush/<str:room_code>/monitor/', views.clue_rush_monitor, name='clue_rush_monitor'),
 
-# BLACKJACK QUIZ Management
-path('blackjack/', views.blackjack_management, name='blackjack_management'),
-path('blackjack/create/', views.create_blackjack_quiz, name='create_blackjack_quiz'),
-path('blackjack/create-custom/', views.create_black_jack_custom_quiz, name='create_black_jack_custom_quiz'),
-path('blackjack/update-custom/', views.update_black_jack_custom_quiz, name='update_black_jack_custom_quiz'),
-path('blackjack/add-question/', views.add_blackjack_question, name='add_blackjack_question'),
-path('blackjack/update-question/', views.update_blackjack_question, name='update_blackjack_question'),
-path('blackjack/question/<int:question_id>/', views.get_blackjack_question_detail, name='get_blackjack_question_detail'),
-path('blackjack/delete-question/', views.delete_blackjack_question, name='delete_blackjack_question'),
-path('blackjack/end/', views.end_blackjack_quiz, name='end_blackjack_quiz'),
-path('blackjack/<str:room_code>/monitor/', views.blackjack_monitor, name='blackjack_monitor'),
-path('blackjack/<str:room_code>/start/', views.start_blackjack_quiz, name='start_blackjack_quiz'),
-path('blackjack/<str:room_code>/end/', views.end_blackjack_quiz_by_room_code, name='end_blackjack_quiz_by_room_code'),
-path('blackjack/<str:room_code>/send-question/', views.send_blackjack_question, name='send_blackjack_question'),
-path('blackjack/<str:room_code>/end-question/', views.end_blackjack_question, name='end_blackjack_question'),
-path('blackjack/game/<int:quiz_id>/', views.blackjack_game_details, name='blackjack_game_details'),
-path('blackjack/<int:quiz_id>/selected-questions/', views.get_blackjack_selected_questions, name='get_blackjack_selected_questions'),
-path('blackjack/delete/', views.delete_blackjack_quiz, name='delete_blackjack_quiz'),
-
-# BLACKJACK API endpoints
-path('api/blackjack/<str:room_code>/stats/', views.api_blackjack_quiz_stats, name='api_blackjack_quiz_stats'),
-path('api/blackjack/<str:room_code>/participants/', views.api_blackjack_participants, name='api_blackjack_participants'),
-path('api/blackjack/<str:room_code>/responses/', views.api_blackjack_live_responses, name='api_blackjack_live_responses'),
-path('api/blackjack/stats/', views.api_blackjack_stats, name='api_blackjack_stats'),
-path('api/blackjack/questions/', views.api_blackjack_questions, name='api_blackjack_questions'),
-
-
-# CLUE RUSH
-path('clue-rush/', views.clue_rush_management, name='clue_rush_management'),
-path('clue-rush/create/', views.create_clue_rush_game, name='create_clue_rush_game'),
-path('clue-rush/questions/', views.get_clue_rush_questions, name='get_clue_rush_questions'),
-path('clue-rush/create-custom/', views.create_clue_rush_custom_game, name='create_clue_rush_custom_game'),
-path('clue-rush/update-custom/', views.update_clue_rush_custom_game, name='update_clue_rush_custom_game'),
-path('clue-rush/add-question/', views.add_clue_rush_question, name='add_clue_rush_question'),
-path('clue-rush/update-question/', views.update_clue_rush_question, name='update_clue_rush_question'),
-path('clue-rush/question/<int:question_id>/', views.get_clue_rush_question_detail, name='get_clue_rush_question_detail'),
-path('clue-rush/delete-question/', views.delete_clue_rush_question, name='delete_clue_rush_question'),
-path('clue-rush/<int:quiz_id>/selected-questions/', views.get_clue_rush_selected_questions, name='get_clue_rush_selected_questions'),
-path('clue-rush/delete/', views.delete_clue_rush_game, name='delete_clue_rush_game'),
-path('clue-rush/<str:room_code>/monitor/', views.clue_rush_monitor, name='clue_rush_monitor'),
-
-# CLUE RUSH API
-path('api/clue-rush/str:room_code/participants/', views.api_clue_rush_participants, name='api_clue_rush_participants'),
-path('api/clue-rush/str:room_code/stats/', views.api_clue_rush_stats, name='api_clue_rush_stats'),
+    # Clue Rush API endpoints
+    path('api/clue-rush/<str:room_code>/participants/', views.api_clue_rush_participants, name='api_clue_rush_participants'),
+    path('api/clue-rush/<str:room_code>/stats/', views.api_clue_rush_stats, name='api_clue_rush_stats'),
 
     # Manual Score Adjustment
     path('api/score/quiz/', views.set_quiz_participant_score, name='set_quiz_participant_score'),

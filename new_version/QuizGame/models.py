@@ -120,7 +120,8 @@ class QuizParticipant(SyncBase):
     questions_answered = models.IntegerField(default=0)
     last_activity = models.DateTimeField(auto_now=True)
     hub_session_code = models.CharField(max_length=16, null=True, blank=True, db_index=True)
-    
+    tutorial_completed = models.BooleanField(default=False)
+
     class Meta:
         unique_together = ['quiz', 'name', 'hub_session_code']
         ordering = ['-total_score', 'name']

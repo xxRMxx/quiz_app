@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, Http404
 from django.db.models import Sum, F, Case, When, Value, IntegerField, Q
 from django.db import connection
-from .models import HubSession, HubParticipant, HubGameStep
+from .models import HubSession, HubParticipant, HubGameStep, GameVote
 from QuizGame.models import Quiz as QuizGameModel, QuizParticipant, QuizQuestion
 from sorting_ladder.models import SortingLadderGame, SortingLadderParticipant, SortingQuestion
 from clue_rush.models import ClueRushGame, ClueRushParticipant
@@ -194,13 +194,6 @@ def get_leaderboard_data(session):
                 game_model, participant_model, _ = GAME_MODELS[game_key]
                 game_data = get_game_participant_data(session, game_model, participant_model, step.room_code, game_key)
 
-                game_weight = (step.order + 1) ** session.games_weight
-                no_of_players = len(game_data)
-                all_player_results = { name: {'rank': rank} for rank, name in enumerate(game_data.keys(), start=1) }
-
-                # perform game_score for each player and add to all_players_rank using the formula game_score = (no_of_players - player rank) * game_weight
-                for name, rank_info in all_player_results.items():
-                    rank_info['game_score'] = round((no_of_players - rank_info['rank']) * game_weight)
                 # Use a per-instance key so multiple steps of same type don't overwrite
                 instance_key = f"{game_key}:{step.room_code}"
 
@@ -217,6 +210,9 @@ def get_leaderboard_data(session):
                     'title': game_title,
                     'type': type_name,
                 }
+
+                # Determine winner score for this game (1 hub point per game win)
+                max_score = max((d['score'] for d in game_data.values()), default=0)
 
                 # Update participants data
                 for name, data in game_data.items():
@@ -237,7 +233,10 @@ def get_leaderboard_data(session):
                     participants_data[name]['game_scores'][instance_key] = data['score']
                     participants_data[name]['game_accuracies'][instance_key] = data['accuracy']
                     participants_data[name]['total_score'] += data['score']
-                    participants_data[name]['weighted_score'] += all_player_results[name]['game_score']
+
+                    # Winner gets 1 hub point; ties share the point; 0 if no one scored
+                    if max_score > 0 and data['score'] == max_score:
+                        participants_data[name]['weighted_score'] += 1
         
         # Apply score adjustments from HubParticipant
         hub_participants = {
@@ -337,12 +336,10 @@ def monitor(request, session_code: str):
         'sorting_ladder': SortingLadderGame.objects.filter(status='waiting', creator=user).values('title', 'room_code'),
     }
 
-    # Build current session leaderboard participants (for right column in monitor)
-    leaderboard = get_leaderboard_data(session)
-    session_players = sorted(
-        leaderboard.get('participants', []), key=lambda x: x.get('total_score', 0), reverse=True
+    # All lobby participants for the right column
+    session_players = list(
+        session.participants.order_by('joined_at').values('id', 'nickname', 'score_adjustment')
     )
-    print(steps)
     from .utils import get_server_ip
     ip = get_server_ip()
     return render(request, 'hub/monitor.html', {
@@ -366,17 +363,21 @@ def add_step_to_session(request, session_code):
 
     game_key = data.get('game_key', '').strip()
     title = data.get('title', '').strip()
+    question_ids = data.get('question_ids', [])
 
     valid_keys = [choice[0] for choice in HubGameStep.GAME_CHOICES]
     if game_key not in valid_keys:
-        return JsonResponse({'error': 'Ungültiger Spieltyp'}, status=400)
+        return JsonResponse({'error': 'Invalid game type'}, status=400)
 
     next_order = (session.steps.aggregate(Max('order'))['order__max'] or -1) + 1
     quiz_title = title or f"{session.name or session.code} - {game_key.replace('_', ' ').title()} {next_order + 1}"
-
     room_code = auto_create_game_quiz(game_key, request.user, quiz_title)
     if not room_code:
-        return JsonResponse({'error': 'Spiel konnte nicht erstellt werden'}, status=500)
+        return JsonResponse({'error': 'Game could not be created'}, status=500)
+
+    # Assign selected questions to the newly created quiz
+    if question_ids:
+        _assign_questions_to_quiz(game_key, room_code, question_ids)
 
     step = HubGameStep.objects.create(
         session=session,
@@ -395,6 +396,41 @@ def add_step_to_session(request, session_code):
             'title': step.title,
         }
     })
+
+
+def _assign_questions_to_quiz(game_key: str, room_code: str, question_ids: list):
+    """Assign selected question IDs to a newly created quiz via selected_questions."""
+    from QuizGame.models import QuizQuestion
+    from Assign.models import AssignQuestion
+    from Estimation.models import EstimationQuestion
+    from where_is_this.models import WhereQuestion
+    from who_is_lying.models import WhoQuestion
+    from who_is_that.models import WhoThatQuestion
+    from black_jack_quiz.models import BlackJackQuestion
+    from sorting_ladder.models import SortingQuestion
+    from clue_rush.models import ClueQuestion
+
+    quiz_model_map = {
+        'quiz':           (QuizGameModel,      QuizQuestion),
+        'assign':         (AssignQuiz,         AssignQuestion),
+        'estimation':     (EstimationQuiz,     EstimationQuestion),
+        'where':          (WhereQuiz,          WhereQuestion),
+        'who':            (WhoQuiz,            WhoQuestion),
+        'who_that':       (WhoThatQuiz,        WhoThatQuestion),
+        'blackjack':      (BlackJackQuiz,      BlackJackQuestion),
+        'sorting_ladder': (SortingLadderGame,  SortingQuestion),
+        'clue_rush':      (ClueRushGame,       ClueQuestion),
+    }
+    entry = quiz_model_map.get(game_key)
+    if not entry:
+        return
+    quiz_model, question_model = entry
+    try:
+        quiz = quiz_model.objects.get(room_code=room_code)
+        questions = question_model.objects.filter(id__in=question_ids)
+        quiz.selected_questions.set(questions)
+    except Exception:
+        pass
 
 
 def auto_create_game_quiz(game_key: str, user, title: str):
@@ -430,3 +466,108 @@ def auto_create_game_quiz(game_key: str, user, title: str):
     except Exception:
         return None
     return None
+
+
+@login_required
+def get_available_questions(request, game_key):
+    """Return available questions for a given game type."""
+    from QuizGame.models import QuizQuestion
+    from Assign.models import AssignQuestion
+    from Estimation.models import EstimationQuestion
+    from where_is_this.models import WhereQuestion
+    from who_is_lying.models import WhoQuestion
+    from who_is_that.models import WhoThatQuestion
+    from black_jack_quiz.models import BlackJackQuestion
+    from sorting_ladder.models import SortingQuestion
+    from clue_rush.models import ClueQuestion
+
+    config = {
+        'quiz':           (QuizQuestion,       'question_text'),
+        'assign':         (AssignQuestion,      'question_text'),
+        'estimation':     (EstimationQuestion,  'question_text'),
+        'where':          (WhereQuestion,       'question_text'),
+        'who':            (WhoQuestion,         'statement'),
+        'who_that':       (WhoThatQuestion,     'question_text'),
+        'blackjack':      (BlackJackQuestion,   'question_text'),
+        'sorting_ladder': (SortingQuestion,     'question_text'),
+        'clue_rush':      (ClueQuestion,        'question_text'),
+    }
+    entry = config.get(game_key)
+    if not entry:
+        return JsonResponse({'error': 'Unknown game type'}, status=400)
+
+    model, text_field = entry
+    questions = [
+        {'id': q.id, 'text': getattr(q, text_field, '')}
+        for q in model.objects.all().order_by('id')
+    ]
+    return JsonResponse({'questions': questions})
+
+
+@login_required
+@require_POST
+def reorder_steps(request, session_code):
+    """Reorder game steps. Body: {order: [step_id, step_id, ...]} (list of step PKs in new order)."""
+    try:
+        data = json.loads(request.body)
+        step_ids = data.get('order', [])
+        session = get_object_or_404(HubSession, code=session_code)
+        steps = {s.id: s for s in session.steps.all()}
+        for new_order, step_id in enumerate(step_ids):
+            step = steps.get(int(step_id))
+            if step and step.order != new_order:
+                step.order = new_order
+                step.save(update_fields=['order'])
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_POST
+def submit_vote(request, session_code):
+    """Participant submits a vote for the next game."""
+    try:
+        data = json.loads(request.body)
+        nickname = data.get('nickname', '').strip()
+        step_order = data.get('step_order')
+        if not nickname or step_order is None:
+            return JsonResponse({'success': False, 'error': 'Missing nickname or step_order'}, status=400)
+
+        session = get_object_or_404(HubSession, code=session_code)
+        step = get_object_or_404(HubGameStep, session=session, order=step_order)
+
+        vote, created = GameVote.objects.update_or_create(
+            session=session,
+            participant_nickname=nickname,
+            defaults={'step': step},
+        )
+
+        votes = _get_vote_counts(session)
+        return JsonResponse({'success': True, 'created': created, 'votes': votes})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+def get_votes(request, session_code):
+    """Return current vote counts for a session."""
+    session = get_object_or_404(HubSession, code=session_code)
+    votes = _get_vote_counts(session)
+    return JsonResponse({'votes': votes})
+
+
+def _get_vote_counts(session):
+    """Helper: return list of {step_order, game_key, title, count} sorted by count desc."""
+    from django.db.models import Count
+    steps = session.steps.all()
+    vote_qs = GameVote.objects.filter(session=session).values('step_id').annotate(count=Count('id'))
+    vote_map = {v['step_id']: v['count'] for v in vote_qs}
+    result = []
+    for step in steps:
+        result.append({
+            'step_order': step.order,
+            'game_key': step.game_key,
+            'title': step.title or step.get_game_key_display(),
+            'count': vote_map.get(step.id, 0),
+        })
+    result.sort(key=lambda x: x['count'], reverse=True)
+    return result

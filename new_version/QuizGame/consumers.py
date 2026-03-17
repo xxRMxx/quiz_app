@@ -41,6 +41,8 @@ class QuizConsumer(AsyncWebsocketConsumer):
             print("Quiz Consumer: ", message_type)
             if message_type == 'admin_start_quiz':
                 await self.handle_admin_start_quiz(text_data_json)
+            elif message_type == 'tutorial_completed':
+                await self.handle_tutorial_completed(text_data_json)
             elif message_type == 'admin_send_question':
                 await self.handle_admin_send_question(text_data_json)
             elif message_type == 'admin_end_question':
@@ -65,8 +67,9 @@ class QuizConsumer(AsyncWebsocketConsumer):
         quiz = await self.get_quiz()
         if quiz:
             await self.start_quiz_db(quiz.id)
-            
-            # Broadcast to all participants
+            await self.reset_tutorial_completed(quiz.id)
+
+            # Broadcast quiz started + tutorial to all participants
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -74,6 +77,34 @@ class QuizConsumer(AsyncWebsocketConsumer):
                     'message': 'Quiz has started!'
                 }
             )
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'tutorial_start',
+                    'message': 'Tutorial gestartet'
+                }
+            )
+
+    async def handle_tutorial_completed(self, data):
+        """Handle participant completing the tutorial"""
+        participant_name = data.get('participant_name')
+        hub_session = data.get('hub_session')
+        await self.mark_tutorial_completed(participant_name, hub_session)
+
+        quiz = await self.get_quiz()
+        if not quiz:
+            return
+
+        completed, total = await self.get_tutorial_progress(quiz.id, hub_session)
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'tutorial_progress',
+                'completed': completed,
+                'total': total,
+                'all_done': completed >= total and total > 0
+            }
+        )
 
     async def handle_admin_send_question(self, data):
         """Handle admin sending a new question"""
@@ -259,6 +290,13 @@ class QuizConsumer(AsyncWebsocketConsumer):
                     'type': 'quiz_started',
                     'message': 'Quiz is already in progress'
                 }))
+                # If there is an active question, send it so the participant doesn't miss it
+                current_question_data = await self.get_current_question_data()
+                if current_question_data:
+                    await self.send(text_data=json.dumps({
+                        'type': 'question_started',
+                        'question': current_question_data
+                    }))
 
     async def handle_ping(self):
         """Handle ping for keeping connection alive"""
@@ -311,7 +349,46 @@ class QuizConsumer(AsyncWebsocketConsumer):
             'participant': event['participant']
         }))
 
+    async def tutorial_start(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'tutorial_start',
+            'message': event['message']
+        }))
+
+    async def tutorial_progress(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'tutorial_progress',
+            'completed': event['completed'],
+            'total': event['total'],
+            'all_done': event['all_done']
+        }))
+
     # Database operations
+    @database_sync_to_async
+    def get_current_question_data(self):
+        """Return serialised question data for the currently active question, or None."""
+        try:
+            quiz = Quiz.objects.select_related('current_question').get(room_code=self.room_code)
+            q = quiz.current_question
+            if not q:
+                return None
+            if q.question_type == 'multiple_choice':
+                options = [{'key': k, 'text': t} for k, t in q.get_options()]
+            elif q.question_type == 'true_false':
+                options = [{'key': 'True', 'text': 'True'}, {'key': 'False', 'text': 'False'}]
+            else:
+                options = []
+            return {
+                'id': q.id,
+                'question_text': q.question_text,
+                'question_type': q.question_type,
+                'options': options,
+                'time_limit': q.time_limit,
+                'points': q.points,
+            }
+        except Quiz.DoesNotExist:
+            return None
+
     @database_sync_to_async
     def get_quiz(self):
         try:
@@ -354,6 +431,29 @@ class QuizConsumer(AsyncWebsocketConsumer):
             }
         except (Quiz.DoesNotExist, QuizParticipant.DoesNotExist):
             return None
+
+    @database_sync_to_async
+    def reset_tutorial_completed(self, quiz_id):
+        QuizParticipant.objects.filter(quiz_id=quiz_id).update(tutorial_completed=False)
+
+    @database_sync_to_async
+    def mark_tutorial_completed(self, participant_name, hub_session_code):
+        try:
+            quiz = Quiz.objects.get(room_code=self.room_code)
+            participant = quiz.participants.get(name=participant_name, hub_session_code=hub_session_code)
+            participant.tutorial_completed = True
+            participant.save(update_fields=['tutorial_completed'])
+        except (Quiz.DoesNotExist, QuizParticipant.DoesNotExist):
+            pass
+
+    @database_sync_to_async
+    def get_tutorial_progress(self, quiz_id, hub_session_code):
+        qs = QuizParticipant.objects.filter(quiz_id=quiz_id, is_active=True)
+        if hub_session_code:
+            qs = qs.filter(hub_session_code=hub_session_code)
+        total = qs.count()
+        completed = qs.filter(tutorial_completed=True).count()
+        return completed, total
 
     @database_sync_to_async
     def start_quiz_db(self, quiz_id):

@@ -3,296 +3,112 @@
 {% block title %}Who is That Game Management - QuizMaster Admin{% endblock %}
 
 {% block page_title %}Who is That Game Management{% endblock %}
-{% block page_subtitle %}Create photo identification questions, manage quizzes, and monitor live sessions{% endblock %}
+{% block page_subtitle %}Add, edit and delete questions{% endblock %}
 
 {% block content %}
 <div class="who-that-management-content">
-    <!-- Action Cards -->
-    <div class="row g-4 mb-5">
-        <div class="col-lg-4">
-            <div class="action-card">
-                <div class="action-card-body">
-                    <div class="action-icon bg-secondary">
-                        <i data-lucide="plus-circle"></i>
-                    </div>
-                    <h3>Create a Quiz</h3>
-                    <p>Start a new live "Who is That?" quiz session that participants can join with a unique room code.</p>
-                    <!-- <button class="btn btn-secondary" id="createQuizBtn">
-                        <i data-lucide="camera"></i>
-                        Create New Quiz
-                    </button> -->
-                     <button class="btn btn-primary mt-2" id="openCreateCustomQuizModal" data-bs-toggle="modal" data-bs-target="#createCustomQuizModal">
-                        <i data-lucide="layers"></i>
-                        Create Custom Quiz
-                    </button>
-                </div>
-            </div>
-        </div>
 
-        <div class="col-lg-4">
-            <div class="action-card">
-                <div class="action-card-body">
-                    <div class="action-icon bg-primary">
-                        <i data-lucide="image"></i>
-                    </div>
-                    <h3>Add Question</h3>
-                    <p>Create new photo identification questions. Upload images and set correct answers for engaging sessions.</p>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addQuestionModal">
-                        <i data-lucide="plus"></i>
-                        Add New Question
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4">
-            <div class="action-card">
-                <div class="action-card-body">
-                    <div class="action-icon bg-success">
-                        <i data-lucide="database"></i>
-                    </div>
-                    <h3>Question Bank</h3>
-                    <p>View and manage all available photo questions. Currently {{ total_questions }} questions available.</p>
-                    <button class="btn btn-success" id="viewQuestionsBtn" data-bs-toggle="modal" data-bs-target="#viewQuestionsModal">
-                        <i data-lucide="list"></i>
-                        View Questions ({{ total_questions }})
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-        <!-- Created Quizzes Section -->
-    <div class="card">
-        <div class="card-header">
-            <h5 class="card-title mb-0">
-                <i data-lucide="history"></i>
-                Created Quizzes
+    <!-- Inline Question Form Card -->
+    <div class="card mb-4" id="questionFormCard">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0" id="questionFormTitle">
+                <i data-lucide="image"></i>
+                Add New Question
             </h5>
+            <button type="button" class="btn btn-outline btn-sm" id="resetFormBtn">
+                <i data-lucide="rotate-ccw"></i>
+                Reset
+            </button>
         </div>
         <div class="card-body">
-            {% if quizzes %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th class="text-center">Title</th>
-                                <th class="text-center">Questions</th>
-                                <th class="text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for quiz in quizzes %}
-                            <tr data-quiz-row="{{ quiz.id }}">
-                                <td class="text-center">{{ quiz.title }}</td>
-                                <td class="text-center">{{ quiz.selected_questions.count }}</td>
-                                <td>
-                                    <div class="action-buttons">
-                                        <button class="btn btn-sm btn-outline-primary show-quiz-questions-btn" data-quiz-id="{{ quiz.id }}" data-quiz-title="{{ quiz.title }}">
-                                            <i data-lucide="list"></i>
-                                            Show Questions
-                                        </button>
-                                        <button class="btn btn-sm btn-danger delete-quiz-btn" data-quiz-id="{{ quiz.id }}">
-                                            <i data-lucide="trash"></i>
-                                            Delete Quiz
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="empty-state">
-                    <i data-lucide="inbox"></i>
-                    <h4>No Quizzes Yet</h4>
-                    <p>Create your first quiz to get started!</p>
-                    <button class="btn btn-primary mt-2" id="openCreateCustomQuizModal" data-bs-toggle="modal" data-bs-target="#createCustomQuizModal">
-                        <i data-lucide="layers"></i>
-                        Create Custom Quiz
-                    </button>
-                </div>
-            {% endif %}
-        </div>
-    </div>
-    <!-- Recent Games Section -->
-    <!-- <div class="card">
-        <div class="card-header">
-            <h5 class="card-title mb-0">
-                <i data-lucide="history"></i>
-                Recent Games
-            </h5>
-        </div>
-        <div class="card-body">
-            {% if recent_games %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Room Code</th>
-                                <th>Participants</th>
-                                <th>Questions</th>
-                                <th>Avg. Score</th>
-                                <th>Avg. Accuracy</th>
-                                <th>Completed</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for game in recent_games %}
-                            <tr>
-                                <td>
-                                    <div class="room-code-display">
-                                        <strong>{{ game.room_code }}</strong>
-                                    </div>
-                                </td>
-                                <td>
-                                    <strong class="participant-count">{{ game.get_participant_count }}</strong>
-                                </td>
-                                <td>
-                                    <span class="question-count">{{ game.session.total_questions_sent|default:0 }}</span>
-                                </td>
-                                <td>
-                                    <strong class="score-value">
-                                        {% if game.participants.all %}
-                                            {% with participants=game.participants.all %}
-                                                {{ participants|length|default:0 }}
-                                            {% endwith %}
-                                        {% else %}
-                                            0
-                                        {% endif %}
-                                    </strong>
-                                </td>
-                                <td>
-                                    <div class="accuracy-display">
-                                        {{ average_accuracy|default:0 }}%
-                                    </div>
-                                </td>
-                                <td>{{ game.ended_at|date:"M d, H:i" }}</td>
-                                <td>
-                                    <a href="{% url 'admin_dashboard:who_that_game_details' game.id %}" 
-                                       class="btn btn-sm btn-outline">
-                                        <i data-lucide="eye"></i>
-                                        Details
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="empty-state">
-                    <i data-lucide="inbox"></i>
-                    <h4>No Games Yet</h4>
-                    <p>Games will appear here once players start playing!</p>
-                </div>
-            {% endif %}
-        </div>
-    </div> -->
-</div>
-
-<!-- Add Question Modal -->
-<div class="modal fade" id="addQuestionModal" tabindex="-1" aria-labelledby="addQuestionModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addQuestionModalLabel">
-                    <i data-lucide="image"></i>
-                    Add New Photo Question
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
             <form id="addQuestionForm" enctype="multipart/form-data">
+                {% csrf_token %}
                 <input type="hidden" id="questionId" name="question_id" />
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-lg-6">
-                            <div class="form-section">
-                                <label for="questionText" class="form-label">Question Text</label>
-                                <input type="text" class="form-control" id="questionText" name="question_text" 
-                                       placeholder="Who is this person?" value="Who is this person?">
-                            </div>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="form-section">
+                            <label for="questionText" class="form-label">Question Text</label>
+                            <input type="text" class="form-control" id="questionText" name="question_text"
+                                   placeholder="Who is this person?" value="Who is this person?">
+                        </div>
 
-                            <div class="form-section">
-                                <label for="imageUpload" class="form-label">Person Image *</label>
-                                <input type="file" class="form-control" id="imageUpload" name="image" 
-                                       accept="image/*" required>
-                                <div class="form-text">Upload a clear photo of the person to be identified</div>
-                                <div id="imagePreviewContainer" style="display:none; margin-top: 10px;">
-                                    <img id="imagePreview" src="" alt="Image preview" style="max-width: 100%; height: auto; border:1px solid var(--border-color); border-radius: var(--border-radius);" />
-                                </div>
-                            </div>
-
-                            <div class="form-section">
-                                <label for="correctAnswer" class="form-label">Correct Answer *</label>
-                                <input type="text" class="form-control" id="correctAnswer" name="correct_answer" 
-                                       placeholder="e.g., Albert Einstein" required>
-                            </div>
-
-                            <div class="form-section">
-                                <label for="alternativeAnswers" class="form-label">Alternative Answers</label>
-                                <textarea class="form-control" id="alternativeAnswers" name="alternative_answers" rows="3" 
-                                          placeholder="Einstein, A. Einstein, Prof Einstein (one per line or comma-separated)"></textarea>
-                                <div class="form-text">Alternative correct spellings or names (optional)</div>
+                        <div class="form-section">
+                            <label for="imageUpload" class="form-label">Person Image *</label>
+                            <input type="file" class="form-control" id="imageUpload" name="image"
+                                   accept="image/*" required>
+                            <div class="form-text">Upload a clear photo of the person to be identified</div>
+                            <div id="imagePreviewContainer" style="display:none; margin-top: 10px;">
+                                <img id="imagePreview" src="" alt="Image preview" style="max-width: 100%; height: auto; border:1px solid var(--border-color); border-radius: var(--border-radius);" />
                             </div>
                         </div>
 
-                        <div class="col-lg-6">
-                            <div class="row">
-                                <div class="col-6">
-                                    <div class="form-section">
-                                        <label for="difficulty" class="form-label">Difficulty</label>
-                                        <select class="form-control" id="difficulty" name="difficulty">
-                                            <option value="easy">Easy</option>
-                                            <option value="medium" selected>Medium</option>
-                                            <option value="hard">Hard</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="form-section">
-                                        <label for="category" class="form-label">Category</label>
-                                        <input type="text" class="form-control" id="category" name="category" 
-                                               placeholder="e.g., Actor, Politician, Scientist">
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="form-section">
+                            <label for="correctAnswer" class="form-label">Correct Answer *</label>
+                            <input type="text" class="form-control" id="correctAnswer" name="correct_answer"
+                                   placeholder="e.g., Albert Einstein" required>
+                        </div>
 
-                            <div class="row">
-                                <div class="col-6">
-                                    <div class="form-section">
-                                        <label for="points" class="form-label">Points</label>
-                                        <input type="number" class="form-control" id="points" name="points" 
-                                               value="100" min="1" max="1000" required>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="form-section">
-                                        <label for="timeLimit" class="form-label">Time Limit (sec)</label>
-                                        <input type="number" class="form-control" id="timeLimit" name="time_limit" 
-                                               value="30" min="10" max="180" required>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="form-section">
+                            <label for="alternativeAnswers" class="form-label">Alternative Answers</label>
+                            <textarea class="form-control" id="alternativeAnswers" name="alternative_answers" rows="3"
+                                      placeholder="Einstein, A. Einstein, Prof Einstein (one per line or comma-separated)"></textarea>
+                            <div class="form-text">Alternative correct spellings or names (optional)</div>
+                        </div>
+                    </div>
 
-                            <div class="form-section">
-                                <label for="hintText" class="form-label">Hint Text (Optional)</label>
-                                <textarea class="form-control" id="hintText" name="hint_text" rows="2" 
-                                          placeholder="Optional hint to help participants"></textarea>
+                    <div class="col-lg-6">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-section">
+                                    <label for="difficulty" class="form-label">Difficulty</label>
+                                    <select class="form-control" id="difficulty" name="difficulty">
+                                        <option value="easy">Easy</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="hard">Hard</option>
+                                    </select>
+                                </div>
                             </div>
+                            <div class="col-6">
+                                <div class="form-section">
+                                    <label for="category" class="form-label">Category</label>
+                                    <input type="text" class="form-control" id="category" name="category"
+                                           placeholder="e.g., Actor, Politician, Scientist">
+                                </div>
+                            </div>
+                        </div>
 
-                            <div class="form-section">
-                                <label for="explanation" class="form-label">Explanation (Optional)</label>
-                                <textarea class="form-control" id="explanation" name="explanation" rows="3" 
-                                          placeholder="Optional explanation shown after answering"></textarea>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-section">
+                                    <label for="points" class="form-label">Points</label>
+                                    <input type="number" class="form-control" id="points" name="points"
+                                           value="100" min="1" max="1000" required>
+                                </div>
                             </div>
+                            <div class="col-6">
+                                <div class="form-section">
+                                    <label for="timeLimit" class="form-label">Time Limit (sec)</label>
+                                    <input type="number" class="form-control" id="timeLimit" name="time_limit"
+                                           value="30" min="10" max="180" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <label for="hintText" class="form-label">Hint Text (Optional)</label>
+                            <textarea class="form-control" id="hintText" name="hint_text" rows="2"
+                                      placeholder="Optional hint to help participants"></textarea>
+                        </div>
+
+                        <div class="form-section">
+                            <label for="explanation" class="form-label">Explanation (Optional)</label>
+                            <textarea class="form-control" id="explanation" name="explanation" rows="3"
+                                      placeholder="Optional explanation shown after answering"></textarea>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" data-bs-dismiss="modal">Cancel</button>
+
+                <div class="d-flex justify-content-end gap-2 mt-3">
                     <button type="submit" class="btn btn-primary" id="submitQuestionBtn" data-mode="add">
                         <i data-lucide="plus"></i>
                         Add Question
@@ -301,6 +117,46 @@
             </form>
         </div>
     </div>
+
+    <!-- Questions Bank Card -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i data-lucide="database"></i>
+                Question Bank
+                <span class="badge bg-secondary ms-2" id="questionCountBadge">{{ total_questions }}</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Question</th>
+                            <th>Answer</th>
+                            <th>Difficulty</th>
+                            <th>Points</th>
+                            <th>Time Limit (s)</th>
+                            <th>Has Image</th>
+                            <th>Category</th>
+
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="questionsTableBody">
+                        <!-- Questions loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="text-muted" id="questionCount">Loading questions...</div>
+                <nav>
+                    <ul class="pagination mb-0" id="pagination"></ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <!-- Create Custom Quiz Modal -->
@@ -319,10 +175,6 @@
                     <div class="col-md-6">
                         <input type="text" class="form-control" id="customQuizTitle" placeholder="Enter quiz name" value="Custom Quiz">
                     </div>
-                    <!-- <div class="col-md-6 d-flex gap-2">
-                        <input type="text" class="form-control" id="customQuizSearch" placeholder="Search questions">
-                        <button class="btn btn-outline" type="button" id="customQuizSearchBtn">Search</button>
-                    </div> -->
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover">
@@ -355,7 +207,7 @@
     </div>
 </div>
 
-<!-- Who's That: Quiz-specific Questions Modal -->
+<!-- Quiz-specific Questions Modal -->
 <div class="modal fade" id="quizQuestionsModal" tabindex="-1" aria-labelledby="quizQuestionsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
@@ -373,7 +225,7 @@
                                 <th>Points</th>
                                 <th>Time Limit (s)</th>
                                 <th>Created</th>
-                                <th>Status</th>
+    
                             </tr>
                         </thead>
                         <tbody id="quizQuestionsTableBody"></tbody>
@@ -388,294 +240,47 @@
             </div>
         </div>
     </div>
-    
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteQuestionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Question</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this question? This action cannot be undone.</p>
+                <p class="text-danger"><strong>Note:</strong> If this question has been used in any games, it will be deactivated instead of deleted.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete Question</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <style>
 .who-that-management-content {
     /*max-width: 1400px;*/
 }
 
-/* Action Cards */
-.action-card {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-xl);
-    box-shadow: var(--shadow-sm);
-    transition: all var(--transition-fast);
-    height: 100%;
-}
-
-.action-card:hover {
-    box-shadow: var(--shadow-lg);
-    transform: translateY(-4px);
-}
-
-.action-card-body {
-    padding: 2rem;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.action-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 1.5rem;
-    color: var(--text-white);
-}
-
-.action-icon.bg-primary {
-    background: linear-gradient(135deg, var(--primary-400) 0%, var(--primary-600) 100%);
-}
-
-.action-icon.bg-secondary {
-    background: linear-gradient(135deg, var(--secondary-400) 0%, var(--secondary-600) 100%);
-}
-
-.action-icon.bg-success {
-    background: linear-gradient(135deg, var(--success-400) 0%, var(--success-600) 100%);
-}
-
-.action-card h3 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-}
-
-.action-card p {
-    color: var(--text-secondary);
+.form-section {
     margin-bottom: 1.5rem;
-    flex: 1;
 }
 
-/* Stat Cards */
-.stat-card {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-lg);
-    box-shadow: var(--shadow-sm);
-    transition: all var(--transition-fast);
-}
-
-.stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.stat-card-body {
-    padding: 1.5rem;
-    text-align: center;
-}
-
-.stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 1rem;
-    color: var(--text-white);
-}
-
-.stat-card h4 {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 0.5rem;
-}
-
-.stat-card p {
-    color: var(--text-secondary);
-    font-weight: 500;
-    margin: 0;
-}
-
-/* Difficulty Stats */
-.difficulty-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.difficulty-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.difficulty-label {
-    width: 60px;
-    font-weight: 500;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-}
-
-.difficulty-bar {
-    flex: 1;
-    height: 24px;
-    background-color: var(--bg-secondary);
-    border-radius: var(--border-radius);
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.difficulty-progress {
-    height: 100%;
-    border-radius: var(--border-radius);
-    min-width: 20px;
-    transition: width 0.3s ease;
-}
-
-.difficulty-count {
-    position: absolute;
-    right: 8px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-/* Questions List */
-.questions-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.question-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    background-color: var(--bg-secondary);
-    border-radius: var(--border-radius);
-    border: 1px solid var(--border-color);
-    transition: all var(--transition-fast);
-}
-
-.question-item:hover {
-    border-color: var(--color-secondary);
-    background-color: var(--bg-tertiary);
-}
-
-.question-image {
-    width: 60px;
-    height: 60px;
-    flex-shrink: 0;
-}
-
-.question-thumbnail {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: var(--border-radius);
-    border: 2px solid var(--border-color);
-}
-
-.no-image-placeholder {
-    width: 100%;
-    height: 100%;
-    background-color: var(--bg-tertiary);
-    border: 2px solid var(--border-color);
-    border-radius: var(--border-radius);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-}
-
-.no-image-placeholder i {
-    width: 24px;
-    height: 24px;
-}
-
-.question-content {
-    flex: 1;
-}
-
-.question-text {
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-}
-
-.question-answer {
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-}
-
-.question-answer strong {
-    color: var(--color-success);
-}
-
-.question-meta {
+/* Action Buttons */
+.action-buttons {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
 }
 
-.badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: var(--border-radius-sm);
-    font-size: 0.75rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.badge-easy {
-    background-color: var(--success-100);
-    color: var(--success-700);
-}
-
-.badge-medium {
-    background-color: var(--warning-100);
-    color: var(--warning-700);
-}
-
-.badge-hard {
-    background-color: var(--error-100);
-    color: var(--error-700);
-}
-
-.category-badge, .points-badge, .time-badge {
-    background-color: var(--secondary-100);
-    color: var(--secondary-700);
-    padding: 0.25rem 0.5rem;
-    border-radius: var(--border-radius-sm);
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-.question-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-/* Table Styles */
-.room-code-display strong {
-    font-family: var(--font-family-mono);
-    color: var(--color-primary);
-}
-
-.participant-count,
-.score-value {
-    color: var(--color-success);
-    font-size: 1.125rem;
-}
-
-.accuracy-display {
-    color: var(--color-primary);
-    font-weight: 600;
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
 }
 
 /* Empty State */
@@ -696,41 +301,6 @@
 .empty-state h4 {
     color: var(--text-primary);
     margin-bottom: 0.5rem;
-}
-
-.form-section {
-    margin-bottom: 1.5rem;
-}
-
-/* Modal Styles */
-.modal-content {
-    border: none;
-    box-shadow: var(--shadow-xl);
-    border-radius: var(--border-radius-lg);
-}
-
-.modal-header {
-    background-color: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
-    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
-}
-
-.modal-title {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 600;
-}
-
-.modal-title i {
-    width: 20px;
-    height: 20px;
-    color: var(--color-secondary);
-}
-
-.form-label {
-    font-weight: 500;
-    color: var(--text-primary);
 }
 
 /* Loading states */
@@ -759,28 +329,7 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
-    .action-card-body, .stat-card-body {
-        padding: 1.5rem;
-    }
-    
-    .action-icon, .stat-icon {
-        width: 50px;
-        height: 50px;
-        margin-bottom: 1rem;
-    }
-    
-    .question-item {
-        flex-direction: column;
-        text-align: center;
-        gap: 1rem;
-    }
-    
-    .question-meta {
-        justify-content: center;
-    }
-    
     .modal-dialog.modal-lg {
         margin: 1rem;
         max-width: calc(100% - 2rem);
@@ -789,100 +338,298 @@
 </style>
 
 <script>
-    function showNotification(message, type = 'info') {
-        const notification = document.createElement('div');
-        notification.className = `alert alert-${type} notification-toast`;
-        notification.textContent = message;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            min-width: 250px;
-            opacity: 0;
-            transform: translateX(100%);
-            transition: all 0.3s ease;
-        `;
-        
-        document.body.appendChild(notification);
-        
-        // Animate in
-        setTimeout(() => {
-            notification.style.opacity = '1';
-            notification.style.transform = 'translateX(0)';
-        }, 100);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            notification.style.transform = 'translateX(100%)';
-            setTimeout(() => {
-                notification.remove();
-            }, 300);
-        }, 3000);
-    }
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} notification-toast`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 250px;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => {
+        notification.style.opacity = '1';
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(100%)';
+        setTimeout(() => { notification.remove(); }, 300);
+    }, 3000);
+}
 
-        // Modal mode helpers for Add/Edit
-    function setQuestionModalMode(mode) {
-        const title = document.getElementById('addQuestionModalLabel');
-        const submitBtn = document.getElementById('submitQuestionBtn');
-        const imageInput = document.getElementById('imageUpload');
-        if (mode === 'edit') {
-            title.innerHTML = '<i data-lucide="image"></i> Edit Photo Question';
-            submitBtn.innerHTML = '<i data-lucide="save"></i> Save Changes';
-            submitBtn.dataset.mode = 'edit';
-            // Image not required when editing (can keep existing)
-            imageInput.removeAttribute('required');
-        } else {
-            title.innerHTML = '<i data-lucide="image"></i> Add New Photo Question';
-            submitBtn.innerHTML = '<i data-lucide="plus"></i> Add Question';
-            submitBtn.dataset.mode = 'add';
-            document.getElementById('questionId').value = '';
-            document.getElementById('addQuestionForm').reset();
-            clearImagePreview();
-            imageInput.setAttribute('required', 'required');
-        }
-        lucide.createIcons();
-    }
-
-        // Image preview handlers
-    const imageInputEl = document.getElementById('imageUpload');
-    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
-    const imagePreview = document.getElementById('imagePreview');
-    function clearImagePreview() {
-        if (!imagePreviewContainer) return;
-        imagePreviewContainer.style.display = 'none';
-        imagePreview.src = '';
-    }
-    function setImagePreviewFromUrl(url) {
-        if (!imagePreviewContainer) return;
-        if (url) {
-            imagePreview.src = url;
-            imagePreviewContainer.style.display = 'block';
-        } else {
-            clearImagePreview();
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
         }
     }
+    return cookieValue;
+}
+
+// Image preview helpers
+const imageInputEl = document.getElementById('imageUpload');
+const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+const imagePreview = document.getElementById('imagePreview');
+
+function clearImagePreview() {
+    if (!imagePreviewContainer) return;
+    imagePreviewContainer.style.display = 'none';
+    imagePreview.src = '';
+}
+
+function setImagePreviewFromUrl(url) {
+    if (!imagePreviewContainer) return;
+    if (url) {
+        imagePreview.src = url;
+        imagePreviewContainer.style.display = 'block';
+    } else {
+        clearImagePreview();
+    }
+}
+
+function setFormMode(mode) {
+    const title = document.getElementById('questionFormTitle');
+    const submitBtn = document.getElementById('submitQuestionBtn');
+    const imageInput = document.getElementById('imageUpload');
+    if (mode === 'edit') {
+        title.innerHTML = '<i data-lucide="image"></i> Edit Question';
+        submitBtn.innerHTML = '<i data-lucide="save"></i> Save Changes';
+        submitBtn.dataset.mode = 'edit';
+        imageInput.removeAttribute('required');
+    } else {
+        title.innerHTML = '<i data-lucide="image"></i> Add New Question';
+        submitBtn.innerHTML = '<i data-lucide="plus"></i> Add Question';
+        submitBtn.dataset.mode = 'add';
+        document.getElementById('questionId').value = '';
+        document.getElementById('addQuestionForm').reset();
+        clearImagePreview();
+        imageInput.setAttribute('required', 'required');
+    }
+    lucide.createIcons();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Lucide icons
     lucide.createIcons();
 
-    // View Questions Modal
-    const viewQuestionsModal = document.getElementById('quizQuestionsModal');
-    const questionsTableBody = document.getElementById('questionsTableBody'); // bank table body
-    const questionCount = document.getElementById('questionCount'); // bank count
-    const pagination = document.getElementById('pagination'); // bank pagination
-    // Quiz-specific modal elements (repurposed to use Custom Quiz modal in edit mode)
-    const quizQuestionsModal = document.getElementById('quizQuestionsModal');
-    const quizQuestionsTableBody = document.getElementById('quizQuestionsTableBody');
-    const quizQuestionCount = document.getElementById('quizQuestionCount');
+    // Bank table elements
+    const questionsTableBody = document.getElementById('questionsTableBody');
+    const questionCount = document.getElementById('questionCount');
+    const questionCountBadge = document.getElementById('questionCountBadge');
+    const pagination = document.getElementById('pagination');
 
-    // Edit state for WHO-THAT
+    // Edit state
     let whoThatEditMode = false;
     let whoThatSelectedIds = new Set();
     let whoThatCurrentQuizId = null;
 
-    // Show questions -> open Custom Quiz modal in edit mode
+    // Image file input preview
+    imageInputEl?.addEventListener('change', function() {
+        const file = this.files && this.files[0];
+        if (!file) { clearImagePreview(); return; }
+        const reader = new FileReader();
+        reader.onload = e => { setImagePreviewFromUrl(e.target.result); };
+        reader.readAsDataURL(file);
+    });
+
+    // Reset button
+    document.getElementById('resetFormBtn').addEventListener('click', function() {
+        setFormMode('add');
+    });
+
+    // Load bank questions on page load
+    loadBankQuestions(1);
+
+    function loadBankQuestions(page) {
+        fetch('{% url "admin_dashboard:get_who_that_questions" %}?page=' + page, {
+            method: 'GET',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        })
+        .then(response => response.json())
+        .then(data => {
+            questionsTableBody.innerHTML = '';
+            questionCount.textContent = `Showing ${data.count} questions`;
+            if (questionCountBadge) questionCountBadge.textContent = data.count;
+
+            data.questions.forEach(question => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${question.question_text}</td>
+                    <td>${question.correct_answer}</td>
+                    <td>${question.difficulty}</td>
+                    <td>${question.points}</td>
+                    <td>${question.time_limit}</td>
+                    <td>${question.has_image ? 'Yes' : 'No'}</td>
+                    <td>${question.category}</td>
+
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary edit-question-btn" data-question-id="${question.id}">
+                            <i data-lucide="edit-2"></i> Edit
+                        </button>
+                        <button class="btn btn-sm btn-danger delete-question-btn" data-question-id="${question.id}">
+                            <i data-lucide="trash-2"></i> Delete
+                        </button>
+                    </td>
+                `;
+                questionsTableBody.appendChild(row);
+            });
+            lucide.createIcons();
+
+            pagination.innerHTML = '';
+            for (let i = 1; i <= data.pages; i++) {
+                const pageItem = document.createElement('li');
+                pageItem.className = `page-item ${i === page ? 'active' : ''}`;
+                pageItem.innerHTML = `<button class="page-link">${i}</button>`;
+                pageItem.addEventListener('click', () => loadBankQuestions(i));
+                pagination.appendChild(pageItem);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading questions. Please try again.');
+        });
+    }
+
+    // Edit button handler (inline)
+    questionsTableBody.addEventListener('click', function(e) {
+        const btn = e.target.closest('.edit-question-btn');
+        if (!btn) return;
+        const qid = btn.getAttribute('data-question-id');
+        if (!qid) return;
+
+        fetch(`{% url 'admin_dashboard:get_who_that_question_detail' 0 %}`.replace('/0/', `/${qid}/`), {
+            method: 'GET',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        })
+        .then(r => r.json())
+        .then(({success, question, error}) => {
+            if (!success) throw new Error(error || 'Failed to load question.');
+
+            document.getElementById('questionId').value = question.id;
+            document.getElementById('questionText').value = question.question_text || '';
+            document.getElementById('correctAnswer').value = question.correct_answer || '';
+            document.getElementById('alternativeAnswers').value = question.alternative_answers || '';
+            document.getElementById('difficulty').value = question.difficulty || 'medium';
+            document.getElementById('points').value = question.points;
+            document.getElementById('timeLimit').value = question.time_limit;
+            document.getElementById('hintText').value = question.hint_text || '';
+            document.getElementById('explanation').value = question.explanation || '';
+            document.getElementById('category').value = question.category || '';
+
+            setImagePreviewFromUrl(question.image);
+            setFormMode('edit');
+            lucide.createIcons();
+
+            document.getElementById('questionFormCard').scrollIntoView({ behavior: 'smooth' });
+        })
+        .catch(err => {
+            console.error(err);
+            showNotification(err.message || 'Failed to load question.', 'danger');
+        });
+    });
+
+    // Delete button handler — open confirm modal
+    questionsTableBody.addEventListener('click', function(e) {
+        const btn = e.target.closest('.delete-question-btn');
+        if (!btn) return;
+        const questionId = btn.getAttribute('data-question-id');
+        document.getElementById('deleteQuestionModal').dataset.questionId = questionId;
+        const modal = new bootstrap.Modal(document.getElementById('deleteQuestionModal'));
+        modal.show();
+    });
+
+    // Confirm delete
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        const questionId = document.getElementById('deleteQuestionModal').dataset.questionId;
+        fetch('{% url "admin_dashboard:delete_who_that_question" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ question_id: questionId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            bootstrap.Modal.getInstance(document.getElementById('deleteQuestionModal')).hide();
+            if (data.success) {
+                showNotification('Question deleted successfully!', 'success');
+                loadBankQuestions(1);
+            } else {
+                alert('Error deleting question: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting question. Please try again.');
+        });
+    });
+
+    // Form submit (add/update) — uses FormData for file upload
+    document.getElementById('addQuestionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const submitBtn = document.getElementById('submitQuestionBtn');
+        submitBtn.classList.add('loading');
+
+        const isEdit = submitBtn.dataset.mode === 'edit';
+        const formData = new FormData(this);
+        if (isEdit) {
+            formData.set('question_id', document.getElementById('questionId').value);
+        }
+
+        if (!formData.get('correct_answer')) {
+            alert('Please provide the correct answer.');
+            submitBtn.classList.remove('loading');
+            return;
+        }
+        if (!isEdit && !formData.get('image').size) {
+            alert('Please provide an image.');
+            submitBtn.classList.remove('loading');
+            return;
+        }
+
+        const postUrl = isEdit
+            ? '{% url "admin_dashboard:update_who_that_question" %}'
+            : '{% url "admin_dashboard:add_who_that_question" %}';
+
+        fetch(postUrl, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(isEdit ? 'Question updated successfully!' : (data.message || 'Question added successfully!'), 'success');
+                setFormMode('add');
+                loadBankQuestions(1);
+            } else {
+                alert('Error saving question: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error saving question. Please try again.');
+        })
+        .finally(() => {
+            submitBtn.classList.remove('loading');
+        });
+    });
+
+    // Show questions for a specific quiz -> open Custom Quiz modal in edit mode
     document.body.addEventListener('click', function(e) {
         const btn = e.target.closest('.show-quiz-questions-btn');
         if (!btn) return;
@@ -914,12 +661,6 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(err => { console.error(err); alert('Error loading quiz details.'); });
     });
-    // Restore bank modal behavior: load bank on show
-    if (viewQuestionsModal) {
-        viewQuestionsModal.addEventListener('shown.bs.modal', function() {
-            loadBankQuestions(1);
-        });
-    }
 
     // Delete quiz handler
     document.body.addEventListener('click', function(e) {
@@ -929,12 +670,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!quizId) return;
         if (!confirm('Delete this quiz? This will not delete its questions.')) return;
         btn.classList.add('loading');
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        var csrfToken = csrfEl ? csrfEl.value : getCookie('csrftoken');
         fetch("{% url 'admin_dashboard:delete_who_that_quiz' %}", {
             method: 'POST',
             headers: {
-                'X-CSRFToken': csrfToken,
+                'X-CSRFToken': getCookie('csrftoken'),
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ quiz_id: parseInt(quizId) })
@@ -949,168 +688,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Failed to delete quiz: ' + (data && data.error ? data.error : 'Unknown error'));
             }
         })
-        .catch(err => {
-            console.error(err);
-            alert('Error deleting quiz.');
-        })
+        .catch(err => { console.error(err); alert('Error deleting quiz.'); })
         .finally(() => btn.classList.remove('loading'));
-    });
-    
-    // Create Quiz button handlers
-    document.getElementById('createQuizBtn')?.addEventListener('click', createNewQuiz);
-    
-    function createNewQuiz() {
-        const btn = event.target.closest('button');
-        btn.classList.add('loading');
-        
-        fetch('/admin-dashboard/who-that/create/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json',
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Redirect to quiz monitor page
-                window.location.href = `/admin-dashboard/who-that/${data.room_code}/monitor/`;
-            } else {
-                alert('Error creating quiz: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error creating quiz. Please try again.');
-        })
-        .finally(() => {
-            btn.classList.remove('loading');
-        });
-    }
-    
-
-    // When opening add modal
-    document.querySelector('[data-bs-target="#addQuestionModal"]')?.addEventListener('click', () => setQuestionModalMode('add'));
-
-    imageInputEl?.addEventListener('change', function() {
-        const file = this.files && this.files[0];
-        if (!file) { clearImagePreview(); return; }
-        const reader = new FileReader();
-        reader.onload = e => {
-            setImagePreviewFromUrl(e.target.result);
-        };
-        reader.readAsDataURL(file);
-    });
-
-    // Add/Update Question form submission
-    document.getElementById('addQuestionForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const submitBtn = document.getElementById('submitQuestionBtn');
-        submitBtn.classList.add('loading');
-        
-        const isEdit = submitBtn.dataset.mode === 'edit';
-        // Create FormData for file upload (works for both add/update)
-        const formData = new FormData(this);
-        if (isEdit) {
-            formData.set('question_id', document.getElementById('questionId').value);
-        }
-        
-        // Validate required fields
-        if (!formData.get('correct_answer')) {
-            alert('Please provide the correct answer.');
-            submitBtn.classList.remove('loading');
-            return;
-        }
-        if (!isEdit && !formData.get('image')) {
-            alert('Please provide an image.');
-            submitBtn.classList.remove('loading');
-            return;
-        }
-
-        const postUrl = isEdit
-            ? '{% url "admin_dashboard:update_who_that_question" %}'
-            : '{% url "admin_dashboard:add_who_that_question" %}';
-
-        fetch(postUrl, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-            },
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Close modal and reset form
-                bootstrap.Modal.getInstance(document.getElementById('addQuestionModal')).hide();
-                this.reset();
-                setQuestionModalMode('add');
-                clearImagePreview();
-                
-                // Show success message
-                showNotification(isEdit ? 'Question updated successfully!' : (data.message || 'Question added successfully!'), 'success');
-                
-                // Refresh page to show updated question count
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            } else {
-                alert('Error saving question: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error adding question. Please try again.');
-        })
-        .finally(() => {
-            submitBtn.classList.remove('loading');
-        });
-    });
-    
-    // Delete question functionality
-    document.querySelectorAll('.delete-question-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const questionId = this.dataset.questionId;
-            
-            if (confirm('Are you sure you want to delete this question? This action cannot be undone.')) {
-                this.classList.add('loading');
-                
-                fetch('/admin-dashboard/who-that/delete-question/', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ question_id: questionId })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showNotification(data.message || 'Question deleted successfully!', 'success');
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1500);
-                    } else {
-                        alert('Error deleting question: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error deleting question. Please try again.');
-                })
-                .finally(() => {
-                    this.classList.remove('loading');
-                });
-            }
-        });
     });
 
     // Custom Quiz Modal bindings
     const createCustomQuizModal = document.getElementById('createCustomQuizModal');
-    const customQuizSearchBtn = document.getElementById('customQuizSearchBtn');
     const selectAllQuestions = document.getElementById('selectAllQuestions');
     const createCustomQuizBtn = document.getElementById('createCustomQuizBtn');
+
     if (createCustomQuizModal) {
         createCustomQuizModal.addEventListener('shown.bs.modal', function() {
             if (!whoThatEditMode) {
@@ -1128,18 +714,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (titleInput) titleInput.value = 'Custom Quiz';
         });
     }
-    // Custom Quiz Search Button
-    // customQuizSearchBtn.addEventListener('click', function() {
-    //     loadCustomQuestions(1);
-    // });
-    // Helper: Load questions into the Custom Quiz modal
+
     function loadCustomQuestions(page) {
-        const search = encodeURIComponent(document.getElementById('customQuizSearch')?.value || '');
-        fetch('{% url "admin_dashboard:get_who_that_questions" %}?page=' + page + (search ? ('&search=' + search) : ''), {
+        fetch('{% url "admin_dashboard:get_who_that_questions" %}?page=' + page, {
             method: 'GET',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-            },
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
         })
         .then(response => response.json())
         .then(data => {
@@ -1152,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const tr = document.createElement('tr');
                 const checked = whoThatEditMode && whoThatSelectedIds.has(q.id) ? 'checked' : '';
                 tr.innerHTML = `
-                    <td><input type=\"checkbox\" value=\"${q.id}\" ${checked}></td>
+                    <td><input type="checkbox" value="${q.id}" ${checked}></td>
                     <td>${q.question_text}</td>
                     <td>${q.correct_answer}</td>
                     <td>${q.points}</td>
@@ -1165,7 +744,7 @@ document.addEventListener('DOMContentLoaded', function() {
             for (let i = 1; i <= data.pages; i++) {
                 const li = document.createElement('li');
                 li.className = 'page-item ' + (i === data.current_page ? 'active' : '');
-                li.innerHTML = `<button class=\"page-link\" data-page=\"${i}\">${i}</button>`;
+                li.innerHTML = `<button class="page-link" data-page="${i}">${i}</button>`;
                 pager.appendChild(li);
             }
             pager.onclick = function(e) {
@@ -1174,19 +753,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             };
         })
-        .catch(err => {
-            console.error(err);
-            alert('Error loading questions. Please try again.');
-        });
+        .catch(err => { console.error(err); alert('Error loading questions. Please try again.'); });
     }
-    // Select All Questions
+
     selectAllQuestions.addEventListener('change', function() {
         const checkboxes = document.querySelectorAll('#customQuestionsTableBody input[type="checkbox"]');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = this.checked;
-        });
+        checkboxes.forEach(checkbox => { checkbox.checked = this.checked; });
     });
-    // Create/Update Custom Quiz Button
+
     createCustomQuizBtn.addEventListener('click', function() {
         const title = document.getElementById('customQuizTitle').value.trim() || 'Custom Quiz';
         const btn = this;
@@ -1196,7 +770,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch("{% url 'admin_dashboard:update_who_that_custom_quiz' %}", {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken'),
+                    'X-CSRFToken': getCookie('csrftoken'),
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ quiz_id: whoThatCurrentQuizId, title: title, question_ids: selected })
@@ -1213,11 +787,11 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(err => { console.error(err); alert('Error updating quiz. Please try again.'); })
             .finally(() => btn.classList.remove('loading'));
         } else {
-            const selected = Array.from(document.querySelectorAll('#customQuestionsTableBody input[type=\"checkbox\"]:checked')).map(cb => parseInt(cb.value));
+            const selected = Array.from(document.querySelectorAll('#customQuestionsTableBody input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
             fetch("{% url 'admin_dashboard:create_who_that_custom_quiz' %}", {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken'),
+                    'X-CSRFToken': getCookie('csrftoken'),
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ title: title, question_ids: selected })
@@ -1235,256 +809,19 @@ document.addEventListener('DOMContentLoaded', function() {
             .finally(() => btn.classList.remove('loading'));
         }
     });
-    // Persist selection across pages
+
     document.getElementById('customQuestionsTableBody').addEventListener('change', function(e) {
         if (e.target && e.target.type === 'checkbox') {
             const id = parseInt(e.target.value);
             if (e.target.checked) whoThatSelectedIds.add(id); else whoThatSelectedIds.delete(id);
         }
     });
-    
-    // Helper functions
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
+
+    // Auto-open create modal if ?create=1
+    if (new URLSearchParams(window.location.search).get('create') === '1') {
+        const modal = new bootstrap.Modal(document.getElementById('createCustomQuizModal'));
+        modal.show();
     }
-    
 });
-</script>
-
-<!-- View Questions Modal -->
-<div class="modal fade" id="viewQuestionsModal" tabindex="-1" aria-labelledby="viewQuestionsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="viewQuestionsModalLabel">Who is That? Questions</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Question</th>
-                                <th>Answer</th>
-                                <th>Difficulty</th>
-                                <th>Points</th>
-                                <th>Time Limit (s)</th>
-                                <th>Has Image</th>
-                                <th>Category</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="questionsTableBody">
-                            <!-- Questions will be loaded here via JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <div class="text-muted" id="questionCount">Loading questions...</div>
-                    <nav>
-                        <ul class="pagination mb-0" id="pagination">
-                            <!-- Pagination will be added here -->
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-<!-- Delete Confirmation Modal -->
-<div class="modal fade" id="deleteQuestionModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Delete Question</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>Are you sure you want to delete this question? This action cannot be undone.</p>
-                <p class="text-danger"><strong>Note:</strong> If this question has been used in any games, it will be deactivated instead of deleted.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete Question</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // Helper function to get CSRF token
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-
-    // View Questions Modal
-    const viewQuestionsModal = document.getElementById('viewQuestionsModal');
-    const questionsTableBody = document.getElementById('questionsTableBody');
-    const questionCount = document.getElementById('questionCount');
-    const pagination = document.getElementById('pagination');
-
-    // Load questions when modal is shown
-    viewQuestionsModal.addEventListener('shown.bs.modal', function() {
-        loadBankQuestions(1);
-    });
-
-    // Load questions
-    function loadBankQuestions(page) {
-        fetch('{% url "admin_dashboard:get_who_that_questions" %}?page=' + page, {
-            method: 'GET',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            questionsTableBody.innerHTML = '';
-            questionCount.textContent = `Showing ${data.count} questions`;
-            
-            data.questions.forEach(question => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${question.question_text}</td>
-                    <td>${question.correct_answer}</td>
-                    <td>${question.difficulty}</td>
-                    <td>${question.points}</td>
-                    <td>${question.time_limit}</td>
-                    <td>${question.has_image ? 'Yes' : 'No'}</td>
-                    <td>${question.category}</td>
-                    <td>${question.is_active ? 'Active' : 'Inactive'}</td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-primary edit-question-btn" data-question-id="${question.id}">Edit</button>
-                        <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteQuestionModal" data-question-id="${question.id}">Delete</button>
-                    </td>
-                `;
-                questionsTableBody.appendChild(row);
-            });
-            
-            // Add pagination
-            pagination.innerHTML = '';
-            for (let i = 1; i <= data.pages; i++) {
-                const pageItem = document.createElement('li');
-                pageItem.className = `page-item ${i === page ? 'active' : ''}`;
-                pageItem.innerHTML = `<button class="page-link">${i}</button>`;
-                pageItem.addEventListener('click', () => loadBankQuestions(i));
-                pagination.appendChild(pageItem);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error loading questions. Please try again.');
-        });
-    }
-    // Edit button handler: fetch details and prefill modal
-    questionsTableBody.addEventListener('click', function(e) {
-        const btn = e.target.closest('.edit-question-btn');
-        if (!btn) return;
-        const qid = btn.getAttribute('data-question-id');
-        if (!qid) return;
-
-        fetch(`{% url 'admin_dashboard:get_who_that_question_detail' 0 %}`.replace('/0/', `/${qid}/`), {
-            method: 'GET',
-            headers: { 'X-CSRFToken': getCookie('csrftoken') },
-        })
-        .then(r => r.json())
-        .then(({success, question, error}) => {
-            if (!success) throw new Error(error || 'Failed to load question.');
-
-            // Populate fields
-            document.getElementById('questionId').value = question.id;
-            document.getElementById('questionText').value = question.question_text || '';
-            document.getElementById('correctAnswer').value = question.correct_answer || '';
-            document.getElementById('alternativeAnswers').value = question.alternative_answers || '';
-            document.getElementById('difficulty').value = question.difficulty || 'medium';
-            document.getElementById('points').value = question.points;
-            document.getElementById('timeLimit').value = question.time_limit;
-            document.getElementById('hintText').value = question.hint_text || '';
-            document.getElementById('explanation').value = question.explanation || '';
-            document.getElementById('category').value = question.category || '';
-
-            setImagePreviewFromUrl(question.image);
-            setQuestionModalMode('edit');
-
-            // Hide list modal if open and show edit modal
-            if (bootstrap.Modal.getInstance(document.getElementById('viewQuestionsModal'))) {
-                bootstrap.Modal.getInstance(document.getElementById('viewQuestionsModal')).hide();
-            }
-            const modal = new bootstrap.Modal(document.getElementById('addQuestionModal'));
-            modal.show();
-            lucide.createIcons();
-        })
-        .catch(err => {
-            console.error(err);
-            showNotification(err.message || 'Failed to load question.', 'danger');
-        });
-    });
-
-    // Delete Question Modal
-    const deleteQuestionModal = document.getElementById('deleteQuestionModal');
-    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-
-    // Set question ID when delete button is clicked
-    questionsTableBody.addEventListener('click', function(e) {
-        if (e.target.classList.contains('btn-danger')) {
-            const questionId = e.target.dataset.questionId;
-            deleteQuestionModal.dataset.questionId = questionId;
-        }
-    });
-
-    // Confirm delete question
-    confirmDeleteBtn.addEventListener('click', function() {
-        const questionId = deleteQuestionModal.dataset.questionId;
-        
-        fetch('{% url "admin_dashboard:delete_who_that_question" %}', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ question_id: questionId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('Question deleted successfully!', 'success');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-            } else {
-                alert('Error deleting question: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error deleting question. Please try again.');
-        });
-    });
-
 </script>
 {% endblock %}

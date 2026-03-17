@@ -56,6 +56,22 @@ def quiz_join_view(request):
                     'error': 'This quiz is no longer accepting participants.'
                 })
             
+            # Check if participant already exists (rejoin scenario)
+            name_qs = quiz.participants.filter(name__iexact=participant_name)
+            if hub_session:
+                name_qs = name_qs.filter(hub_session_code=hub_session)
+            existing = name_qs.first()
+            if existing:
+                # Rejoin: reactivate and return success
+                existing.is_active = True
+                existing.save()
+                return JsonResponse({
+                    'success': True,
+                    'participant_id': existing.id,
+                    'quiz_status': quiz.status,
+                    'rejoin': True,
+                })
+
             # Check participant limit (scope by session if provided)
             if hub_session:
                 current_count = quiz.participants.filter(hub_session_code=hub_session).count()
@@ -66,43 +82,27 @@ def quiz_join_view(request):
                     'success': False,
                     'error': 'This quiz is full. Maximum participants reached.'
                 })
-            
-            # Check if name is already taken in this quiz (scope by session if provided)
-            name_qs = quiz.participants.filter(name__iexact=participant_name)
+
+            # Create new participant
             if hub_session:
-                name_qs = name_qs.filter(hub_session_code=hub_session)
-            if name_qs.exists():
-                return JsonResponse({
-                    'success': False,
-                    'error': 'This name is already taken in this quiz. Please choose another name.'
-                })
-            
-            # Create participant (scope by session if provided)
-            if hub_session:
-                participant, created = QuizParticipant.objects.get_or_create(
+                participant = QuizParticipant.objects.create(
                     quiz=quiz,
                     name=participant_name,
                     hub_session_code=hub_session,
-                    defaults={'is_active': True}
+                    is_active=True,
                 )
             else:
-                participant, created = QuizParticipant.objects.get_or_create(
+                participant = QuizParticipant.objects.create(
                     quiz=quiz,
                     name=participant_name,
-                    defaults={'is_active': True}
+                    is_active=True,
                 )
-            
-            if not created:
-                # Reactivate existing participant
-                participant.is_active = True
-                if hub_session and not participant.hub_session_code:
-                    participant.hub_session_code = hub_session
-                participant.save()
-            
+
             return JsonResponse({
                 'success': True,
                 'participant_id': participant.id,
-                'quiz_status': quiz.status
+                'quiz_status': quiz.status,
+                'rejoin': False,
             })
             
         except json.JSONDecodeError:
@@ -197,6 +197,21 @@ def join_quiz(request):
                 'error': 'This quiz is no longer accepting participants.'
             })
         
+        # Check if participant already exists (rejoin scenario)
+        name_qs = quiz.participants.filter(name__iexact=participant_name)
+        if hub_session:
+            name_qs = name_qs.filter(hub_session_code=hub_session)
+        existing = name_qs.first()
+        if existing:
+            existing.is_active = True
+            existing.save()
+            return JsonResponse({
+                'success': True,
+                'participant_id': existing.id,
+                'quiz_status': quiz.status,
+                'rejoin': True,
+            })
+
         # Check participant limit (scope by session if provided)
         if hub_session:
             current_count = quiz.participants.filter(hub_session_code=hub_session).count()
@@ -207,43 +222,27 @@ def join_quiz(request):
                 'success': False,
                 'error': 'This quiz is full. Maximum participants reached.'
             })
-        
-        # Check if name is already taken in this quiz (scope by session if provided)
-        name_qs = quiz.participants.filter(name__iexact=participant_name)
+
+        # Create new participant
         if hub_session:
-            name_qs = name_qs.filter(hub_session_code=hub_session)
-        if name_qs.exists():
-            return JsonResponse({
-                'success': False,
-                'error': 'This name is already taken in this quiz. Please choose another name.'
-            })
-        
-        # Create participant (scope by session if provided)
-        if hub_session:
-            participant, created = QuizParticipant.objects.get_or_create(
+            participant = QuizParticipant.objects.create(
                 quiz=quiz,
                 name=participant_name,
                 hub_session_code=hub_session,
-                defaults={'is_active': True}
+                is_active=True,
             )
         else:
-            participant, created = QuizParticipant.objects.get_or_create(
+            participant = QuizParticipant.objects.create(
                 quiz=quiz,
                 name=participant_name,
-                defaults={'is_active': True}
+                is_active=True,
             )
-        
-        if not created:
-            # Reactivate existing participant
-            participant.is_active = True
-            if hub_session and not participant.hub_session_code:
-                participant.hub_session_code = hub_session
-            participant.save()
-        
+
         return JsonResponse({
             'success': True,
             'participant_id': participant.id,
-            'quiz_status': quiz.status
+            'quiz_status': quiz.status,
+            'rejoin': False,
         })
         
     except json.JSONDecodeError:
