@@ -327,23 +327,340 @@
                 padding: 20px;
                 margin: 10px;
             }
-            
+
             .participant-stats {
                 flex-direction: column;
                 gap: 10px;
             }
-            
+
             .answer-option {
                 padding: 15px;
             }
-            
+
             .answer-text {
                 font-size: 1em;
             }
         }
+
+        /* Tutorial Overlay */
+        .tutorial-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .tutorial-box {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 560px;
+            width: 100%;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            position: relative;
+            animation: tutorialAppear 0.4s ease-out;
+        }
+
+        @keyframes tutorialAppear {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .tutorial-step { display: none; }
+        .tutorial-step.active { display: block; }
+
+        .tutorial-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .tutorial-box h2 {
+            color: #2c3e50;
+            margin: 0 0 15px;
+            font-size: 1.5em;
+        }
+
+        .tutorial-box p {
+            color: #555;
+            line-height: 1.6;
+            margin: 0 0 12px;
+        }
+
+        .tutorial-rules {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .tutorial-rules .rule {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 0.95em;
+            color: #444;
+        }
+
+        .tutorial-rules .rule:last-child { margin-bottom: 0; }
+
+        .rule-icon {
+            font-size: 1.3em;
+            min-width: 28px;
+            text-align: center;
+        }
+
+        .tutorial-progress {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 25px;
+        }
+
+        .progress-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #dee2e6;
+            transition: background 0.3s;
+        }
+
+        .progress-dot.active { background: #667eea; }
+        .progress-dot.done   { background: #28a745; }
+
+        .tutorial-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 35px;
+            border-radius: 25px;
+            font-size: 1.05em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+
+        .tutorial-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102,126,234,0.4);
+        }
+
+        .tutorial-btn.green {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .tutorial-btn.green:hover {
+            box-shadow: 0 8px 20px rgba(40,167,69,0.4);
+        }
+
+        /* Practice question within tutorial */
+        .tutorial-question-text {
+            font-size: 1.15em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 15px 0 20px;
+        }
+
+        .tutorial-answers { margin: 0 0 15px; }
+
+        .tutorial-answer-option {
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tutorial-answer-option:hover:not(.disabled) {
+            border-color: #667eea;
+            background: #f5f3ff;
+        }
+
+        .tutorial-answer-option.selected {
+            border-color: #667eea;
+            background: #ede9fe;
+        }
+
+        .tutorial-answer-option.correct {
+            border-color: #28a745;
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .tutorial-answer-option.incorrect {
+            border-color: #dc3545;
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .tutorial-answer-option.disabled { cursor: default; }
+
+        .tutorial-answer-label {
+            background: #667eea;
+            color: white;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+            flex-shrink: 0;
+        }
+
+        .tutorial-answer-option.correct .tutorial-answer-label { background: #28a745; }
+        .tutorial-answer-option.incorrect .tutorial-answer-label { background: #dc3545; }
+
+        .tutorial-feedback {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-top: 12px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .tutorial-feedback.success {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            color: #155724;
+        }
+
+        .tutorial-feedback.error {
+            background: #f8d7da;
+            border: 1px solid #dc3545;
+            color: #721c24;
+        }
+
+        .score-examples {
+            display: flex;
+            gap: 12px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .score-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 14px 18px;
+            flex: 1;
+            min-width: 130px;
+        }
+
+        .score-card .score-val {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .score-card .score-desc {
+            font-size: 0.82em;
+            color: #666;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
+    <!-- Tutorial Overlay (initially hidden, shown when admin starts game) -->
+    <div id="tutorial-overlay" class="tutorial-overlay" style="display:none;">
+        <div class="tutorial-box">
+            <!-- Progress dots -->
+            <div class="tutorial-progress">
+                <div class="progress-dot active" id="dot-0"></div>
+                <div class="progress-dot" id="dot-1"></div>
+                <div class="progress-dot" id="dot-2"></div>
+            </div>
+
+            <!-- Step 1: Willkommen -->
+            <div class="tutorial-step active" id="tutorial-step-0">
+                <div class="tutorial-icon">🎉</div>
+                <h2>Willkommen beim Quiz!</h2>
+                <p>Hallo <strong>{{ participant.name }}</strong>, gleich geht's los. Hier ist kurz erklärt, wie alles funktioniert:</p>
+                <div class="tutorial-rules">
+                    <div class="rule">
+                        <span class="rule-icon">❓</span>
+                        <span>Der Moderator stellt eine Frage – du siehst sie auf deinem Bildschirm.</span>
+                    </div>
+                    <div class="rule">
+                        <span class="rule-icon">⏱️</span>
+                        <span>Du hast einen Countdown. Antworte so schnell wie möglich!</span>
+                    </div>
+                    <div class="rule">
+                        <span class="rule-icon">👆</span>
+                        <span>Wähle eine Antwort aus und klicke auf <em>„Antwort abschicken"</em>.</span>
+                    </div>
+                    <div class="rule">
+                        <span class="rule-icon">🏆</span>
+                        <span>Je schneller du richtig antwortest, desto mehr Punkte bekommst du!</span>
+                    </div>
+                </div>
+                <button class="tutorial-btn" onclick="tutorialNextStep()">Weiter &rarr;</button>
+            </div>
+
+            <!-- Step 2: Übungsfrage -->
+            <div class="tutorial-step" id="tutorial-step-1">
+                <div class="tutorial-icon">✍️</div>
+                <h2>Probiere es aus!</h2>
+                <p>Beantworte diese Übungsfrage – sie zählt nicht für das Ergebnis:</p>
+                <div class="tutorial-question-text">
+                    Welches Tier ist auf dem deutschen Wappen?
+                </div>
+                <div class="tutorial-answers" id="tutorial-answers">
+                    <div class="tutorial-answer-option" data-answer="Adler" onclick="selectTutorialAnswer(this)">
+                        <span class="tutorial-answer-label">A</span> Adler
+                    </div>
+                    <div class="tutorial-answer-option" data-answer="Löwe" onclick="selectTutorialAnswer(this)">
+                        <span class="tutorial-answer-label">B</span> Löwe
+                    </div>
+                    <div class="tutorial-answer-option" data-answer="Bär" onclick="selectTutorialAnswer(this)">
+                        <span class="tutorial-answer-label">C</span> Bär
+                    </div>
+                    <div class="tutorial-answer-option" data-answer="Wolf" onclick="selectTutorialAnswer(this)">
+                        <span class="tutorial-answer-label">D</span> Wolf
+                    </div>
+                </div>
+                <div class="tutorial-feedback" id="tutorial-feedback"></div>
+                <button class="tutorial-btn" id="tutorial-check-btn" onclick="checkTutorialAnswer()" disabled>Antwort prüfen</button>
+            </div>
+
+            <!-- Step 3: Punkte & Los -->
+            <div class="tutorial-step" id="tutorial-step-2">
+                <div class="tutorial-icon">⭐</div>
+                <h2>Punkte-System</h2>
+                <p>So werden deine Punkte berechnet:</p>
+                <div class="score-examples">
+                    <div class="score-card">
+                        <div class="score-val">100</div>
+                        <div class="score-desc">Basispunkte für eine richtige Antwort</div>
+                    </div>
+                    <div class="score-card">
+                        <div class="score-val">+50</div>
+                        <div class="score-desc">Bonus, wenn du in unter 5 Sekunden antwortest</div>
+                    </div>
+                    <div class="score-card">
+                        <div class="score-val">0</div>
+                        <div class="score-desc">Punkte bei falscher Antwort oder Timeout</div>
+                    </div>
+                </div>
+                <p>Viel Erfolg! 🚀</p>
+                <button class="tutorial-btn green" onclick="closeTutorial()">Los geht's! 🎮</button>
+            </div>
+        </div>
+    </div>
+
     <div class="quiz-container">
         <!-- Connection Status -->
         <div id="connection-status" class="connection-status connecting">
@@ -503,6 +820,9 @@
 
         function handleWebSocketMessage(data) {
             switch(data.type) {
+                case 'tutorial_start':
+                    showTutorialOverlay();
+                    break;
                 case 'new_question':
                     displayNewQuestion(data.question);
                     break;
@@ -523,7 +843,40 @@
             }
         }
 
+        function showTutorialOverlay() {
+            // Fortschritt zurücksetzen für den Fall, dass Tutorial erneut gestartet wird
+            currentTutorialStep = 0;
+            tutorialSelectedAnswer = null;
+            document.querySelectorAll('.tutorial-step').forEach((s, i) => {
+                s.classList.toggle('active', i === 0);
+            });
+            document.querySelectorAll('.progress-dot').forEach((d, i) => {
+                d.className = 'progress-dot' + (i === 0 ? ' active' : '');
+            });
+            // Übungsfrage zurücksetzen
+            document.querySelectorAll('.tutorial-answer-option').forEach(opt => {
+                opt.className = 'tutorial-answer-option';
+                opt.onclick = function() { selectTutorialAnswer(this); };
+            });
+            const fb = document.getElementById('tutorial-feedback');
+            if (fb) { fb.style.display = 'none'; fb.textContent = ''; }
+            const checkBtn = document.getElementById('tutorial-check-btn');
+            if (checkBtn) { checkBtn.disabled = true; checkBtn.textContent = 'Antwort prüfen'; checkBtn.onclick = checkTutorialAnswer; }
+
+            const overlay = document.getElementById('tutorial-overlay');
+            overlay.style.display = 'flex';
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity 0.4s ease';
+            requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+        }
+
         function displayNewQuestion(question) {
+            // Schließe Tutorial wenn erste echte Frage kommt
+            const tutorialOverlay = document.getElementById('tutorial-overlay');
+            if (tutorialOverlay && tutorialOverlay.style.display !== 'none') {
+                closeTutorial();
+            }
+
             currentQuestion = question;
             selectedAnswer = null;
             questionStartTime = Date.now();
@@ -719,6 +1072,85 @@
             const currentRank = leaderboardData.findIndex(p => p.id === currentParticipantId) + 1;
             document.getElementById('current-rank').textContent = currentRank || '-';
         }
+
+        // ---- Tutorial Logic ----
+        let currentTutorialStep = 0;
+        const totalTutorialSteps = 3;
+        let tutorialSelectedAnswer = null;
+        const TUTORIAL_CORRECT_ANSWER = 'Adler';
+
+        function tutorialNextStep() {
+            const current = document.getElementById(`tutorial-step-${currentTutorialStep}`);
+            const currentDot = document.getElementById(`dot-${currentTutorialStep}`);
+            currentTutorialStep++;
+            const next = document.getElementById(`tutorial-step-${currentTutorialStep}`);
+            const nextDot = document.getElementById(`dot-${currentTutorialStep}`);
+
+            current.classList.remove('active');
+            currentDot.classList.remove('active');
+            currentDot.classList.add('done');
+
+            if (next) {
+                next.classList.add('active');
+                if (nextDot) nextDot.classList.add('active');
+            }
+        }
+
+        function selectTutorialAnswer(el) {
+            if (el.classList.contains('disabled')) return;
+            document.querySelectorAll('.tutorial-answer-option').forEach(opt => opt.classList.remove('selected'));
+            el.classList.add('selected');
+            tutorialSelectedAnswer = el.dataset.answer;
+            document.getElementById('tutorial-check-btn').disabled = false;
+        }
+
+        function checkTutorialAnswer() {
+            if (!tutorialSelectedAnswer) return;
+
+            const options = document.querySelectorAll('.tutorial-answer-option');
+            const feedback = document.getElementById('tutorial-feedback');
+            const btn = document.getElementById('tutorial-check-btn');
+
+            options.forEach(opt => {
+                opt.classList.add('disabled');
+                opt.onclick = null;
+                if (opt.dataset.answer === TUTORIAL_CORRECT_ANSWER) {
+                    opt.classList.add('correct');
+                } else if (opt.dataset.answer === tutorialSelectedAnswer && tutorialSelectedAnswer !== TUTORIAL_CORRECT_ANSWER) {
+                    opt.classList.add('incorrect');
+                }
+            });
+
+            if (tutorialSelectedAnswer === TUTORIAL_CORRECT_ANSWER) {
+                feedback.textContent = '✅ Richtig! Super, du hast es verstanden!';
+                feedback.className = 'tutorial-feedback success';
+            } else {
+                feedback.textContent = `❌ Leider falsch. Die richtige Antwort wäre "${TUTORIAL_CORRECT_ANSWER}" gewesen.`;
+                feedback.className = 'tutorial-feedback error';
+            }
+            feedback.style.display = 'block';
+
+            btn.textContent = 'Weiter →';
+            btn.disabled = false;
+            btn.onclick = tutorialNextStep;
+        }
+
+        function closeTutorial() {
+            // Tutorial-Abschluss an den Server melden
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'tutorial_completed',
+                    participant_id: participantId
+                }));
+            }
+
+            const overlay = document.getElementById('tutorial-overlay');
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+
+        // ---- End Tutorial Logic ----
 
         // Initialize
         connectWebSocket();
