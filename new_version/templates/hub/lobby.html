@@ -131,6 +131,33 @@
       .nick { font-weight:600; }
       .footer { display:flex; align-items:center; justify-content:space-between; margin-top:.5rem; font-size:.8rem; color: var(--muted); }
       .online { color:#86efac; }
+
+      /* Voting */
+      .vote-section { margin-top: 1.5rem; }
+      .vote-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .9rem; }
+      .vote-card { padding: .9rem 1rem; border-radius: 12px; background: linear-gradient(180deg, rgba(17,24,39,.75), rgba(15,23,42,.9)); border: 1px solid rgba(167,139,250,.18); cursor: pointer; transition: border-color .2s, transform .15s; position: relative; }
+      .vote-card:hover { border-color: rgba(34,211,238,.5); transform: translateY(-2px); }
+      .vote-card.voted { border-color: var(--primary); background: linear-gradient(180deg, rgba(34,211,238,.1), rgba(15,23,42,.9)); }
+      .vote-card-name { font-weight: 600; font-size: .95rem; margin-bottom: .4rem; }
+      .vote-bar-wrap { height: 4px; background: rgba(148,163,184,.15); border-radius: 2px; margin-top: .6rem; }
+      .vote-bar { height: 4px; background: var(--primary); border-radius: 2px; transition: width .4s ease; }
+      .vote-count { font-size: .75rem; color: var(--muted); margin-top: .3rem; }
+      .vote-check { position: absolute; top: .6rem; right: .7rem; color: var(--primary); font-size: .85rem; display: none; }
+      .vote-card.voted .vote-check { display: block; }
+
+      /* Leaderboard */
+      .leaderboard-section { margin-top: 1.5rem; }
+      .section-title { font-size: .85rem; color: var(--muted); border: 1px solid rgba(148,163,184,.25); background: rgba(15,23,42,.5); padding: .35rem .6rem; border-radius: 999px; display: inline-block; margin-bottom: .9rem; }
+      .lb-table { width: 100%; border-collapse: collapse; }
+      .lb-table th { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding: .4rem .75rem; text-align: left; border-bottom: 1px solid rgba(148,163,184,.15); }
+      .lb-table td { padding: .55rem .75rem; border-bottom: 1px solid rgba(148,163,184,.07); font-size: .9rem; }
+      .lb-rank { font-weight: 700; width: 2rem; color: var(--muted); }
+      .lb-rank.gold { color: #fbbf24; }
+      .lb-rank.silver { color: #94a3b8; }
+      .lb-rank.bronze { color: #c07b3a; }
+      .lb-name { font-weight: 600; }
+      .lb-score { text-align: right; font-weight: 700; color: var(--primary); }
+      .lb-games { text-align: right; color: var(--muted); font-size: .8rem; }
     </style>
   </head>
   <body>
@@ -164,12 +191,37 @@
         </div>
         <div id="participants" class="participants-grid"></div>
       </div>
+
+      <div class="vote-section" id="voteSection" style="display:none;">
+        <div class="card">
+          <div class="section-title">Vote for the next game</div>
+          <div class="vote-grid" id="voteGrid"></div>
+        </div>
+      </div>
+
+      <div class="leaderboard-section" id="leaderboardSection" style="display:none;">
+        <div class="card">
+          <div class="section-title">Leaderboard</div>
+          <table class="lb-table">
+            <thead>
+              <tr>
+                <th class="lb-rank">#</th>
+                <th>Player</th>
+                <th class="lb-score">Points</th>
+                <th class="lb-games">Games</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <script>
       const code = '{{ session_code }}';
       const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/hub/' + code + '/');
       const takenNicknames = new Set();
+      let lobbyNicknames = [];
       let nicknameCheckTimeout = null;
       let currentNickname = '';
 
@@ -188,6 +240,7 @@
         const card = renderPlayerCard(p.nickname);
         participantsList.appendChild(card);
         takenNicknames.add(p.nickname.toLowerCase());
+        lobbyNicknames.push(p.nickname);
       });
       // Initialize
       document.getElementById('status').textContent = 'Connecting...';
@@ -294,16 +347,27 @@
           return;
         }
 
+        if (data.type === 'vote_update') {
+          renderVotes(data.votes);
+          return;
+        }
+
         if (data.type === 'state') {
           // Update participants grid
           participantsList.innerHTML = '';
+          lobbyNicknames = [];
           (data.participants || []).forEach(p => {
             const card = renderPlayerCard(p.nickname);
             participantsList.appendChild(card);
             takenNicknames.add(p.nickname.toLowerCase());
+            lobbyNicknames.push(p.nickname);
           });
+          // Update available games for voting
+          currentSteps = data.steps || [];
+          refreshVotes();
           updateNicknameStatus();
           maybeHideJoin();
+          fetchLeaderboard();
         }
 
         if (data.type === 'join_success') {
@@ -487,35 +551,36 @@
           nicknameStatus.textContent = 'Enter a nickname';
           nicknameStatus.className = 'error';
           joinBtn.disabled = true;
+          joinBtn.textContent = 'Join';
           return;
         }
-        
+
         if (nickname.length < 2) {
           nicknameStatus.textContent = 'Nickname too short (min 2 characters)';
           nicknameStatus.className = 'error';
           joinBtn.disabled = true;
+          joinBtn.textContent = 'Join';
           return;
         }
         
         if (takenNicknames.has(nickname.toLowerCase())) {
-          nicknameStatus.textContent = 'Nickname has been saved';
-          nicknameStatus.className = 'error';
-          joinBtn.disabled = true;
-          nicknameInput.disabled = true;
-
-          showStatus('Please Wait...', 'info');
-          maybeHideJoin();
+          nicknameStatus.textContent = '↩ Welcome back! Continue as "' + nickname + '"?';
+          nicknameStatus.className = 'success';
+          joinBtn.disabled = false;
+          joinBtn.textContent = 'Continue';
           return;
         }
-        
+
         // Valid nickname
         nicknameStatus.textContent = '✓ Available';
         nicknameStatus.className = 'success';
         joinBtn.disabled = false;
+        joinBtn.textContent = 'Join';
       }
 
       function isValidNickname(nickname) {
-        return nickname.length >= 2 && !takenNicknames.has(nickname.toLowerCase());
+        // A taken nickname is valid too (rejoin scenario)
+        return nickname.length >= 2;
       }
 
       function showStatus(message, type = 'info') {
@@ -549,6 +614,91 @@
       }
       // Initial hide check
       maybeHideJoin();
+
+      // Voting
+      const voteSection = document.getElementById('voteSection');
+      const voteGrid = document.getElementById('voteGrid');
+      let myVotedOrder = null;
+      let currentSteps = [];
+
+      function renderVotes(votes) {
+        if (!votes || votes.length === 0) return;
+        voteSection.style.display = '';
+        const maxCount = Math.max(...votes.map(v => v.count), 1);
+        voteGrid.innerHTML = '';
+        votes.forEach(v => {
+          const pct = Math.round((v.count / maxCount) * 100);
+          const isVoted = myVotedOrder === v.step_order;
+          const card = document.createElement('div');
+          card.className = 'vote-card' + (isVoted ? ' voted' : '');
+          card.dataset.order = v.step_order;
+          card.innerHTML = `
+            <span class="vote-check">✓ Your vote</span>
+            <div class="vote-card-name">${v.title}</div>
+            <div class="vote-bar-wrap"><div class="vote-bar" style="width:${pct}%"></div></div>
+            <div class="vote-count">${v.count} vote${v.count !== 1 ? 's' : ''}</div>
+          `;
+          card.addEventListener('click', () => castVote(v.step_order));
+          voteGrid.appendChild(card);
+        });
+      }
+
+      function castVote(stepOrder) {
+        const nickname = currentNickname || nicknameInput.value.trim();
+        if (!nickname) return;
+        myVotedOrder = stepOrder;
+        ws.send(JSON.stringify({ type: 'vote', nickname, step_order: stepOrder }));
+      }
+
+      function refreshVotes() {
+        if (currentSteps.length === 0) return;
+        fetch(`/hub/api/session/${code}/votes/`)
+          .then(r => r.json())
+          .then(data => renderVotes(data.votes))
+          .catch(() => {});
+      }
+
+      // Leaderboard
+      const leaderboardSection = document.getElementById('leaderboardSection');
+      const leaderboardBody = document.getElementById('leaderboardBody');
+      const rankLabels = ['gold', 'silver', 'bronze'];
+
+      function fetchLeaderboard() {
+        fetch(`/hub/api/session/${code}/leaderboard/`)
+          .then(r => r.json())
+          .then(data => {
+            let players = data.participants || [];
+
+            // If no game data yet, build list from known lobby participants with 0 points
+            if (players.length === 0 && lobbyNicknames.length > 0) {
+              players = lobbyNicknames.map(name => ({
+                name: name,
+                weighted_score: 0,
+                games_played: 0,
+              }));
+            }
+
+            if (players.length === 0) return;
+
+            leaderboardSection.style.display = '';
+            leaderboardBody.innerHTML = '';
+            players.forEach((p, i) => {
+              const rankClass = rankLabels[i] || '';
+              const tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td class="lb-rank ${rankClass}">${i + 1}</td>
+                <td class="lb-name">${p.name}</td>
+                <td class="lb-score">${p.weighted_score}</td>
+                <td class="lb-games">${p.games_played}</td>
+              `;
+              leaderboardBody.appendChild(tr);
+            });
+          })
+          .catch(() => {});
+      }
+
+      fetchLeaderboard();
+      setInterval(fetchLeaderboard, 10000);
     </script>
   </body>
 </html>

@@ -3,7 +3,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils import timezone
 from django.core.cache import cache
-from .models import HubSession, HubParticipant, HubGameStep
+from .models import HubSession, HubParticipant, HubGameStep, GameVote
 from QuizGame.models import Quiz as QuizGameModel
 from Assign.models import AssignQuiz
 from Estimation.models import EstimationQuiz
@@ -48,6 +48,8 @@ class HubConsumer(AsyncWebsocketConsumer):
             await self.handle_navigate_direct(data)
         elif msg_type == 'end_session':
             await self.handle_end_session()
+        elif msg_type == 'vote':
+            await self.handle_vote(data)
         elif msg_type == 'ping':
             await self.send_json({'type': 'pong'})
 
@@ -250,6 +252,51 @@ class HubConsumer(AsyncWebsocketConsumer):
                 session.save()
         except HubSession.DoesNotExist:
             pass
+
+    async def handle_vote(self, data):
+        nickname = data.get('nickname', '').strip()
+        step_order = data.get('step_order')
+        if not nickname or step_order is None:
+            return
+        await self.save_vote(nickname, step_order)
+        votes = await self.get_vote_counts()
+        await self.channel_layer.group_send(self.group_name, {'type': 'vote_update', 'votes': votes})
+
+    async def vote_update(self, event):
+        await self.send_json({'type': 'vote_update', 'votes': event['votes']})
+
+    @database_sync_to_async
+    def save_vote(self, nickname, step_order):
+        try:
+            session = HubSession.objects.get(code=self.session_code)
+            step = HubGameStep.objects.get(session=session, order=step_order)
+            GameVote.objects.update_or_create(
+                session=session,
+                participant_nickname=nickname,
+                defaults={'step': step},
+            )
+        except (HubSession.DoesNotExist, HubGameStep.DoesNotExist):
+            pass
+
+    @database_sync_to_async
+    def get_vote_counts(self):
+        from django.db.models import Count
+        try:
+            session = HubSession.objects.get(code=self.session_code)
+            steps = list(session.steps.all())
+            vote_qs = GameVote.objects.filter(session=session).values('step_id').annotate(count=Count('id'))
+            vote_map = {v['step_id']: v['count'] for v in vote_qs}
+            result = []
+            for step in steps:
+                result.append({
+                    'step_order': step.order,
+                    'game_key': step.game_key,
+                    'title': step.title or step.get_game_key_display(),
+                    'count': vote_map.get(step.id, 0),
+                })
+            return sorted(result, key=lambda x: x['count'], reverse=True)
+        except HubSession.DoesNotExist:
+            return []
 
     async def handle_end_session(self):
         await self.end_session_db()

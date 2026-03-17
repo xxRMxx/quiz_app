@@ -21,16 +21,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="quiz-play-page">
+<!-- TEST_MARKER_2026 -->
     <div class="play-container">
         <!-- Header -->
         <header class="quiz-header">
             <div class="container">
                 <div class="header-content">
                     <div class="quiz-info">
-                        <!-- <div class="room-code">
-                            <i data-lucide="hash"></i>
-                            {{ quiz.room_code }}
-                        </div> -->
+                        <span class="game-type-badge">
+                            <i data-lucide="help-circle"></i>
+                            Multiple Choice Quiz
+                        </span>
                         <h1 class="quiz-title">{{ quiz.title }}</h1>
                     </div>
                     <div class="participant-info">
@@ -39,7 +40,7 @@
                         </div>
                         <div class="participant-details">
                             <span class="participant-name">{{ participant.name }}</span>
-                            <!-- <span class="participant-score">{{ participant.total_score }} pts</span> -->
+                            <span class="participant-score-header" id="myScoreHeader">{{ participant.total_score }} pts</span>
                         </div>
                     </div>
                 </div>
@@ -49,7 +50,7 @@
         <!-- Main Content -->
         <main class="quiz-main">
             <div class="container">
-                <div class="row justify-content-center">
+                <div class="row g-3 align-items-start">
                     <div class="col-lg-8">
                         <!-- Waiting State -->
                         <div id="waitingQuizState" class="game-state {% if quiz.status != 'waiting' %}d-none{% endif %}">
@@ -206,15 +207,248 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Leaderboard Sidebar -->
+                    <div class="col-lg-4" id="leaderboardSidebar">
+                        <div class="leaderboard-card">
+                            <div class="leaderboard-header">
+                                <h6 class="leaderboard-title">
+                                    <i data-lucide="trophy"></i>
+                                    Leaderboard
+                                </h6>
+                                <span class="leaderboard-refresh-hint" id="lbRefreshHint"></span>
+                            </div>
+                            <div class="leaderboard-body" id="leaderboardList">
+                                <div class="lb-loading">
+                                    <i data-lucide="loader"></i>
+                                    <span>Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Tutorial Overlay (hidden; shown when admin starts quiz) -->
+    <div id="tutorialOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:2000; align-items:center; justify-content:center; padding:1rem;">
+        <div style="background:#fff; border-radius:1.25rem; padding:2.5rem 2rem; max-width:520px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.3); text-align:center; animation:tutSlideIn .4s ease-out;">
+
+            <!-- Progress dots -->
+            <div style="display:flex; justify-content:center; gap:.5rem; margin-bottom:1.5rem;" id="tutDots">
+                <div class="tut-dot active" id="tutDot0"></div>
+                <div class="tut-dot" id="tutDot1"></div>
+                <div class="tut-dot" id="tutDot2"></div>
+            </div>
+
+            <!-- Step 1: Welcome -->
+            <div class="tut-step active" id="tutStep0">
+                <div style="font-size:2.8rem; margin-bottom:.75rem;">🎉</div>
+                <h2 style="margin:0 0 .75rem; font-size:1.4rem; color:#1e293b;">Welcome to the Quiz!</h2>
+                <p style="color:#475569; margin-bottom:1.25rem;">Hello <strong>{{ participant.name }}</strong>! Here's a quick explanation of how the game works:</p>
+                <div style="background:#f8fafc; border-radius:.75rem; padding:1.25rem; text-align:left; margin-bottom:1.5rem;">
+                    <div class="tut-rule"><span class="tut-icon">❓</span><span>The host asks a question – you see it on your screen.</span></div>
+                    <div class="tut-rule"><span class="tut-icon">⏱️</span><span>You have a countdown. Answer as quickly as possible!</span></div>
+                    <div class="tut-rule"><span class="tut-icon">👆</span><span>Select an answer and click <em>Submit Answer</em>.</span></div>
+                    <div class="tut-rule"><span class="tut-icon">🏆</span><span>The more correct answers, the more points!</span></div>
+                </div>
+                <button class="tut-btn" onclick="tutNext()">Next &rarr;</button>
+            </div>
+
+            <!-- Step 2: Practice question -->
+            <div class="tut-step" id="tutStep1">
+                <div style="font-size:2.8rem; margin-bottom:.75rem;">✍️</div>
+                <h2 style="margin:0 0 .5rem; font-size:1.4rem; color:#1e293b;">Try it out!</h2>
+                <p style="color:#475569; margin-bottom:1rem;">This practice question doesn't count towards the result:</p>
+                <p style="font-size:1.1rem; font-weight:600; color:#1e293b; margin-bottom:1.25rem;">Which animal is on the German coat of arms?</p>
+                <div id="tutAnswers" style="margin-bottom:.75rem;">
+                    <div class="tut-answer" data-val="Adler" onclick="tutSelectAnswer(this)"><span class="tut-opt-key">A</span> Eagle</div>
+                    <div class="tut-answer" data-val="Löwe"  onclick="tutSelectAnswer(this)"><span class="tut-opt-key">B</span> Lion</div>
+                    <div class="tut-answer" data-val="Bär"   onclick="tutSelectAnswer(this)"><span class="tut-opt-key">C</span> Bear</div>
+                    <div class="tut-answer" data-val="Wolf"  onclick="tutSelectAnswer(this)"><span class="tut-opt-key">D</span> Wolf</div>
+                </div>
+                <div id="tutFeedback" style="display:none; padding:.75rem 1rem; border-radius:.6rem; margin-bottom:.75rem; font-weight:500;"></div>
+                <button class="tut-btn" id="tutCheckBtn" onclick="tutCheck()" disabled>Check Answer</button>
+            </div>
+
+            <!-- Step 3: Points & Go -->
+            <div class="tut-step" id="tutStep2">
+                <div style="font-size:2.8rem; margin-bottom:.75rem;">⭐</div>
+                <h2 style="margin:0 0 .75rem; font-size:1.4rem; color:#1e293b;">Point System</h2>
+                <p style="color:#475569; margin-bottom:1rem;">Here's how your points are calculated:</p>
+                <div style="display:flex; gap:.75rem; flex-wrap:wrap; justify-content:center; margin-bottom:1.5rem;">
+                    <div class="tut-score-card"><div class="tut-score-val">10</div><div class="tut-score-lbl">Points per correct answer</div></div>
+                    <div class="tut-score-card"><div class="tut-score-val">0</div><div class="tut-score-lbl">Points for wrong answer or timeout</div></div>
+                </div>
+                <p style="color:#475569; margin-bottom:1.5rem;">Good luck! 🚀</p>
+                <button class="tut-btn tut-btn-green" onclick="tutClose()">Let's go! 🎮</button>
+            </div>
+        </div>
     </div>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <style>
+        /* ---- Tutorial Styles ---- */
+        @keyframes tutSlideIn {
+            from { opacity:0; transform:scale(.92) translateY(16px); }
+            to   { opacity:1; transform:scale(1) translateY(0); }
+        }
+        .tut-step { display:none; }
+        .tut-step.active { display:block; }
+        .tut-dot {
+            width:10px; height:10px; border-radius:50%;
+            background:#e2e8f0; transition:background .3s;
+        }
+        .tut-dot.active { background:#6366f1; }
+        .tut-dot.done   { background:#22c55e; }
+        .tut-rule {
+            display:flex; align-items:flex-start; gap:.6rem;
+            margin-bottom:.75rem; font-size:.92rem; color:#475569;
+        }
+        .tut-rule:last-child { margin-bottom:0; }
+        .tut-icon { font-size:1.2rem; min-width:24px; text-align:center; }
+        .tut-btn {
+            background: linear-gradient(135deg,#6366f1,#8b5cf6);
+            color:#fff; border:none; padding:.8rem 2rem;
+            border-radius:2rem; font-size:1rem; font-weight:600;
+            cursor:pointer; transition:all .25s ease; margin-top:.5rem;
+        }
+        .tut-btn:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(99,102,241,.35); }
+        .tut-btn:disabled { background:#94a3b8; cursor:default; transform:none; box-shadow:none; }
+        .tut-btn-green { background:linear-gradient(135deg,#22c55e,#16a34a); }
+        .tut-btn-green:hover { box-shadow:0 6px 18px rgba(34,197,94,.35); }
+        .tut-answer {
+            display:flex; align-items:center; gap:.75rem;
+            background:#f8fafc; border:2px solid #e2e8f0;
+            border-radius:.6rem; padding:.7rem 1rem;
+            margin-bottom:.6rem; cursor:pointer;
+            font-size:.95rem; color:#1e293b;
+            transition:all .2s;
+        }
+        .tut-answer:hover:not(.disabled-tut) { border-color:#6366f1; background:#eef2ff; }
+        .tut-answer.selected { border-color:#6366f1; background:#eef2ff; }
+        .tut-answer.correct  { border-color:#22c55e; background:#f0fdf4; color:#15803d; }
+        .tut-answer.incorrect{ border-color:#ef4444; background:#fef2f2; color:#b91c1c; }
+        .tut-answer.disabled-tut { cursor:default; }
+        .tut-opt-key {
+            background:#6366f1; color:#fff; width:26px; height:26px;
+            border-radius:50%; display:inline-flex; align-items:center;
+            justify-content:center; font-weight:700; font-size:.85rem; flex-shrink:0;
+        }
+        .tut-answer.correct .tut-opt-key  { background:#22c55e; }
+        .tut-answer.incorrect .tut-opt-key { background:#ef4444; }
+        .tut-score-card {
+            background:#f8fafc; border:2px solid #e2e8f0;
+            border-radius:.75rem; padding:1rem 1.25rem; flex:1; min-width:120px;
+        }
+        .tut-score-val { font-size:1.6rem; font-weight:700; color:#6366f1; }
+        .tut-score-lbl { font-size:.8rem; color:#64748b; margin-top:.25rem; }
+        /* ---- End Tutorial Styles ---- */
+        /* ---- Game Type Badge ---- */
+        .game-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            background: var(--primary-100, #e0e7ff);
+            color: var(--primary-700, #4338ca);
+            border-radius: 999px;
+            padding: .3rem .85rem;
+            font-size: .8rem;
+            font-weight: 600;
+            letter-spacing: .3px;
+        }
+        .game-type-badge i { width: 14px; height: 14px; }
+        .participant-score-header {
+            font-size: .8rem;
+            font-weight: 600;
+            color: var(--primary-600, #4f46e5);
+            background: var(--primary-50, #eef2ff);
+            border-radius: 999px;
+            padding: .2rem .7rem;
+        }
+        /* ---- Leaderboard Sidebar ---- */
+        .leaderboard-card {
+            background: var(--bg-primary, #fff);
+            border-radius: var(--border-radius-xl, 1rem);
+            box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,.08));
+            overflow: hidden;
+            position: sticky;
+            top: 80px;
+        }
+        .leaderboard-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: .9rem 1.1rem;
+            border-bottom: 1px solid var(--border-color, #e2e8f0);
+            background: linear-gradient(135deg, var(--primary-50, #eef2ff) 0%, var(--secondary-50, #f0fdf4) 100%);
+        }
+        .leaderboard-title {
+            margin: 0;
+            font-size: .95rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            color: var(--text-primary, #1e293b);
+        }
+        .leaderboard-title i { width: 16px; height: 16px; color: #f59e0b; }
+        .leaderboard-refresh-hint {
+            font-size: .72rem;
+            color: var(--text-secondary, #64748b);
+        }
+        .leaderboard-body { padding: .5rem 0; max-height: 420px; overflow-y: auto; }
+        .lb-row {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            padding: .55rem 1rem;
+            transition: background .15s;
+        }
+        .lb-row:hover { background: var(--bg-secondary, #f8fafc); }
+        .lb-row.lb-me {
+            background: var(--primary-50, #eef2ff);
+            border-left: 3px solid var(--primary-500, #6366f1);
+        }
+        .lb-rank {
+            width: 22px;
+            text-align: center;
+            font-weight: 700;
+            font-size: .82rem;
+            color: var(--text-secondary, #64748b);
+            flex-shrink: 0;
+        }
+        .lb-rank.top1 { color: #f59e0b; }
+        .lb-rank.top2 { color: #94a3b8; }
+        .lb-rank.top3 { color: #b45309; }
+        .lb-avatar {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            background: var(--primary-100, #e0e7ff);
+            color: var(--primary-700, #4338ca);
+            font-weight: 700;
+            font-size: .8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .lb-me .lb-avatar { background: var(--primary-500, #6366f1); color: #fff; }
+        .lb-name { flex: 1; font-size: .88rem; font-weight: 500; color: var(--text-primary, #1e293b); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lb-me .lb-name { font-weight: 700; }
+        .lb-score { font-size: .88rem; font-weight: 700; color: var(--primary-600, #4f46e5); flex-shrink: 0; }
+        .lb-loading, .lb-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            padding: 1.5rem;
+            color: var(--text-secondary, #64748b);
+            font-size: .88rem;
+        }
         /* Quiz Play Page Styles */
         .quiz-play-page {
             min-height: 100vh;
@@ -921,17 +1155,31 @@
                         case 'quiz_started':
                             this.onQuizStarted();
                             break;
-                            
+
+                        case 'tutorial_start':
+                            tutShow();
+                            break;
+
                         case 'question_started':
-                            this.onQuestionStarted(data.question, data.question.time_limit);
+                            if (typeof tutForceClose === 'function') tutForceClose();
+                            if (data.question) {
+                                this.onQuestionStarted(data.question, data.question.time_limit);
+                            }
                             break;
                             
+                        case 'answer_submitted':
+                            // Score may have changed — refresh after brief delay
+                            scheduleLeaderboardRefresh(1500);
+                            break;
+
                         case 'question_ended':
                             this.onQuestionEnded(data);
+                            scheduleLeaderboardRefresh(1200);
                             break;
-                            
+
                         case 'quiz_ended':
                             this.onQuizEnded(data);
+                            scheduleLeaderboardRefresh(1000);
                             break;
                             
                         case 'participant_count_updated':
@@ -977,6 +1225,8 @@
                 }
 
                 onQuizStarted() {
+                    // Tutorial is shown via separate 'tutorial_start' event
+                    // Simply show the waiting view here (will be overlaid by the tutorial)
                     this.showState('waitingQuizState');
                 }
 
@@ -1248,6 +1498,168 @@
 
             // Initialize Quiz Player
             const player = new QuizPlayer();
+
+            // ---- Leaderboard Logic ----
+            let lbFetchTimeout = null;
+            const MY_NAME = '{{ participant.name }}';
+
+            function renderLeaderboard(participants) {
+                const list = document.getElementById('leaderboardList');
+                const hint = document.getElementById('lbRefreshHint');
+                if (!list) return;
+                if (!participants || participants.length === 0) {
+                    list.innerHTML = '<div class="lb-empty"><span>No data yet</span></div>';
+                    return;
+                }
+                const rows = participants.map((p, i) => {
+                    const rank = i + 1;
+                    const isMe = p.name === MY_NAME;
+                    const rankClass = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+                    const rankDisplay = rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : rank;
+                    return `<div class="lb-row${isMe ? ' lb-me' : ''}">
+                        <div class="lb-rank ${rankClass}">${rankDisplay}</div>
+                        <div class="lb-avatar">${p.name.charAt(0).toUpperCase()}</div>
+                        <div class="lb-name">${p.name}${isMe ? ' (You)' : ''}</div>
+                        <div class="lb-score">${p.weighted_score ?? p.total_score ?? 0} pts</div>
+                    </div>`;
+                }).join('');
+                list.innerHTML = rows;
+                if (hint) {
+                    const now = new Date();
+                    hint.textContent = `Updated: ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+                }
+                // Update header score for current participant
+                const me = participants.find(p => p.name === MY_NAME);
+                const scoreEl = document.getElementById('myScoreHeader');
+                if (me && scoreEl) scoreEl.textContent = (me.weighted_score ?? me.total_score ?? 0) + ' pts';
+                try { lucide.createIcons(); } catch(_) {}
+            }
+
+            function fetchLeaderboard() {
+                const hub = player.hubSession;
+                if (!hub) return;
+                fetch(`/hub/api/session/${hub}/leaderboard/`)
+                    .then(r => r.json())
+                    .then(data => { if (data.participants) renderLeaderboard(data.participants); })
+                    .catch(() => {});
+            }
+
+            function scheduleLeaderboardRefresh(delayMs) {
+                clearTimeout(lbFetchTimeout);
+                lbFetchTimeout = setTimeout(fetchLeaderboard, delayMs || 0);
+            }
+
+            // Initial load (slight delay to let WS connect first)
+            if (player.hubSession) {
+                scheduleLeaderboardRefresh(800);
+            } else {
+                const sb = document.getElementById('leaderboardSidebar');
+                if (sb) sb.style.display = 'none';
+            }
+            // ---- End Leaderboard Logic ----
+
+            // ---- Tutorial Logic ----
+            let tutStep = 0;
+            let tutSelected = null;
+            const TUT_CORRECT = 'Adler';
+
+            function tutShow() {
+                tutStep = 0;
+                tutSelected = null;
+                // Reset dots and steps
+                document.querySelectorAll('.tut-step').forEach((s, i) => s.classList.toggle('active', i === 0));
+                document.querySelectorAll('.tut-dot').forEach((d, i) => { d.className = 'tut-dot' + (i === 0 ? ' active' : ''); });
+                // Reset practice question
+                document.querySelectorAll('.tut-answer').forEach(a => {
+                    a.className = 'tut-answer';
+                    a.onclick = function() { tutSelectAnswer(this); };
+                });
+                const fb = document.getElementById('tutFeedback');
+                if (fb) { fb.style.display = 'none'; fb.textContent = ''; }
+                const cb = document.getElementById('tutCheckBtn');
+                if (cb) { cb.disabled = true; cb.textContent = 'Check Answer'; cb.onclick = tutCheck; }
+
+                const ov = document.getElementById('tutorialOverlay');
+                ov.style.display = 'flex';
+                ov.style.opacity = '0';
+                ov.style.transition = 'opacity .35s ease';
+                requestAnimationFrame(() => { ov.style.opacity = '1'; });
+            }
+
+            function tutNext() {
+                const cur = document.getElementById('tutStep' + tutStep);
+                const dot = document.getElementById('tutDot' + tutStep);
+                cur.classList.remove('active');
+                dot.classList.remove('active');
+                dot.classList.add('done');
+                tutStep++;
+                const nxt = document.getElementById('tutStep' + tutStep);
+                const ndot = document.getElementById('tutDot' + tutStep);
+                if (nxt) nxt.classList.add('active');
+                if (ndot) ndot.classList.add('active');
+            }
+
+            function tutSelectAnswer(el) {
+                if (el.classList.contains('disabled-tut')) return;
+                document.querySelectorAll('.tut-answer').forEach(a => a.classList.remove('selected'));
+                el.classList.add('selected');
+                tutSelected = el.dataset.val;
+                document.getElementById('tutCheckBtn').disabled = false;
+            }
+
+            function tutCheck() {
+                if (!tutSelected) return;
+                const options = document.querySelectorAll('.tut-answer');
+                const fb = document.getElementById('tutFeedback');
+                const cb = document.getElementById('tutCheckBtn');
+                options.forEach(opt => {
+                    opt.classList.add('disabled-tut');
+                    opt.onclick = null;
+                    if (opt.dataset.val === TUT_CORRECT) opt.classList.add('correct');
+                    else if (opt.dataset.val === tutSelected) opt.classList.add('incorrect');
+                });
+                if (tutSelected === TUT_CORRECT) {
+                    fb.textContent = '✅ Correct! Well done!';
+                    fb.style.background = '#f0fdf4'; fb.style.border = '1px solid #22c55e'; fb.style.color = '#15803d';
+                } else {
+                    fb.textContent = `❌ Wrong! The correct answer was "${TUT_CORRECT}".`;
+                    fb.style.background = '#fef2f2'; fb.style.border = '1px solid #ef4444'; fb.style.color = '#b91c1c';
+                }
+                fb.style.display = 'block';
+                cb.textContent = 'Next →';
+                cb.disabled = false;
+                cb.onclick = tutNext;
+            }
+
+            function tutClose() {
+                // Report tutorial completion to the server
+                if (player.websocket && player.websocket.readyState === WebSocket.OPEN) {
+                    player.websocket.send(JSON.stringify({
+                        type: 'tutorial_completed',
+                        participant_name: player.participantName,
+                        hub_session: player.hubSession
+                    }));
+                }
+                const ov = document.getElementById('tutorialOverlay');
+                ov.style.opacity = '0';
+                ov.style.transition = 'opacity .3s ease';
+                setTimeout(() => { ov.style.display = 'none'; }, 320);
+            }
+
+            function tutForceClose() {
+                const ov = document.getElementById('tutorialOverlay');
+                if (ov && ov.style.display !== 'none') {
+                    tutClose();
+                }
+            }
+
+            // Make functions globally accessible (for onclick attributes in HTML)
+            window.tutNext = tutNext;
+            window.tutClose = tutClose;
+            window.tutCheck = tutCheck;
+            window.tutSelectAnswer = tutSelectAnswer;
+            window.tutForceClose = tutForceClose;
+            // ---- End Tutorial Logic ----
 
             // Minimal Hub listener: optional, for centralized navigation
             (function() {

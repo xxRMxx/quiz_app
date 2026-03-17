@@ -3,117 +3,106 @@
 {% block title %}Sorting Ladder Management - QuizMaster Admin{% endblock %}
 
 {% block page_title %}Sorting Ladder Quiz Management{% endblock %}
-{% block page_subtitle %}Create Sorting Ladder quizzes, manage topics, and monitor live sessions{% endblock %}
+{% block page_subtitle %}Add, edit and delete topics{% endblock %}
 
 {% block content %}
 <div class="quiz-management-content">
-    <!-- Action Cards -->
-    <div class="row g-4 mb-5">
-        <div class="col-lg-4">
-            <div class="action-card">
-                <div class="action-card-body">
-                    <div class="action-icon bg-primary">
-                        <i data-lucide="plus-circle"></i>
-                    </div>
-                    <h3>Create a Sorting Ladder Quiz</h3>
-                    <p>Start a new Sorting Ladder quiz session that participants can join with a unique room code.</p>
-                    <div class="d-flex flex-column gap-2 mt-2">
-                        <button class="btn btn-primary" id="openCreateCustomGameModal" data-bs-toggle="modal" data-bs-target="#createCustomGameModal">
-                            <i data-lucide="layers"></i>
-                            Create Custom Quiz
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4">
-            <div class="action-card">
-                <div class="action-card-body">
-                    <div class="action-icon bg-secondary">
-                        <i data-lucide="help-circle"></i>
-                    </div>
-                    <h3>Add Topic</h3>
-                    <p>Create new sorting topics (e.g. Countries by Size) for the Sorting Ladder quiz.</p>
-                    <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#addTopicModal">
-                        <i data-lucide="edit"></i>
-                        Add New Topic
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4">
-            <div class="action-card">
-                <div class="action-card-body">
-                    <div class="action-icon bg-success">
-                        <i data-lucide="database"></i>
-                    </div>
-                    <h3>Topic Bank</h3>
-                    <p>View and manage all available Sorting Ladder topics. Currently {{ total_topics }} topics available.</p>
-                    <button class="btn btn-success" id="viewTopicsBtn" data-bs-toggle="modal" data-bs-target="#viewTopicsModal">
-                        <i data-lucide="list"></i>
-                        View Topics ({{ total_topics }})
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Created Sorting Ladder Quizzes Section -->
-    <div class="card">
-        <div class="card-header">
-            <h5 class="card-title mb-0">
-                <i data-lucide="history"></i>
-                Created Sorting Ladder Quizzes
+    <!-- Topic Form Card -->
+    <div class="card mb-4" id="topicFormCard">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0" id="topicFormTitle">
+                <i data-lucide="help-circle"></i>
+                Add New Topic
             </h5>
+            <button class="btn btn-sm btn-outline-secondary" id="resetFormBtn" type="button">
+                <i data-lucide="rotate-ccw"></i> Reset
+            </button>
         </div>
         <div class="card-body">
-            {% if quizzes %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th class="text-center">Title</th>
-                                <th class="text-center">Questions</th>
-                                <th class="text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for quiz in quizzes %}
-                            <tr data-quiz-row="{{ quiz.id }}">
-                                <td class="text-center">{{ quiz.title }}</td>
-                                <td class="text-center">{{ quiz.selected_questions.count }}</td>
-                                <td>
-                                    <div class="action-buttons">
-                                        <button class="btn btn-sm btn-outline-primary show-game-topics-btn" data-game-id="{{ quiz.id }}" data-game-title="{{ quiz.title }}">
-                                            <i data-lucide="list"></i>
-                                            Show Topics
-                                        </button>
-                                        <button class="btn btn-sm btn-danger delete-game-btn" data-game-id="{{ quiz.id }}">
-                                            <i data-lucide="trash"></i>
-                                            Delete Game
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <form id="addTopicForm">
+                <input type="hidden" id="topicId" name="topic_id" />
+                <input type="hidden" id="itemsPayload" name="items_json" />
+                <div class="mb-3">
+                    <label for="topicTitle" class="form-label">Topic Title *</label>
+                    <input type="text" class="form-control" id="topicTitle" name="title"
+                              placeholder="e.g. Countries by Land Area" required />
                 </div>
-            {% else %}
-                <div class="empty-state">
-                    <i data-lucide="inbox"></i>
-                    <h4>No Sorting Ladder Quizzes Yet</h4>
-                    <p>Create your first Sorting Ladder quiz to get started!</p>
-                    <button class="btn btn-primary" id="openCreateCustomGameModal" data-bs-toggle="modal" data-bs-target="#createCustomGameModal">
-                            <i data-lucide="layers"></i>
-                            Create Custom Game
+                <div class="mb-3">
+                    <label for="topicDescription" class="form-label">Description</label>
+                    <textarea class="form-control" id="topicDescription" name="description" rows="3"
+                              placeholder="Describe the ordering rule for this topic (e.g. sort countries from smallest to largest)."></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label for="topicPoints" class="form-label">Points</label>
+                            <input type="number" class="form-control" id="topicPoints" name="points"
+                                      placeholder="e.g. 10" value="10" />
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label for="topicRoundTimeLimit" class="form-label">Round Time Limit (seconds)</label>
+                            <input type="number" class="form-control" id="topicRoundTimeLimit" name="round_time_limit"
+                                      placeholder="e.g. 30" value="30" />
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-2 d-flex align-items-center justify-content-between">
+                    <h6 class="mb-0">Items</h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="addItemBtn">
+                        <i data-lucide="plus"></i> Add Item
                     </button>
                 </div>
-            {% endif %}
+                <div id="itemsContainer" class="clues-container mb-3"></div>
+                <small class="text-muted">Each item represents one element that players will sort in this topic. The order field reflects its position in the ladder.</small>
+                <div class="d-flex justify-content-end mt-3">
+                    <button type="submit" class="btn btn-primary" id="submitTopicBtn">
+                        <i data-lucide="plus"></i>
+                        Add Topic
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
+
+    <!-- Topics Bank Card -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i data-lucide="database"></i>
+                Topic Bank
+                <span class="badge bg-secondary ms-2" id="topicCountBadge">{{ total_topics }}</span>
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Items</th>
+                            <th>Created</th>
+
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topicsTableBody">
+                        <tr><td colspan="6" class="text-center py-4">
+                            <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+                            Loading topics...
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                <div class="text-muted small" id="topicCount"></div>
+                <nav><ul class="pagination pagination-sm mb-0" id="topicsPagination"></ul></nav>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <!-- Create Custom Sorting Ladder Quiz Modal -->
@@ -142,7 +131,7 @@
                                 <th>Description</th>
                                 <th>Items</th>
                                 <th>Created</th>
-                                <th>Status</th>
+    
                             </tr>
                         </thead>
                         <tbody id="customTopicsTableBody"></tbody>
@@ -159,117 +148,6 @@
                     <i data-lucide="check"></i>
                     Create Quiz
                 </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Add Topic Modal -->
-<div class="modal fade" id="addTopicModal" tabindex="-1" aria-labelledby="addTopicModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addTopicModalLabel">
-                    <i data-lucide="help-circle"></i>
-                    Add New Topic
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="addTopicForm">
-                <input type="hidden" id="topicId" name="topic_id" />
-                <input type="hidden" id="itemsPayload" name="items_json" />
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="topicTitle" class="form-label">Topic Title *</label>
-                        <input type="text" class="form-control" id="topicTitle" name="title" 
-                                  placeholder="e.g. Countries by Land Area" required />
-                    </div>
-
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="mb-3">
-                                <label for="topicDescription" class="form-label">Description</label>
-                                <textarea class="form-control" id="topicDescription" name="description" rows="3" 
-                                          placeholder="Describe the ordering rule for this topic (e.g. sort countries from smallest to largest)."></textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label for="topicPoints" class="form-label">Points</label>
-                                <input type="number" class="form-control" id="topicPoints" name="points" 
-                                          placeholder="e.g. 10" value="10" />
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label for="topicRoundTimeLimit" class="form-label">Round Time Limit (seconds)</label>
-                                <input type="number" class="form-control" id="topicRoundTimeLimit" name="round_time_limit" 
-                                          placeholder="e.g. 30" value="30" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mb-2 d-flex align-items-center justify-content-between">
-                        <h6 class="mb-0">Items</h6>
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="addItemBtn">
-                            <i data-lucide="plus"></i> Add Item
-                        </button>
-                    </div>
-                    <div id="itemsContainer" class="clues-container"></div>
-                    <small class="text-muted">Each item represents one element that players will sort in this topic. The order field reflects its position in the ladder.</small>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="submitTopicBtn">
-                        <i data-lucide="plus"></i>
-                        Add Topic
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- View Topics Modal -->
-<div class="modal fade" id="viewTopicsModal" tabindex="-1" aria-labelledby="viewTopicsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="viewTopicsModalLabel">Sorting Ladder Topics</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Title</th>
-                                <th>Description</th>
-                                <th>Items</th>
-                                <th>Created</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="topicsTableBody">
-                            <!-- Topics will be loaded here via JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <div class="text-muted" id="topicCount">Loading topics...</div>
-                    <nav>
-                        <ul class="pagination mb-0" id="topicsPagination">
-                            <!-- Pagination will be added here -->
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -294,138 +172,18 @@
         </div>
     </div>
 </div>
+
 <style>
 .quiz-management-content {
     /*max-width: 1400px;*/
 }
 
-/* Action Cards */
-.action-card {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-xl);
-    box-shadow: var(--shadow-sm);
-    transition: all var(--transition-fast);
-    height: 100%;
-}
-
-.action-card:hover {
-    box-shadow: var(--shadow-lg);
-    transform: translateY(-4px);
-}
-
-.action-card-body {
-    padding: 2rem;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.action-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 1.5rem;
-    color: var(--text-white);
-}
-
-.action-icon.bg-primary {
-    background: linear-gradient(135deg, var(--primary-400) 0%, var(--primary-600) 100%);
-}
-
-.action-icon.bg-secondary {
-    background: linear-gradient(135deg, var(--secondary-400) 0%, var(--secondary-600) 100%);
-}
-
-.action-icon.bg-success {
-    background: linear-gradient(135deg, var(--success-400) 0%, var(--success-600) 100%);
-}
-
-.action-card h3 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-}
-
-.action-card p {
-    color: var(--text-secondary);
-    margin-bottom: 1.5rem;
-    flex: 1;
-}
-
-/* Room Code */
-.room-code {
-    font-family: var(--font-family-mono);
-    background-color: var(--primary-100);
-    color: var(--primary-700);
-    padding: 0.25rem 0.5rem;
-    border-radius: var(--border-radius-sm);
-    font-weight: 600;
-    font-size: 0.875rem;
-}
-
-/* Status Badges */
-.badge {
-    padding: 0.375rem 0.75rem;
-    border-radius: var(--border-radius);
-    font-weight: 500;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.badge-waiting {
-    background-color: var(--warning-100);
-    color: var(--warning-700);
-}
-
-.badge-active {
-    background-color: var(--success-100);
-    color: var(--success-700);
-}
-
-.badge-completed {
-    background-color: var(--primary-100);
-    color: var(--primary-700);
-}
-
-.badge-cancelled {
-    background-color: var(--error-100);
-    color: var(--error-700);
-}
-
-/* Participant Info */
-.participant-info {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.participant-info i {
-    width: 16px;
-    height: 16px;
-}
-
-/* Action Buttons */
 .action-buttons {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
 }
 
-.btn-sm {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8125rem;
-}
-
-/* Empty State */
 .empty-state {
     text-align: center;
     padding: 3rem 2rem;
@@ -444,7 +202,6 @@
     margin-bottom: 0.5rem;
 }
 
-/* Modal Styles */
 .modal-content {
     border: none;
     box-shadow: var(--shadow-xl);
@@ -475,7 +232,6 @@
     color: var(--text-primary);
 }
 
-/* Loading states */
 .btn.loading {
     position: relative;
     color: transparent !important;
@@ -501,7 +257,6 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Table Enhancements */
 .table th {
     border-bottom: 2px solid var(--border-color);
     color: var(--text-primary);
@@ -520,33 +275,17 @@
     background-color: var(--bg-secondary);
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
-    .action-card-body {
-        padding: 1.5rem;
-    }
-    .action-icon {
-        width: 50px;
-        height: 50px;
-        margin-bottom: 1rem;
-    }
-    
     .action-buttons {
         justify-content: center;
     }
-    
     .table-responsive {
         font-size: 0.875rem;
-    }
-    
-    .room-code {
-        font-size: 0.8125rem;
     }
 }
 </style>
 
 <script>
-    // Helper functions reused across admin pages
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -567,32 +306,46 @@
         notification.className = `alert alert-${type} notification-toast`;
         notification.textContent = message;
         notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            min-width: 250px;
-            opacity: 0;
-            transform: translateX(100%);
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            min-width: 250px; opacity: 0; transform: translateX(100%);
             transition: all 0.3s ease;
         `;
         document.body.appendChild(notification);
+        setTimeout(() => { notification.style.opacity = '1'; notification.style.transform = 'translateX(0)'; }, 100);
         setTimeout(() => {
-            notification.style.opacity = '1';
-            notification.style.transform = 'translateX(0)';
-        }, 100);
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            notification.style.transform = 'translateX(100%)';
+            notification.style.opacity = '0'; notification.style.transform = 'translateX(100%)';
             setTimeout(() => notification.remove(), 300);
         }, 3000);
+    }
+
+    function postJson(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body || {}),
+        }).then(r => r.json());
     }
 
     document.addEventListener('DOMContentLoaded', function() {
         lucide.createIcons();
 
-        const createGameBtn = document.getElementById('createGameBtn');
-        const createGameBtnEmpty = document.getElementById('createGameBtnEmpty');
+        const topicsTableBody = document.getElementById('topicsTableBody');
+        const topicCount = document.getElementById('topicCount');
+        const topicsPagination = document.getElementById('topicsPagination');
+        const deleteTopicModal = document.getElementById('deleteTopicModal');
+        const confirmDeleteTopicBtn = document.getElementById('confirmDeleteTopicBtn');
+        const submitTopicBtn = document.getElementById('submitTopicBtn');
+        const itemsContainer = document.getElementById('itemsContainer');
+        const addItemBtn = document.getElementById('addItemBtn');
+        const addTopicForm = document.getElementById('addTopicForm');
+
+        // Custom game modal state
+        let customSelectedTopicIds = new Set();
+        let customGameEditMode = false;
+        let customGameCurrentId = null;
         const createCustomGameModal = document.getElementById('createCustomGameModal');
         const customTopicsTableBody = document.getElementById('customTopicsTableBody');
         const customTopicCount = document.getElementById('customTopicCount');
@@ -600,46 +353,217 @@
         const selectAllTopicsCheckbox = document.getElementById('selectAllTopics');
         const createCustomGameBtn = document.getElementById('createCustomGameBtn');
 
-        const viewTopicsModal = document.getElementById('viewTopicsModal');
-        const topicsTableBody = document.getElementById('topicsTableBody');
-        const topicCount = document.getElementById('topicCount');
-        const topicsPagination = document.getElementById('topicsPagination');
-        const deleteTopicModal = document.getElementById('deleteTopicModal');
-        const confirmDeleteTopicBtn = document.getElementById('confirmDeleteTopicBtn');
+        // Load topics on page load
+        loadTopics(1);
 
-        function postJson(url, body) {
-            return fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken'),
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(body || {}),
-            }).then(r => r.json());
+        // Reset form button
+        document.getElementById('resetFormBtn').addEventListener('click', () => setFormMode('add'));
+
+        // Items builder
+        function renumberItems() {
+            const rows = Array.from(document.querySelectorAll('#itemsContainer .item-row'));
+            rows.forEach((row, idx) => {
+                const orderInput = row.querySelector('.item-order');
+                if (orderInput) orderInput.value = idx + 1;
+            });
         }
 
-        function createGame() {
-            const btn = this;
-            btn.classList.add('loading');
-            postJson("{% url 'admin_dashboard:create_sorting_ladder_game' %}", { title: 'Sorting Ladder' })
+        function addItemRow(item = { text: '', order: '' }) {
+            if (!itemsContainer) return;
+            const row = document.createElement('div');
+            row.className = 'row g-2 align-items-end item-row mb-2';
+            let nextOrder = parseInt(item.order, 10);
+            if (!nextOrder || isNaN(nextOrder)) {
+                const existing = Array.from(document.querySelectorAll('#itemsContainer .item-row .item-order'))
+                    .map(el => parseInt(el.value, 10)).filter(v => !isNaN(v));
+                nextOrder = existing.length ? Math.max(...existing) + 1 : 1;
+            }
+            row.innerHTML = `
+                <div class="col-md-9">
+                    <label class="form-label">Item Text</label>
+                    <input type="text" class="form-control item-text" placeholder="Enter item..." value="${item.text || ''}" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Order</label>
+                    <input type="number" class="form-control item-order" min="1" value="${nextOrder}" placeholder="#" readonly>
+                </div>
+                <div class="col-md-1 text-end">
+                    <button type="button" class="btn btn-danger remove-item">&times;</button>
+                </div>`;
+            const removeBtn = row.querySelector('.remove-item');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => { row.remove(); renumberItems(); });
+            }
+            itemsContainer.appendChild(row);
+            renumberItems();
+        }
+
+        addItemBtn?.addEventListener('click', () => addItemRow());
+
+        // Initialize with one empty item row
+        addItemRow();
+
+        // Form submit
+        if (addTopicForm) {
+            addTopicForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const isEdit = submitTopicBtn.dataset.mode === 'edit';
+                const url = isEdit
+                    ? '{% url "admin_dashboard:update_sorting_topic" %}'
+                    : '{% url "admin_dashboard:add_sorting_topic" %}';
+
+                const items = Array.from(document.querySelectorAll('#itemsContainer .item-row')).map((row, idx) => ({
+                    text: row.querySelector('.item-text')?.value.trim() || '',
+                    order: parseInt(row.querySelector('.item-order')?.value || (idx + 1), 10) || (idx + 1),
+                })).filter(item => item.text);
+
+                const itemsField = document.getElementById('itemsPayload');
+                if (itemsField) itemsField.value = JSON.stringify(items);
+
+                const formData = new FormData(this);
+                submitTopicBtn.classList.add('loading');
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                    body: formData,
+                })
+                .then(r => r.json())
                 .then(data => {
                     if (data.success) {
-                        showNotification('Game created successfully', 'success');
-                        setTimeout(() => window.location.reload(), 1000);
+                        showNotification(isEdit ? 'Topic updated successfully!' : 'Topic added successfully!', 'success');
+                        setFormMode('add');
+                        loadTopics(1);
                     } else {
-                        alert('Error creating game: ' + (data.error || 'Unknown error'));
+                        alert('Error saving topic: ' + (data.error || 'Unknown error'));
                     }
                 })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error creating game. Please try again.');
-                })
-                .finally(() => btn.classList.remove('loading'));
+                .catch(err => { console.error(err); alert('Error saving topic.'); })
+                .finally(() => submitTopicBtn.classList.remove('loading'));
+            });
         }
 
-        if (createGameBtn) createGameBtn.addEventListener('click', createGame);
-        if (createGameBtnEmpty) createGameBtnEmpty.addEventListener('click', createGame);
+        // Load topics inline
+        function loadTopics(page) {
+            fetch('{% url "admin_dashboard:get_sorting_topics" %}?page=' + page, {
+                method: 'GET',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) throw new Error(data.error || 'Failed to load topics');
+                topicsTableBody.innerHTML = '';
+                topicCount.textContent = `${data.count} Topics`;
+                document.getElementById('topicCountBadge').textContent = data.count;
+                (data.topics || []).forEach(topic => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${topic.title}</td>
+                        <td>${topic.description || ''}</td>
+                        <td>${topic.item_count || 0}</td>
+                        <td>${topic.created_at}</td>
 
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary edit-topic-btn" data-topic-id="${topic.id}"><i data-lucide="pencil"></i> Edit</button>
+                            <button class="btn btn-sm btn-danger delete-topic-btn" data-topic-id="${topic.id}"><i data-lucide="trash-2"></i> Delete</button>
+                        </td>
+                    `;
+                    topicsTableBody.appendChild(row);
+                });
+                topicsPagination.innerHTML = '';
+                for (let i = 1; i <= data.pages; i++) {
+                    const li = document.createElement('li');
+                    li.className = 'page-item ' + (i === data.current_page ? 'active' : '');
+                    li.innerHTML = `<button class="page-link" data-page="${i}">${i}</button>`;
+                    topicsPagination.appendChild(li);
+                }
+                lucide.createIcons();
+            })
+            .catch(err => { console.error(err); alert('Error loading topics.'); });
+        }
+
+        topicsPagination?.addEventListener('click', function(e) {
+            if (e.target.classList.contains('page-link')) loadTopics(parseInt(e.target.dataset.page));
+        });
+
+        // Edit / Delete topic buttons
+        topicsTableBody?.addEventListener('click', function(e) {
+            const editBtn = e.target.closest('.edit-topic-btn');
+            if (editBtn) {
+                const topicId = editBtn.getAttribute('data-topic-id');
+                if (!topicId) return;
+                fetch(`{% url 'admin_dashboard:get_sorting_topic_detail' 0 %}`.replace('/0/', `/${topicId}/`), {
+                    method: 'GET',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                })
+                .then(r => r.json())
+                .then(({ success, topic, error }) => {
+                    if (!success) throw new Error(error || 'Failed to load topic.');
+                    document.getElementById('topicId').value = topic.id;
+                    document.getElementById('topicTitle').value = topic.title;
+                    document.getElementById('topicDescription').value = topic.description || '';
+                    document.getElementById('topicPoints').value = topic.points || '';
+                    document.getElementById('topicRoundTimeLimit').value = topic.round_time_limit || '';
+                    if (itemsContainer) {
+                        itemsContainer.innerHTML = '';
+                        const items = Array.isArray(topic.items) ? topic.items : [];
+                        if (items.length) {
+                            items.forEach(item => addItemRow({ text: item.text, order: item.order }));
+                        } else {
+                            addItemRow();
+                        }
+                    }
+                    setFormMode('edit');
+                    document.getElementById('topicFormCard').scrollIntoView({ behavior: 'smooth' });
+                })
+                .catch(err => { console.error(err); showNotification(err.message || 'Failed to load topic.', 'danger'); });
+                return;
+            }
+
+            const deleteBtn = e.target.closest('.delete-topic-btn');
+            if (deleteBtn) {
+                const topicId = deleteBtn.getAttribute('data-topic-id');
+                if (!topicId) return;
+                deleteTopicModal.dataset.topicId = topicId;
+                new bootstrap.Modal(deleteTopicModal).show();
+            }
+        });
+
+        // Confirm delete topic
+        confirmDeleteTopicBtn?.addEventListener('click', function() {
+            const topicId = deleteTopicModal.dataset.topicId;
+            if (!topicId) return;
+            postJson('{% url "admin_dashboard:delete_sorting_topic" %}', { topic_id: parseInt(topicId) })
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(deleteTopicModal).hide();
+                    showNotification('Topic deleted successfully!', 'success');
+                    loadTopics(1);
+                } else {
+                    alert('Error deleting topic: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => { console.error(err); alert('Error deleting topic.'); });
+        });
+
+        // Switch form mode
+        function setFormMode(mode) {
+            const title = document.getElementById('topicFormTitle');
+            if (mode === 'edit') {
+                title.innerHTML = '<i data-lucide="edit"></i> Edit Topic';
+                submitTopicBtn.innerHTML = '<i data-lucide="save"></i> Save Changes';
+                submitTopicBtn.dataset.mode = 'edit';
+            } else {
+                title.innerHTML = '<i data-lucide="help-circle"></i> Add New Topic';
+                submitTopicBtn.innerHTML = '<i data-lucide="plus"></i> Add Topic';
+                submitTopicBtn.dataset.mode = 'add';
+                document.getElementById('topicId').value = '';
+                addTopicForm.reset();
+                if (itemsContainer) { itemsContainer.innerHTML = ''; addItemRow(); }
+            }
+            lucide.createIcons();
+        }
+
+        // Delete game handler
         document.body.addEventListener('click', function(e) {
             const btn = e.target.closest('.delete-game-btn');
             if (!btn) return;
@@ -648,100 +572,28 @@
             if (!confirm('Delete this Sorting Ladder game?')) return;
             btn.classList.add('loading');
             postJson("{% url 'admin_dashboard:delete_sorting_ladder_game' %}", { quiz_id: parseInt(gameId) })
-                .then(data => {
-                    if (data && data.success) {
-                        const row = document.querySelector(`tr[data-quiz-row="${gameId}"]`);
-                        if (row) row.remove();
-                        showNotification('Game deleted', 'success');
-                    } else {
-                        alert('Failed to delete game: ' + (data && data.error ? data.error : 'Unknown error'));
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error deleting game.');
-                })
-                .finally(() => btn.classList.remove('loading'));
-        });
-
-        function loadTopics(page) {
-            fetch('{% url "admin_dashboard:get_sorting_topics" %}?page=' + page, {
-                method: 'GET',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            .then(data => {
+                if (data && data.success) {
+                    const row = document.querySelector(`tr[data-quiz-row="${gameId}"]`);
+                    if (row) row.remove();
+                    showNotification('Game deleted', 'success');
+                } else {
+                    alert('Failed to delete game: ' + (data && data.error ? data.error : 'Unknown error'));
+                }
             })
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) {
-                        throw new Error(data.error || 'Failed to load topics');
-                    }
-                    topicsTableBody.innerHTML = '';
-                    topicCount.textContent = `Showing ${data.count} topics`;
-                    (data.topics || []).forEach(topic => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${topic.title}</td>
-                            <td>${topic.description || ''}</td>
-                            <td>${topic.item_count || 0}</td>
-                            <td>${topic.created_at}</td>
-                            <td>${topic.is_active ? 'Active' : 'Inactive'}</td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-primary edit-topic-btn" data-topic-id="${topic.id}">Edit</button>
-                                <button class="btn btn-sm btn-danger delete-topic-btn" data-topic-id="${topic.id}" data-bs-toggle="modal" data-bs-target="#deleteTopicModal">Delete</button>
-                            </td>
-                        `;
-                        topicsTableBody.appendChild(row);
-                    });
-                    topicsPagination.innerHTML = '';
-                    for (let i = 1; i <= data.pages; i++) {
-                        const li = document.createElement('li');
-                        li.className = 'page-item ' + (i === data.current_page ? 'active' : '');
-                        li.innerHTML = `<button class="page-link" data-page="${i}">${i}</button>`;
-                        topicsPagination.appendChild(li);
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error loading topics. Please try again.');
-                });
-        }
-
-        if (viewTopicsModal) {
-            viewTopicsModal.addEventListener('shown.bs.modal', function() {
-                loadTopics(1);
-            });
-        }
-
-        topicsPagination?.addEventListener('click', function(e) {
-            if (e.target.classList.contains('page-link')) {
-                const page = parseInt(e.target.dataset.page);
-                loadTopics(page);
-            }
+            .catch(err => { console.error(err); alert('Error deleting game.'); })
+            .finally(() => btn.classList.remove('loading'));
         });
 
-        // ---------- Custom Game Creation (topic selector) ----------
-        let customSelectedTopicIds = new Set();
-        let customGameEditMode = false;
-        let customGameCurrentId = null;
-
+        // Custom Game Modal functions
         function syncSelectAllCheckbox() {
             if (!selectAllTopicsCheckbox || !customTopicsTableBody) return;
             const checkboxes = Array.from(customTopicsTableBody.querySelectorAll('.select-topic-checkbox'));
-            if (!checkboxes.length) {
-                selectAllTopicsCheckbox.checked = false;
-                selectAllTopicsCheckbox.indeterminate = false;
-                return;
-            }
+            if (!checkboxes.length) { selectAllTopicsCheckbox.checked = false; selectAllTopicsCheckbox.indeterminate = false; return; }
             const selectedCount = checkboxes.filter(cb => cb.checked).length;
-            if (selectedCount === 0) {
-                selectAllTopicsCheckbox.checked = false;
-                selectAllTopicsCheckbox.indeterminate = false;
-            } else if (selectedCount === checkboxes.length) {
-                selectAllTopicsCheckbox.checked = true;
-                selectAllTopicsCheckbox.indeterminate = false;
-            } else {
-                selectAllTopicsCheckbox.checked = false;
-                selectAllTopicsCheckbox.indeterminate = true;
-            }
+            if (selectedCount === 0) { selectAllTopicsCheckbox.checked = false; selectAllTopicsCheckbox.indeterminate = false; }
+            else if (selectedCount === checkboxes.length) { selectAllTopicsCheckbox.checked = true; selectAllTopicsCheckbox.indeterminate = false; }
+            else { selectAllTopicsCheckbox.checked = false; selectAllTopicsCheckbox.indeterminate = true; }
         }
 
         function loadCustomTopics(page) {
@@ -750,71 +602,61 @@
                 method: 'GET',
                 headers: { 'X-CSRFToken': getCookie('csrftoken') },
             })
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) {
-                        throw new Error(data.error || 'Failed to load topics');
-                    }
-                    customTopicsTableBody.innerHTML = '';
-                    if (customTopicCount) {
-                        customTopicCount.textContent = `Showing ${data.count} topics`;
-                    }
-
-                    (data.topics || []).forEach(topic => {
-                        const row = document.createElement('tr');
-                        const checked = customSelectedTopicIds.has(topic.id);
-                        row.innerHTML = `
-                            <td>
-                                <input type="checkbox" class="form-check-input select-topic-checkbox" data-topic-id="${topic.id}" ${checked ? 'checked' : ''}>
-                            </td>
-                            <td>${topic.title}</td>
-                            <td>${topic.description || ''}</td>
-                            <td>${topic.item_count || 0}</td>
-                            <td>${topic.created_at}</td>
-                            <td>${topic.is_active ? 'Active' : 'Inactive'}</td>
-                        `;
-                        customTopicsTableBody.appendChild(row);
-                    });
-
-                    if (customTopicsPagination) {
-                        customTopicsPagination.innerHTML = '';
-                        for (let i = 1; i <= data.pages; i++) {
-                            const li = document.createElement('li');
-                            li.className = 'page-item ' + (i === data.current_page ? 'active' : '');
-                            li.innerHTML = `<button class="page-link" data-page="${i}">${i}</button>`;
-                            customTopicsPagination.appendChild(li);
-                        }
-                    }
-
-                    syncSelectAllCheckbox();
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error loading topics for custom game. Please try again.');
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) throw new Error(data.error || 'Failed to load topics');
+                customTopicsTableBody.innerHTML = '';
+                if (customTopicCount) customTopicCount.textContent = `Showing ${data.count} topics`;
+                (data.topics || []).forEach(topic => {
+                    const row = document.createElement('tr');
+                    const checked = customSelectedTopicIds.has(topic.id);
+                    row.innerHTML = `
+                        <td><input type="checkbox" class="form-check-input select-topic-checkbox" data-topic-id="${topic.id}" ${checked ? 'checked' : ''}></td>
+                        <td>${topic.title}</td>
+                        <td>${topic.description || ''}</td>
+                        <td>${topic.item_count || 0}</td>
+                        <td>${topic.created_at}</td>
+                        <td>${topic.is_active ? 'Active' : 'Inactive'}</td>
+                    `;
+                    customTopicsTableBody.appendChild(row);
                 });
+                if (customTopicsPagination) {
+                    customTopicsPagination.innerHTML = '';
+                    for (let i = 1; i <= data.pages; i++) {
+                        const li = document.createElement('li');
+                        li.className = 'page-item ' + (i === data.current_page ? 'active' : '');
+                        li.innerHTML = `<button class="page-link" data-page="${i}">${i}</button>`;
+                        customTopicsPagination.appendChild(li);
+                    }
+                }
+                syncSelectAllCheckbox();
+            })
+            .catch(err => { console.error(err); alert('Error loading topics for custom game.'); });
         }
 
         createCustomGameModal?.addEventListener('shown.bs.modal', function() {
-            // For fresh create mode, reset selection/state; for edit mode, keep what was loaded
             if (!customGameEditMode) {
                 customSelectedTopicIds = new Set();
                 const titleInput = document.getElementById('customGameTitle');
-                if (titleInput) {
-                    titleInput.value = 'Sorting Ladder';
-                }
+                if (titleInput) titleInput.value = 'Sorting Ladder';
             }
-            if (selectAllTopicsCheckbox) {
-                selectAllTopicsCheckbox.checked = false;
-                selectAllTopicsCheckbox.indeterminate = false;
-            }
+            if (selectAllTopicsCheckbox) { selectAllTopicsCheckbox.checked = false; selectAllTopicsCheckbox.indeterminate = false; }
             loadCustomTopics(1);
         });
 
+        createCustomGameModal?.addEventListener('hidden.bs.modal', function() {
+            customGameEditMode = false;
+            customGameCurrentId = null;
+            customSelectedTopicIds = new Set();
+            document.getElementById('createCustomGameModalLabel').innerHTML = '<i data-lucide="layers"></i> Create Custom Sorting Ladder Quiz';
+            const btnPrimary = document.getElementById('createCustomGameBtn');
+            if (btnPrimary) btnPrimary.innerHTML = '<i data-lucide="check"></i> Create Quiz';
+            const titleInput = document.getElementById('customGameTitle');
+            if (titleInput) titleInput.value = 'Sorting Ladder';
+        });
+
         customTopicsPagination?.addEventListener('click', function(e) {
-            if (e.target.classList.contains('page-link')) {
-                const page = parseInt(e.target.dataset.page);
-                loadCustomTopics(page);
-            }
+            if (e.target.classList.contains('page-link')) loadCustomTopics(parseInt(e.target.dataset.page));
         });
 
         customTopicsTableBody?.addEventListener('change', function(e) {
@@ -822,11 +664,7 @@
             if (!cb) return;
             const id = parseInt(cb.dataset.topicId, 10);
             if (!id) return;
-            if (cb.checked) {
-                customSelectedTopicIds.add(id);
-            } else {
-                customSelectedTopicIds.delete(id);
-            }
+            cb.checked ? customSelectedTopicIds.add(id) : customSelectedTopicIds.delete(id);
             syncSelectAllCheckbox();
         });
 
@@ -837,11 +675,7 @@
                 cb.checked = checked;
                 const id = parseInt(cb.dataset.topicId, 10);
                 if (!id) return;
-                if (checked) {
-                    customSelectedTopicIds.add(id);
-                } else {
-                    customSelectedTopicIds.delete(id);
-                }
+                checked ? customSelectedTopicIds.add(id) : customSelectedTopicIds.delete(id);
             });
             syncSelectAllCheckbox();
         });
@@ -850,49 +684,36 @@
             const titleInput = document.getElementById('customGameTitle');
             const title = (titleInput?.value || '').trim() || 'Sorting Ladder';
             const topicIds = Array.from(customSelectedTopicIds);
-            if (!topicIds.length) {
-                alert('Please select at least one topic for this game.');
-                return;
-            }
+            if (!topicIds.length) { alert('Please select at least one topic for this game.'); return; }
             const btn = this;
             btn.classList.add('loading');
-
             const isEdit = customGameEditMode && customGameCurrentId;
             const url = isEdit
                 ? '{% url "admin_dashboard:update_sorting_ladder_custom_game" %}'
                 : '{% url "admin_dashboard:create_sorting_ladder_custom_game" %}';
-
             const payload = isEdit
-                ? { quiz_id: customGameCurrentId, title: title, topic_ids: topicIds }
-                : { title: title, topic_ids: topicIds };
-
+                ? { quiz_id: customGameCurrentId, title, topic_ids: topicIds }
+                : { title, topic_ids: topicIds };
             fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken'),
-                },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
                 body: JSON.stringify(payload),
             })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        showNotification(isEdit ? 'Custom game updated successfully' : 'Custom game created successfully', 'success');
-                        const modalInstance = bootstrap.Modal.getInstance(createCustomGameModal);
-                        modalInstance?.hide();
-                        // Reset edit state for next open
-                        customGameEditMode = false;
-                        customGameCurrentId = null;
-                        setTimeout(() => window.location.reload(), 1000);
-                    } else {
-                        alert('Error saving custom game: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error saving custom game. Please try again.');
-                })
-                .finally(() => btn.classList.remove('loading'));
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(isEdit ? 'Custom game updated successfully' : 'Custom game created successfully', 'success');
+                    const modalInstance = bootstrap.Modal.getInstance(createCustomGameModal);
+                    modalInstance?.hide();
+                    customGameEditMode = false;
+                    customGameCurrentId = null;
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    alert('Error saving custom game: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => { console.error(err); alert('Error saving custom game.'); })
+            .finally(() => btn.classList.remove('loading'));
         });
 
         // Show topics for a specific game -> open Custom Game modal in edit mode
@@ -907,234 +728,31 @@
                 method: 'GET',
                 headers: { 'X-CSRFToken': getCookie('csrftoken') },
             })
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) {
-                        alert('Failed to load game details');
-                        return;
-                    }
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) { alert('Failed to load game details'); return; }
+                customGameEditMode = true;
+                customGameCurrentId = gameId;
+                customSelectedTopicIds = new Set((data.topics || []).map(t => t.id));
 
-                    customGameEditMode = true;
-                    customGameCurrentId = gameId;
-                    customSelectedTopicIds = new Set((data.topics || []).map(t => t.id));
+                document.getElementById('createCustomGameModalLabel').innerHTML = '<i data-lucide="layers"></i> Edit Sorting Ladder Game';
+                const titleInput = document.getElementById('customGameTitle');
+                if (titleInput) titleInput.value = gameTitle;
+                const btnPrimary = document.getElementById('createCustomGameBtn');
+                if (btnPrimary) btnPrimary.innerHTML = '<i data-lucide="check"></i> Update Game';
 
-                    document.getElementById('createCustomGameModalLabel').innerHTML = '<i data-lucide="layers"></i> Edit Sorting Ladder Game';
-                    const titleInput = document.getElementById('customGameTitle');
-                    if (titleInput) titleInput.value = gameTitle;
-
-                    const btnPrimary = document.getElementById('createCustomGameBtn');
-                    if (btnPrimary) btnPrimary.innerHTML = '<i data-lucide="check"></i> Update Game';
-
-                    const modal = new bootstrap.Modal(document.getElementById('createCustomGameModal'));
-                    modal.show();
-
-                    loadCustomTopics(1);
-                    lucide.createIcons();
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error loading game details.');
-                });
+                new bootstrap.Modal(document.getElementById('createCustomGameModal')).show();
+                loadCustomTopics(1);
+                lucide.createIcons();
+            })
+            .catch(err => { console.error(err); alert('Error loading game details.'); });
         });
 
-        const addTopicForm = document.getElementById('addTopicForm');
-        const submitTopicBtn = document.getElementById('submitTopicBtn');
-        const itemsContainer = document.getElementById('itemsContainer');
-        const addItemBtn = document.getElementById('addItemBtn');
-
-        function renumberItems() {
-            const rows = Array.from(document.querySelectorAll('#itemsContainer .item-row'));
-            rows.forEach((row, idx) => {
-                const orderInput = row.querySelector('.item-order');
-                if (orderInput) {
-                    orderInput.value = idx + 1;
-                }
-            });
+        // Auto-open create modal if ?create=1 in URL
+        if (new URLSearchParams(window.location.search).get('create') === '1') {
+            new bootstrap.Modal(createCustomGameModal).show();
         }
-
-        function addItemRow(item = { text: '', order: '' }) {
-            if (!itemsContainer) return;
-            const row = document.createElement('div');
-            row.className = 'row g-2 align-items-end item-row mb-2';
-
-            let nextOrder = parseInt(item.order, 10);
-            if (!nextOrder || isNaN(nextOrder)) {
-                const existing = Array.from(document.querySelectorAll('#itemsContainer .item-row .item-order'))
-                    .map(el => parseInt(el.value, 10))
-                    .filter(v => !isNaN(v));
-                nextOrder = existing.length ? Math.max(...existing) + 1 : 1;
-            }
-
-            row.innerHTML = `
-                <div class="col-md-9">
-                    <label class="form-label">Item Text</label>
-                    <input type="text" class="form-control item-text" placeholder="Enter item..." value="${item.text || ''}" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Order</label>
-                    <input type="number" class="form-control item-order" min="1" value="${nextOrder}" placeholder="#" readonly>
-                </div>
-                <div class="col-md-1 text-end">
-                    <button type="button" class="btn btn-danger remove-item">&times;</button>
-                </div>`;
-
-            const removeBtn = row.querySelector('.remove-item');
-            if (removeBtn) {
-                removeBtn.addEventListener('click', () => {
-                    row.remove();
-                    renumberItems();
-                });
-            }
-
-            itemsContainer.appendChild(row);
-            renumberItems();
-        }
-
-        addItemBtn?.addEventListener('click', () => addItemRow());
-
-        function setTopicModalMode(mode) {
-            const titleEl = document.getElementById('addTopicModalLabel');
-            if (mode === 'edit') {
-                titleEl.innerHTML = '<i data-lucide="help-circle"></i> Edit Topic';
-                submitTopicBtn.innerHTML = '<i data-lucide="save"></i> Save Changes';
-                submitTopicBtn.dataset.mode = 'edit';
-            } else {
-                titleEl.innerHTML = '<i data-lucide="help-circle"></i> Add New Topic';
-                submitTopicBtn.innerHTML = '<i data-lucide="plus"></i> Add Topic';
-                submitTopicBtn.dataset.mode = 'add';
-                document.getElementById('topicId').value = '';
-                addTopicForm.reset();
-                if (itemsContainer) {
-                    itemsContainer.innerHTML = '';
-                    addItemRow();
-                }
-            }
-            lucide.createIcons();
-        }
-
-        document.querySelector('[data-bs-target="#addTopicModal"]')?.addEventListener('click', () => {
-            setTopicModalMode('add');
-        });
-
-        if (addTopicForm) {
-            addTopicForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const isEdit = submitTopicBtn.dataset.mode === 'edit';
-                const url = isEdit
-                    ? '{% url "admin_dashboard:update_sorting_topic" %}'
-                    : '{% url "admin_dashboard:add_sorting_topic" %}';
-
-                // Serialize items into hidden payload before building FormData
-                const items = Array.from(document.querySelectorAll('#itemsContainer .item-row')).map((row, idx) => ({
-                    text: row.querySelector('.item-text')?.value.trim() || '',
-                    order: parseInt(row.querySelector('.item-order')?.value || (idx + 1), 10) || (idx + 1),
-                })).filter(item => item.text);
-
-                const itemsField = document.getElementById('itemsPayload');
-                if (itemsField) {
-                    itemsField.value = JSON.stringify(items);
-                }
-
-                const formData = new FormData(this);
-
-                submitTopicBtn.classList.add('loading');
-                fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken'),
-                    },
-                    body: formData,
-                })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) {
-                            bootstrap.Modal.getInstance(document.getElementById('addTopicModal')).hide();
-                            showNotification(isEdit ? 'Topic updated successfully!' : 'Topic added successfully!', 'success');
-                            setTimeout(() => window.location.reload(), 1000);
-                        } else {
-                            alert('Error saving topic: ' + (data.error || 'Unknown error'));
-                        }
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        alert('Error saving topic. Please try again.');
-                    })
-                    .finally(() => submitTopicBtn.classList.remove('loading'));
-            });
-        }
-
-        topicsTableBody?.addEventListener('click', function(e) {
-            const editBtn = e.target.closest('.edit-topic-btn');
-            if (editBtn) {
-                const topicId = editBtn.getAttribute('data-topic-id');
-                if (!topicId) return;
-                fetch(`{% url 'admin_dashboard:get_sorting_topic_detail' 0 %}`.replace('/0/', `/${topicId}/`), {
-                    method: 'GET',
-                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
-                })
-                    .then(r => r.json())
-                    .then(({ success, topic, error }) => {
-                        if (!success) throw new Error(error || 'Failed to load topic.');
-                        document.getElementById('topicId').value = topic.id;
-                        document.getElementById('topicTitle').value = topic.title;
-                        document.getElementById('topicDescription').value = topic.description || '';
-                        document.getElementById('topicPoints').value = topic.points || '';
-                        document.getElementById('topicRoundTimeLimit').value = topic.round_time_limit || '';
-
-                        // Pre-populate items into the modal
-                        if (itemsContainer) {
-                            itemsContainer.innerHTML = '';
-                            const items = Array.isArray(topic.items) ? topic.items : [];
-                            if (items.length) {
-                                items.forEach(item => {
-                                    addItemRow({
-                                        text: item.text,
-                                        order: item.order,
-                                    });
-                                });
-                            } else {
-                                // Ensure at least one empty row for convenience
-                                addItemRow();
-                            }
-                        }
-
-                        setTopicModalMode('edit');
-                        const modal = new bootstrap.Modal(document.getElementById('addTopicModal'));
-                        modal.show();
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        showNotification(err.message || 'Failed to load topic.', 'danger');
-                    });
-            }
-
-            const deleteBtn = e.target.closest('.delete-topic-btn');
-            if (deleteBtn) {
-                const topicId = deleteBtn.getAttribute('data-topic-id');
-                if (!topicId) return;
-                deleteTopicModal.dataset.topicId = topicId;
-            }
-        });
-
-        confirmDeleteTopicBtn?.addEventListener('click', function() {
-            const topicId = deleteTopicModal.dataset.topicId;
-            if (!topicId) return;
-            postJson('{% url "admin_dashboard:delete_sorting_topic" %}', { topic_id: parseInt(topicId) })
-                .then(data => {
-                    if (data.success) {
-                        showNotification('Topic deleted successfully!', 'success');
-                        setTimeout(() => window.location.reload(), 1000);
-                    } else {
-                        alert('Error deleting topic: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error deleting topic. Please try again.');
-                });
-        });
     });
 </script>
-
 
 {% endblock %}
