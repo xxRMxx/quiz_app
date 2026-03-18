@@ -1,0 +1,820 @@
+{% extends 'admin_dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Session Monitor – {{ session.name|default:session.code }}{% endblock %}
+
+{% block page_title %}Session Monitor{% endblock %}
+{% block page_subtitle %}{{ session.name|default:'' }} · Code: {{ session.code }}{% endblock %}
+
+{% block content %}
+<div class="monitor-wrap">
+
+    <!-- Top bar: lobby link + end session -->
+    <div class="card mb-4">
+        <div class="card-body py-3">
+            <div class="row align-items-center g-3">
+                <div class="col-12 col-md-7">
+                    <label class="form-label fw-semibold mb-1">
+                        <i data-lucide="link" class="me-1"></i> Participant Lobby Link
+                    </label>
+                    <div class="input-group">
+                        <input type="text" class="form-control font-monospace" id="lobbyLink"
+                               value="{{ request.scheme }}://{{ ip }}:8000{% url 'games_hub:lobby' session_code=session.code %}"
+                               readonly>
+                        <button class="btn btn-outline-secondary" type="button" id="copyLinkBtn">
+                            <i data-lucide="copy" class="me-1"></i> Copy
+                        </button>
+                    </div>
+                    <small class="text-muted">Share this link — participants enter their name and join the session</small>
+                </div>
+                <div class="col-12 col-md-5 d-flex align-items-center justify-content-md-end gap-3">
+                    <div id="wsStatus" class="d-flex align-items-center gap-2 text-muted">
+                        <span class="status-dot connecting"></span>
+                        <span class="status-text">Connecting…</span>
+                    </div>
+                    <a href="{% url 'admin_dashboard:home' %}" class="btn btn-outline-secondary">
+                        <i data-lucide="layout-dashboard" class="me-1"></i> Dashboard
+                    </a>
+                    <button id="endSessionBtn" class="btn btn-outline-danger">
+                        <i data-lucide="square" class="me-1"></i> End Session
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Left: Game Steps -->
+        <div class="col-12 col-lg-7">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i data-lucide="list-ordered" class="me-2"></i>Game Plan</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-secondary" id="stepCount">{{ steps|length }} game{{ steps|length|pluralize }}</span>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addGameModal">
+                            <i data-lucide="plus" style="width:14px;height:14px;"></i> Add Game
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="steps-list" id="stepsList">
+                        <div class="step-header">
+                            <div class="step-header-drag"></div>
+                            <div class="step-header-num">#</div>
+                            <div class="step-header-info">Game Type</div>
+                            <div class="step-header-votes">Votes</div>
+                            <div class="step-header-action">Action</div>
+                        </div>
+                        {% for s in steps %}
+                        <div class="step-row {% if forloop.first %}step-first{% endif %}" id="step-{{ forloop.counter0 }}"
+                             data-game-key="{{ s.game_key }}" data-room-code="{{ s.room_code }}" data-order="{{ s.order }}" data-step-id="{{ s.id }}"
+                             draggable="true">
+                            <div class="drag-handle" title="Drag to reorder"><i data-lucide="grip-vertical"></i></div>
+                            <div class="step-num">{{ forloop.counter }}</div>
+                            <div class="step-info">
+                                <div class="step-name">{{ s.get_game_key_display }}</div>
+                            </div>
+                            <div class="step-votes">
+                                <span class="vote-badge" data-order="{{ s.order }}" title="Votes for this game"></span>
+                            </div>
+                            <div class="step-action">
+                                {% if s.room_code %}
+                                <a href="{{ request.scheme }}://{{ ip }}:8000{% url 'admin_dashboard:home' %}"
+                                   class="btn btn-sm btn-primary launch-btn"
+                                   data-game-key="{{ s.game_key }}" data-room-code="{{ s.room_code }}"
+                                   data-session="{{ session.code }}">
+                                    <i data-lucide="play" class="me-1"></i> Start
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-5 text-muted">
+                            <i data-lucide="alert-circle" class="me-2"></i>
+                            No games configured for this session
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <!-- Players list kept in DOM for WebSocket updates but hidden -->
+            <ul class="d-none" id="playerList">
+                {% for p in session_players %}
+                <li class="player-row" data-nickname="{{ p.nickname }}"></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Session Scoreboard -->
+    <div class="row g-4 mt-0">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i data-lucide="trophy" class="me-2"></i>Session Scoreboard</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="sessionScoreboardWrap">
+                        <p class="text-muted text-center py-4 mb-0">No game data yet.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Game Modal -->
+<div class="modal fade" id="addGameModal" tabindex="-1" aria-labelledby="addGameModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="addGameModalLabel"><i data-lucide="plus-circle" style="width:16px;height:16px;" class="me-1"></i>Add Game to Session</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Game Type</label>
+          <select class="form-select" id="addGameType">
+            <option value="quiz">Quick Quiz</option>
+            <option value="estimation">Estimation</option>
+            <option value="assign">Assign</option>
+            <option value="where">Where is This?</option>
+            <option value="who">Who is Lying?</option>
+            <option value="who_that">Who is That?</option>
+            <option value="blackjack">Black Jack</option>
+            <option value="sorting_ladder">Sorting Ladder</option>
+            <option value="clue_rush">Clue Rush</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Select Questions</label>
+          <div id="quizListLoading" class="text-muted small">Loading…</div>
+          <div id="quizList" class="quiz-pick-list d-none"></div>
+          <div id="quizSelectionCount" class="text-muted small mt-1 d-none"></div>
+        </div>
+        <div id="addGameError" class="text-danger small d-none mt-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="addGameSave">
+          <i data-lucide="plus" style="width:14px;height:14px;"></i> Add
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.monitor-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* WS status dot */
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.status-dot.connecting { background: #f59e0b; animation: pulse 1.5s infinite; }
+.status-dot.connected  { background: #22c55e; }
+.status-dot.error      { background: #ef4444; }
+@keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+/* Steps list */
+.steps-list { padding: 0; }
+
+.step-header {
+    display: grid;
+    grid-template-columns: 28px 36px 1fr 80px 90px;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1.25rem;
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+.step-header-votes { text-align: center; }
+.step-header-action { text-align: right; }
+
+.step-row {
+    display: grid;
+    grid-template-columns: 28px 36px 1fr 80px 90px;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.15s;
+}
+.step-row:last-child { border-bottom: none; }
+.step-row:hover { background: var(--bg-secondary); }
+.step-row.active { background: var(--primary-50); border-left: 3px solid var(--color-primary); }
+.step-row.completed { opacity: 0.6; }
+
+.step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+.step-row.active .step-num {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+.step-info { min-width: 0; }
+.step-name { font-weight: 600; font-size: 0.9rem; }
+.step-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.step-votes { display: flex; align-items: center; justify-content: center; }
+.step-action { display: flex; align-items: center; justify-content: flex-end; }
+
+.launch-btn { flex-shrink: 0; }
+
+.drag-handle {
+    cursor: grab;
+    color: var(--text-muted);
+    opacity: 0.4;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 0.15rem;
+    transition: opacity 0.15s;
+}
+.drag-handle:active { cursor: grabbing; }
+.step-row:hover .drag-handle { opacity: 0.8; }
+.step-row.drag-over { border-top: 2px solid var(--color-primary); }
+.step-row.dragging { opacity: 0.4; }
+
+.vote-badge {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #2563eb;
+    background: #dbeafe;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    min-width: 1.5rem;
+    text-align: center;
+    display: none;
+}
+.vote-badge.has-votes { display: inline-block; }
+.vote-badge.top-vote { background: #fef9c3; color: #92400e; }
+
+.quiz-pick-list {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+.quiz-pick-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.85rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.12s;
+    font-size: 0.9rem;
+}
+.quiz-pick-item:last-child { border-bottom: none; }
+.quiz-pick-item:hover { background: var(--bg-secondary); }
+.quiz-pick-item.selected { background: var(--primary-50); font-weight: 600; }
+.quiz-pick-item input[type="checkbox"] { flex-shrink: 0; }
+.quiz-pick-item .quiz-code { font-size: 0.75rem; color: var(--text-muted); font-family: monospace; margin-left: auto; }
+
+/* Players */
+.player-list { list-style: none; margin: 0; padding: 0.25rem 0; }
+.player-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.player-row:last-child { border-bottom: none; }
+.player-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--primary-100);
+    color: var(--color-primary);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+}
+.player-name { flex: 1; font-weight: 500; }
+
+/* Session Scoreboard */
+.sb-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.sb-table th { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.5px; padding: 0.5rem 1rem; text-align: left;
+    border-bottom: 2px solid var(--border-color); background: var(--bg-secondary); }
+.sb-table th.center { text-align: center; }
+.sb-table td { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+.sb-table tr:last-child td { border-bottom: none; }
+.sb-table tr:hover td { background: var(--bg-secondary); }
+.sb-rank { width: 2.5rem; font-weight: 700; color: var(--text-muted); }
+.sb-rank.gold { color: #f59e0b; }
+.sb-rank.silver { color: #94a3b8; }
+.sb-rank.bronze { color: #c07b3a; }
+.sb-total { font-weight: 700; font-size: 1rem; text-align: center; color: var(--color-primary); }
+.sb-game { text-align: center; color: var(--text-muted); font-size: 0.8rem; }
+.sb-game.winner { color: #22c55e; font-weight: 700; }
+.sb-adj { text-align: center; font-size: 0.8rem; color: var(--text-muted); }
+.sb-edit { text-align: center; }
+</style>
+
+<script>
+const SESSION_CODE = '{{ session.code }}';
+
+// Game monitor routes
+const MONITOR_ROUTES = {
+    quiz:           (rc) => `/admin-dashboard/quiz/${rc}/monitor/`,
+    clue_rush:      (rc) => `/admin-dashboard/clue-rush/${rc}/monitor/`,
+    assign:         (rc) => `/admin-dashboard/assign/${rc}/monitor/`,
+    estimation:     (rc) => `/admin-dashboard/estimation/${rc}/monitor/`,
+    where:          (rc) => `/admin-dashboard/where/monitor/${rc}/`,
+    who:            (rc) => `/admin-dashboard/who/${rc}/monitor/`,
+    who_that:       (rc) => `/admin-dashboard/who-that/${rc}/monitor/`,
+    blackjack:      (rc) => `/admin-dashboard/blackjack/${rc}/monitor/`,
+    sorting_ladder: (rc) => `/admin-dashboard/sorting-ladder/${rc}/monitor/`,
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    lucide.createIcons();
+
+    // ── "Open" buttons → redirect lobby participants + navigate admin ──
+    document.querySelectorAll('.launch-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            const gameKey  = this.dataset.gameKey;
+            const roomCode = this.dataset.roomCode;
+            const route    = MONITOR_ROUTES[gameKey];
+            if (!route) return;
+
+            // 1. Tell all lobby participants to navigate to this game
+            try {
+                ws.send(JSON.stringify({
+                    type: 'navigate_direct',
+                    game_key: gameKey,
+                    room_code: roomCode,
+                }));
+            } catch (_) { /* WebSocket may not be connected yet – navigate admin anyway */ }
+
+            // 2. Navigate admin to the game-specific monitor
+            window.location.href = route(roomCode) + `?hub_session=${SESSION_CODE}`;
+        });
+    });
+
+    // ── Copy lobby link ──
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+        const input = document.getElementById('lobbyLink');
+        input.select();
+        document.execCommand('copy');
+        const btn = document.getElementById('copyLinkBtn');
+        btn.innerHTML = '<i data-lucide="check" class="me-1"></i> Copied!';
+        lucide.createIcons();
+        setTimeout(() => {
+            btn.innerHTML = '<i data-lucide="copy" class="me-1"></i> Copy';
+            lucide.createIcons();
+        }, 2000);
+    });
+
+    // ── WebSocket ──
+    const statusDot  = document.querySelector('.status-dot');
+    const statusText = document.querySelector('.status-text');
+    const ws = new WebSocket(
+        (location.protocol === 'https:' ? 'wss://' : 'ws://') +
+        location.host + '/ws/hub/' + SESSION_CODE + '/'
+    );
+
+    function setStatus(state, text) {
+        statusDot.className = 'status-dot ' + state;
+        statusText.textContent = text;
+    }
+
+    ws.onopen  = () => setStatus('connected', 'Connected');
+    ws.onerror = () => setStatus('error', 'Connection error');
+    ws.onclose = (e) => {
+        setStatus('error', 'Disconnected');
+        if (!e.wasClean) setTimeout(() => location.reload(), 3000);
+    };
+
+    ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'state') {
+            updatePlayerList(data.participants || []);
+        } else if (data.type === 'session_ended') {
+            setStatus('error', 'Session ended');
+        } else if (data.type === 'navigate' && data.step) {
+            const step = data.step;
+            const route = MONITOR_ROUTES[step.game_key];
+            if (route && step.room_code) {
+                const url = route(step.room_code);
+                window.location.href = url + `?hub_session=${SESSION_CODE}`;
+            }
+        } else if (data.type === 'vote_update') {
+            renderVoteBadges(data.votes);
+        }
+    };
+
+    function updatePlayerList(participants) {
+        const list = document.getElementById('playerList');
+        if (!list) return;
+        const countBadge = document.getElementById('playerCount');
+        if (countBadge) countBadge.textContent = participants.length;
+
+        // Add new players; don't remove existing ones (preserves score edit buttons)
+        const existing = new Set([...list.querySelectorAll('.player-row')].map(r => r.dataset.nickname));
+        participants.forEach(p => {
+            if (existing.has(p.nickname)) return;
+            const noMsg = document.getElementById('noPlayersMsg');
+            if (noMsg) noMsg.remove();
+            const li = document.createElement('li');
+            li.className = 'player-row';
+            li.dataset.nickname = p.nickname;
+            li.innerHTML = `
+                <div class="player-avatar">${p.nickname[0].toUpperCase()}</div>
+                <div class="player-name">${p.nickname}</div>
+            `;
+            list.appendChild(li);
+            lucide.createIcons();
+        });
+    }
+
+    function renderVoteBadges(votes) {
+        if (!votes || votes.length === 0) return;
+        const maxCount = Math.max(...votes.map(v => v.count));
+        // Reset all badges
+        document.querySelectorAll('.vote-badge').forEach(el => {
+            el.className = 'vote-badge';
+            el.textContent = '';
+        });
+        votes.forEach(v => {
+            if (v.count === 0) return;
+            const badge = document.querySelector(`.vote-badge[data-order="${v.step_order}"]`);
+            if (!badge) return;
+            badge.textContent = `${v.count} ✓`;
+            badge.className = 'vote-badge has-votes' + (v.count === maxCount && maxCount > 0 ? ' top-vote' : '');
+        });
+    }
+
+    // Initial vote load
+    fetch(`/hub/api/session/${SESSION_CODE}/votes/`)
+        .then(r => r.json())
+        .then(data => renderVoteBadges(data.votes))
+        .catch(() => {});
+
+    // Refresh every 10 seconds as fallback
+    setInterval(() => {
+        fetch(`/hub/api/session/${SESSION_CODE}/votes/`)
+            .then(r => r.json())
+            .then(data => renderVoteBadges(data.votes))
+            .catch(() => {});
+    }, 10000);
+
+    // ── Add Game Step ──
+    const addGameModal = document.getElementById('addGameModal');
+
+    function updateSelectionCount() {
+        const checked = document.querySelectorAll('#quizList input[type="checkbox"]:checked').length;
+        const countEl = document.getElementById('quizSelectionCount');
+        if (checked > 0) {
+            countEl.textContent = `${checked} question${checked !== 1 ? 's' : ''} selected`;
+            countEl.classList.remove('d-none');
+        } else {
+            countEl.classList.add('d-none');
+        }
+    }
+
+    function loadQuizList(gameKey) {
+        const loading = document.getElementById('quizListLoading');
+        const list    = document.getElementById('quizList');
+        const countEl = document.getElementById('quizSelectionCount');
+        loading.classList.remove('d-none');
+        loading.textContent = 'Loading…';
+        list.classList.add('d-none');
+        list.innerHTML = '';
+        countEl.classList.add('d-none');
+
+        fetch(`/hub/api/games/${gameKey}/questions/`)
+            .then(r => r.json())
+            .then(data => {
+                loading.classList.add('d-none');
+                const questions = data.questions || [];
+                if (questions.length === 0) {
+                    list.innerHTML = '<div class="quiz-pick-item text-muted">No questions available for this game type</div>';
+                } else {
+                    questions.forEach(q => {
+                        const item = document.createElement('label');
+                        item.className = 'quiz-pick-item';
+                        item.innerHTML = `
+                            <input type="checkbox" value="${q.id}">
+                            <span>${q.text}</span>
+                        `;
+                        item.querySelector('input').addEventListener('change', updateSelectionCount);
+                        list.appendChild(item);
+                    });
+                }
+                list.classList.remove('d-none');
+            })
+            .catch(() => {
+                loading.textContent = 'Failed to load questions';
+            });
+    }
+
+    document.getElementById('addGameType').addEventListener('change', function () {
+        loadQuizList(this.value);
+    });
+
+    document.getElementById('addGameModal').addEventListener('show.bs.modal', () => {
+        loadQuizList(document.getElementById('addGameType').value);
+    });
+
+    document.getElementById('addGameSave').addEventListener('click', function () {
+        const gameKey     = document.getElementById('addGameType').value;
+        const questionIds = [...document.querySelectorAll('#quizList input[type="checkbox"]:checked')].map(el => parseInt(el.value));
+        const errEl       = document.getElementById('addGameError');
+        errEl.classList.add('d-none');
+        this.disabled = true;
+
+        fetch(`/hub/api/session/{{ session.code }}/add-step/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({ game_key: gameKey, question_ids: questionIds }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                errEl.textContent = data.error || 'Error adding game.';
+                errEl.classList.remove('d-none');
+                return;
+            }
+            const step = data.step;
+
+            // Append the new step row to the list
+            const stepsList = document.getElementById('stepsList');
+            const noGames = stepsList.querySelector('.text-center');
+            if (noGames) noGames.remove();
+
+            const stepNum = step.order + 1;
+            const div = document.createElement('div');
+            div.className = 'step-row';
+            div.id = `step-${step.order}`;
+            div.dataset.gameKey  = step.game_key;
+            div.dataset.roomCode = step.room_code;
+            div.dataset.stepId   = step.id;
+            div.setAttribute('draggable', 'true');
+            div.innerHTML = `
+                <div class="drag-handle" title="Drag to reorder"><i data-lucide="grip-vertical"></i></div>
+                <div class="step-num">${stepNum}</div>
+                <div class="step-info">
+                    <div class="step-name">${step.game_key_display}</div>
+                </div>
+                <div class="step-votes">
+                    <span class="vote-badge" data-order="${step.order}" title="Votes for this game"></span>
+                </div>
+                <div class="step-action">
+                    <a href="#" class="btn btn-sm btn-primary launch-btn"
+                       data-game-key="${step.game_key}" data-room-code="${step.room_code}"
+                       data-session="{{ session.code }}">
+                        <i data-lucide="play" class="me-1"></i> Start
+                    </a>
+                </div>
+            `;
+            stepsList.appendChild(div);
+
+            // Update count badge
+            const countBadge = document.getElementById('stepCount');
+            if (countBadge) {
+                const n = stepsList.querySelectorAll('.step-row').length;
+                countBadge.textContent = `${n} game${n !== 1 ? 's' : ''}`;
+            }
+
+            // Make new row draggable
+            initDraggable(div);
+
+            // Bind the new Open button
+            div.querySelector('.launch-btn').addEventListener('click', function(e) {
+                e.preventDefault();
+                const route = MONITOR_ROUTES[this.dataset.gameKey];
+                if (!route) return;
+                try {
+                    ws.send(JSON.stringify({
+                        type: 'navigate_direct',
+                        game_key: this.dataset.gameKey,
+                        room_code: this.dataset.roomCode,
+                    }));
+                } catch (_) { /* WebSocket may not be connected yet – navigate admin anyway */ }
+                window.location.href = route(this.dataset.roomCode) + `?hub_session=${SESSION_CODE}`;
+            });
+
+            lucide.createIcons();
+            bootstrap.Modal.getInstance(addGameModal).hide();
+            // Reset form
+            document.getElementById('quizList').innerHTML = '';
+            document.getElementById('quizList').classList.add('d-none');
+            document.getElementById('quizListLoading').textContent = 'Loading…';
+            document.getElementById('quizListLoading').classList.remove('d-none');
+            document.getElementById('quizSelectionCount').classList.add('d-none');
+        })
+        .catch(() => {
+            errEl.textContent = 'Network error.';
+            errEl.classList.remove('d-none');
+        })
+        .finally(() => { this.disabled = false; });
+    });
+
+    // ── Drag & Drop reorder ──
+    const stepsList = document.getElementById('stepsList');
+    let dragSrc = null;
+
+    function initDraggable(row) {
+        row.addEventListener('dragstart', (e) => {
+            dragSrc = row;
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragend', () => {
+            row.classList.remove('dragging');
+            stepsList.querySelectorAll('.step-row').forEach(r => r.classList.remove('drag-over'));
+        });
+        row.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (row !== dragSrc) {
+                stepsList.querySelectorAll('.step-row').forEach(r => r.classList.remove('drag-over'));
+                row.classList.add('drag-over');
+            }
+        });
+        row.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (!dragSrc || dragSrc === row) return;
+            const rows = [...stepsList.querySelectorAll('.step-row')];
+            const srcIdx = rows.indexOf(dragSrc);
+            const tgtIdx = rows.indexOf(row);
+            if (srcIdx < tgtIdx) {
+                row.after(dragSrc);
+            } else {
+                row.before(dragSrc);
+            }
+            renumberSteps();
+            saveStepOrder();
+        });
+    }
+
+    function renumberSteps() {
+        stepsList.querySelectorAll('.step-row').forEach((row, i) => {
+            const num = row.querySelector('.step-num');
+            if (num) num.textContent = i + 1;
+        });
+    }
+
+    function saveStepOrder() {
+        const ids = [...stepsList.querySelectorAll('.step-row')].map(r => r.dataset.stepId);
+        fetch(`/hub/api/session/${SESSION_CODE}/reorder-steps/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ order: ids }),
+        }).catch(() => {});
+    }
+
+    stepsList.querySelectorAll('.step-row').forEach(row => initDraggable(row));
+
+    // ── End session ──
+    let manualEnd = false;
+    document.getElementById('endSessionBtn').addEventListener('click', () => {
+        if (!confirm('End this session? All game instances will be marked as inactive.')) return;
+        manualEnd = true;
+        ws.send(JSON.stringify({ type: 'end_session' }));
+        document.getElementById('endSessionBtn').disabled = true;
+    });
+    ws.onclose = () => {
+        setStatus('error', 'Disconnected');
+        if (!manualEnd) setTimeout(() => location.reload(), 3000);
+    };
+
+    // ── Session Scoreboard ──
+    const rankLabels = ['gold', 'silver', 'bronze'];
+
+    function renderSessionScoreboard(data) {
+        const wrap = document.getElementById('sessionScoreboardWrap');
+        const players = data.participants || [];
+        const instances = data.instances || {};
+
+        if (players.length === 0) {
+            wrap.innerHTML = '<p class="text-muted text-center py-4 mb-0">No game data yet.</p>';
+            return;
+        }
+
+        // Ordered list of instance keys
+        const instanceKeys = Object.keys(instances);
+
+        let headerCols = instanceKeys.map(k => {
+            const label = instances[k].type || k;
+            return `<th class="center sb-game">${label}</th>`;
+        }).join('');
+
+        let rows = players.map((p, i) => {
+            const rankClass = rankLabels[i] || '';
+            const gameCols = instanceKeys.map(k => {
+                const score = p.game_scores?.[k];
+                const isWinner = score !== undefined && score === Math.max(...players.map(x => x.game_scores?.[k] ?? -1));
+                if (score === undefined) return '<td class="sb-game">—</td>';
+                return `<td class="sb-game ${isWinner && score > 0 ? 'winner' : ''}">${score}</td>`;
+            }).join('');
+
+            const adj = p.score_adjustment || 0;
+            const total = p.weighted_score + adj;
+            const pid = p.hub_participant_id;
+
+            return `<tr data-pid="${pid}">
+                <td class="sb-rank ${rankClass}">${i + 1}</td>
+                <td>${p.name}</td>
+                ${gameCols}
+                <td class="sb-total">${p.weighted_score}</td>
+                <td class="sb-adj">
+                    <div class="d-flex align-items-center justify-content-center gap-1">
+                        <button class="btn btn-sm btn-outline-secondary sb-adj-btn" data-pid="${pid}" data-delta="-1" style="padding:0.1rem 0.4rem;font-size:0.8rem;">−</button>
+                        <span class="sb-adj-val" data-pid="${pid}">${adj}</span>
+                        <button class="btn btn-sm btn-outline-secondary sb-adj-btn" data-pid="${pid}" data-delta="1" style="padding:0.1rem 0.4rem;font-size:0.8rem;">+</button>
+                    </div>
+                </td>
+                <td class="sb-total sb-sum" data-pid="${pid}">${total}</td>
+            </tr>`;
+        }).join('');
+
+        wrap.innerHTML = `
+            <table class="sb-table">
+                <thead>
+                    <tr>
+                        <th class="sb-rank">#</th>
+                        <th>Player</th>
+                        ${headerCols}
+                        <th class="center sb-total">Session Pts</th>
+                        <th class="center sb-adj">Adj.</th>
+                        <th class="center sb-total">Total</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+
+        // +/- button handlers
+        wrap.querySelectorAll('.sb-adj-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const pid = this.dataset.pid;
+                const delta = parseInt(this.dataset.delta);
+                const valEl = wrap.querySelector(`.sb-adj-val[data-pid="${pid}"]`);
+                const sumEl = wrap.querySelector(`.sb-sum[data-pid="${pid}"]`);
+                const currentAdj = parseInt(valEl.textContent) || 0;
+                const newAdj = currentAdj + delta;
+                // Optimistic update
+                valEl.textContent = newAdj;
+                const sessionPts = parseInt(wrap.querySelector(`tr[data-pid="${pid}"] .sb-total`).textContent) || 0;
+                sumEl.textContent = sessionPts + newAdj;
+                // Persist
+                fetch('{% url "games_hub:set_hub_participant_score" %}', {
+                    method: 'POST',
+                    headers: {'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json'},
+                    body: JSON.stringify({participant_id: pid, score: newAdj})
+                }).catch(() => {
+                    // Revert on error
+                    valEl.textContent = currentAdj;
+                    sumEl.textContent = sessionPts + currentAdj;
+                });
+            });
+        });
+    }
+
+    function fetchSessionScoreboard() {
+        fetch(`/hub/api/session/${SESSION_CODE}/leaderboard/`)
+            .then(r => r.json())
+            .then(data => renderSessionScoreboard(data))
+            .catch(() => {});
+    }
+
+    fetchSessionScoreboard();
+    setInterval(fetchSessionScoreboard, 10000);
+});
+</script>
+
+{% endblock %}
