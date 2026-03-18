@@ -1,24 +1,39 @@
-REQUIREMENTS (tested on Linux)
-	* Python3.x
-	* python3-venv (sudo apt install libpython3-dev python3-venv )
-	* pip3
-	* venv
-	* daphne server (sudo apt install daphne)
-	* redis-server (sudo apt install redis-server)
-	* optional: redis-tools (sudo apt install redis-tools)
+Games Website Project - README
 
-INSTALLATION
-	* create virtual environment: python3 -m venv <virtual_environment>
-	* activate venv: source <your_venv>/bin/activate
-	* pip3 install -r requirements.txt
+This project is a web application designed to facilitate various games and quizzes, providing an engaging and interactive platform for users. Below, you will find detailed descriptions of the features and tools used in building this application.
 
-CREATE SUPERUSER IN DJANGO
-	* in venv: python3 manage.py createsuperuser
-	* export DJANGO_SETTINGS_MODULE=quiz_project.settings
-	* start daphne server: daphne -p 8000 quiz_project.asgi:application (if redis-server not yet running: sudo service redis-server (re-)start)
+## Games and Features
+1. **Who is That?**
+   - Participants answer questions about identifying people from images.
+   - Supports multiple difficulty levels and a variety of topics.
 
-PAGES
-	* admin section: localhost:8000/admin
-	* admin dashboard: localhost:8000/my-admin/<session_id>
-	* landing page for participants site: localhost:8000
-	* connect to existing session: localhost:8000/quiz/session-code>/<participant-id> <-- you can check every session and participant in admin panel
+2. **Who is Lying?**
+   - Players attempt to identify who is lying among a set of people based on a statement.
+   - Includes features for managing participants, tracking scores, and more.
+
+3. **Where is This?**
+   - Users determine the geographical location by identifying landmarks or places from images.
+   - Offers different difficulty levels and customizable question sets.
+
+4. **Sorting Ladder**
+   - Participants sort items according to a predefined order (e.g., countries by size).
+   - Tracks progress and scores across multiple rounds.
+
+5. **Clue Rush**
+   - A trivia quiz with questions and interactive timed clues.
+
+6. **Black Jack Quiz**
+   - Engage in a numerical-based trivia quiz modeled after the popular game BlackJack.
+   - Includes features to track points and determine winners based on answers.
+
+7. **Quick Quiz**
+   - A versatile quiz system that can handle various types of questions including multiple choice, true/false, and short answer.
+   - Allows for customizable quizzes and tracks scores across participants.
+
+8. **Estimation**
+   - Participants estimate numerical values (e.g., population sizes, prices) to test their knowledge.
+   - Provides feedback on accuracy and detailed statistics.
+
+9. **Assign**
+   - A drag-and-drop game where users match items from one set to another (e.g., matching countries with capitals).
+   - Tracks progress and scores across multiple rounds.
