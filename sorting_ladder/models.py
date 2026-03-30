@@ -126,6 +126,20 @@ class SortingLadderParticipant(SyncBase):
         return f"{self.name} ({status}) in {self.quiz.room_code}"
 
 
+class SortingBundle(SyncBase):
+    """A reusable, named collection of topics that can be used as a template when creating sessions."""
+    name = models.CharField(max_length=200)
+    questions = models.ManyToManyField('SortingQuestion', blank=True, related_name='bundles')
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sorting_bundles')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
 class SortingQuestion(SyncBase):
     """
     Represents the category or question, e.g., 'Sort Countries from Smallest to Largest'.

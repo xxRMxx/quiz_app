@@ -30,7 +30,7 @@ if not exist ".venv\Scripts\activate.bat" (
     rem Install requirements if file exists
     if exist requirements.txt (
         echo Installing packages from requirements.txt...
-        call .venv\Scripts\activate
+        call ".venv\Scripts\activate.bat"
         pip install -r requirements.txt
         echo Requirements installed.
     ) else (
@@ -43,8 +43,7 @@ rem Virtual environment now guaranteed to exist
 rem ==========================================
 
 rem Start Django server in new window
-start "Django Server" cmd /k ^
-    "call .venv\Scripts\activate && python manage.py runserver 0.0.0.0:8000"
+start "Django Server" cmd /k "pushd ""%CD%"" && call "".venv\Scripts\activate.bat"" && python manage.py runserver 0.0.0.0:8000"
 
 rem Wait for server to come online, then open browser
 powershell -NoProfile -Command ^

@@ -10,14 +10,14 @@ from django.utils import timezone
 from django.contrib import messages
 import json
 from QuizGame.models import Quiz, QuizQuestion, QuizParticipant, QuizAnswer, QuizSession, QuizBundle
-from sorting_ladder.models import SortingLadderGame, SortingLadderParticipant, SortingQuestion, SortingItem, SortingLadderSession
-from Assign.models import AssignQuiz, AssignQuestion, AssignParticipant
-from Estimation.models import EstimationQuiz, EstimationQuestion, EstimationParticipant
-from where_is_this.models import WhereQuiz, WhereQuestion, WhereParticipant
-from black_jack_quiz.models import BlackJackQuiz, BlackJackQuestion, BlackJackParticipant
+from sorting_ladder.models import SortingLadderGame, SortingLadderParticipant, SortingQuestion, SortingItem, SortingLadderSession, SortingBundle
+from Assign.models import AssignQuiz, AssignQuestion, AssignParticipant, AssignBundle
+from Estimation.models import EstimationQuiz, EstimationQuestion, EstimationParticipant, EstimationBundle
+from where_is_this.models import WhereQuiz, WhereQuestion, WhereParticipant, WhereBundle
+from black_jack_quiz.models import BlackJackQuiz, BlackJackQuestion, BlackJackParticipant, BlackJackBundle
 from clue_rush.models import ClueRushGame, ClueRushParticipant, ClueQuestion, Clue, ClueAnswer, ClueRushSession
-from who_is_that.models import WhoThatQuiz, WhoThatQuestion, WhoThatParticipant
-from who_is_lying.models import WhoQuiz, WhoQuestion, WhoParticipant
+from who_is_that.models import WhoThatQuiz, WhoThatQuestion, WhoThatParticipant, WhoThatBundle
+from who_is_lying.models import WhoQuiz, WhoQuestion, WhoParticipant, WhoBundle
 from games_hub.models import HubSession, HubParticipant, HubGameStep
 from games_website.services import sync_all_models_to_supabase, restore_all_models_from_supabase
 
@@ -841,9 +841,11 @@ def get_clue_rush_questions(request):
 def sorting_ladder_management(request):
     quizzes = SortingLadderGame.objects.all().order_by('-created_at')
     total_topics = SortingQuestion.objects.filter(is_active=True).count()
+    bundles = SortingBundle.objects.filter(creator=request.user).prefetch_related('questions')
     return render(request, 'admin_dashboard/sorting_ladder_management.html', {
         'quizzes': quizzes,
         'total_topics': total_topics,
+        'bundles': bundles,
     })
 
 @admin_required
@@ -2583,6 +2585,7 @@ def where_management(request):
         'total_games': total_games,
         'total_players': total_players,
         'average_accuracy': round(avg_accuracy, 1),
+        'bundles': WhereBundle.objects.filter(creator=request.user).prefetch_related('questions'),
     }
 
     return render(request, 'admin_dashboard/where_management.html', context)
@@ -3479,10 +3482,12 @@ def assign_management(request):
     """Assign drag & drop quiz management page"""
     quizzes = AssignQuiz.objects.all().order_by('-created_at')
     total_questions = AssignQuestion.objects.filter(is_active=True).count()
-    
+    bundles = AssignBundle.objects.filter(creator=request.user).prefetch_related('questions')
+
     context = {
         'quizzes': quizzes,
         'total_questions': total_questions,
+        'bundles': bundles,
     }
     return render(request, 'admin_dashboard/assign_management.html', context)
 
@@ -4394,6 +4399,7 @@ def estimation_management(request):
         'total_games': total_games,
         'total_players': total_players,
         'average_accuracy': round(avg_accuracy, 1),
+        'bundles': EstimationBundle.objects.filter(creator=request.user).prefetch_related('questions'),
     }
 
     return render(request, 'admin_dashboard/estimation_management.html', context)
@@ -4821,10 +4827,12 @@ def who_management(request):
     """Who is lying quiz management page"""
     quizzes = WhoQuiz.objects.all().order_by('-created_at')
     total_questions = WhoQuestion.objects.filter(is_active=True).count()
-    
+    bundles = WhoBundle.objects.filter(creator=request.user).prefetch_related('questions')
+
     context = {
         'quizzes': quizzes,
         'total_questions': total_questions,
+        'bundles': bundles,
     }
     return render(request, 'admin_dashboard/who_lying_management.html', context)
 
@@ -5474,6 +5482,7 @@ def who_that_management(request):
         'total_games': total_games,
         'total_players': total_players,
         'average_accuracy': round(avg_accuracy, 1),
+        'bundles': WhoThatBundle.objects.filter(creator=request.user).prefetch_related('questions'),
     }
 
     return render(request, 'admin_dashboard/who_that_management.html', context)
@@ -6147,6 +6156,7 @@ def blackjack_management(request):
         'total_games': total_games,
         'total_players': total_players,
         'bust_rate': round(bust_rate, 1),
+        'bundles': BlackJackBundle.objects.filter(creator=request.user).prefetch_related('questions'),
     }
 
     return render(request, 'admin_dashboard/blackjack_management.html', context)
@@ -7244,3 +7254,283 @@ def set_sorting_ladder_participant_score(request):
         return JsonResponse({'success': True, 'new_score': participant.total_score})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ── Bundle views (Sorting Ladder) ────────────────────────────────────────────
+
+@admin_required
+def get_sorting_bundles(request):
+    bundles = SortingBundle.objects.filter(creator=request.user).prefetch_related('questions')
+    data = [
+        {'id': b.id, 'name': b.name, 'question_ids': list(b.questions.values_list('id', flat=True)), 'question_count': b.questions.count()}
+        for b in bundles
+    ]
+    return JsonResponse({'bundles': data})
+
+
+@admin_required
+def create_sorting_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    name = (data.get('name') or '').strip()
+    question_ids = data.get('question_ids') or []
+    if not name:
+        return JsonResponse({'error': 'Name is required'}, status=400)
+    bundle = SortingBundle.objects.create(name=name, creator=request.user)
+    if question_ids:
+        bundle.questions.set(SortingQuestion.objects.filter(id__in=question_ids, is_active=True))
+    return JsonResponse({'success': True, 'bundle': {'id': bundle.id, 'name': bundle.name, 'question_ids': list(bundle.questions.values_list('id', flat=True)), 'question_count': bundle.questions.count()}})
+
+
+@admin_required
+def delete_sorting_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    try:
+        bundle = SortingBundle.objects.get(id=data.get('bundle_id'), creator=request.user)
+        bundle.delete()
+        return JsonResponse({'success': True})
+    except SortingBundle.DoesNotExist:
+        return JsonResponse({'error': 'Bundle not found'}, status=404)
+
+
+# ── Bundle views (Assign) ─────────────────────────────────────────────────────
+
+@admin_required
+def get_assign_bundles(request):
+    bundles = AssignBundle.objects.filter(creator=request.user).prefetch_related('questions')
+    data = [
+        {'id': b.id, 'name': b.name, 'question_ids': list(b.questions.values_list('id', flat=True)), 'question_count': b.questions.count()}
+        for b in bundles
+    ]
+    return JsonResponse({'bundles': data})
+
+
+@admin_required
+def create_assign_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    name = (data.get('name') or '').strip()
+    question_ids = data.get('question_ids') or []
+    if not name:
+        return JsonResponse({'error': 'Name is required'}, status=400)
+    bundle = AssignBundle.objects.create(name=name, creator=request.user)
+    if question_ids:
+        bundle.questions.set(AssignQuestion.objects.filter(id__in=question_ids, is_active=True))
+    return JsonResponse({'success': True, 'bundle': {'id': bundle.id, 'name': bundle.name, 'question_ids': list(bundle.questions.values_list('id', flat=True)), 'question_count': bundle.questions.count()}})
+
+
+@admin_required
+def delete_assign_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    try:
+        bundle = AssignBundle.objects.get(id=data.get('bundle_id'), creator=request.user)
+        bundle.delete()
+        return JsonResponse({'success': True})
+    except AssignBundle.DoesNotExist:
+        return JsonResponse({'error': 'Bundle not found'}, status=404)
+
+
+# ── Bundle views (Estimation) ─────────────────────────────────────────────────
+
+@admin_required
+def get_estimation_bundles(request):
+    bundles = EstimationBundle.objects.filter(creator=request.user).prefetch_related('questions')
+    data = [
+        {'id': b.id, 'name': b.name, 'question_ids': list(b.questions.values_list('id', flat=True)), 'question_count': b.questions.count()}
+        for b in bundles
+    ]
+    return JsonResponse({'bundles': data})
+
+
+@admin_required
+def create_estimation_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    name = (data.get('name') or '').strip()
+    question_ids = data.get('question_ids') or []
+    if not name:
+        return JsonResponse({'error': 'Name is required'}, status=400)
+    bundle = EstimationBundle.objects.create(name=name, creator=request.user)
+    if question_ids:
+        bundle.questions.set(EstimationQuestion.objects.filter(id__in=question_ids, is_active=True))
+    return JsonResponse({'success': True, 'bundle': {'id': bundle.id, 'name': bundle.name, 'question_ids': list(bundle.questions.values_list('id', flat=True)), 'question_count': bundle.questions.count()}})
+
+
+@admin_required
+def delete_estimation_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    try:
+        bundle = EstimationBundle.objects.get(id=data.get('bundle_id'), creator=request.user)
+        bundle.delete()
+        return JsonResponse({'success': True})
+    except EstimationBundle.DoesNotExist:
+        return JsonResponse({'error': 'Bundle not found'}, status=404)
+
+
+# ── Bundle views (Where Is This) ──────────────────────────────────────────────
+
+@admin_required
+def get_where_bundles(request):
+    bundles = WhereBundle.objects.filter(creator=request.user).prefetch_related('questions')
+    data = [
+        {'id': b.id, 'name': b.name, 'question_ids': list(b.questions.values_list('id', flat=True)), 'question_count': b.questions.count()}
+        for b in bundles
+    ]
+    return JsonResponse({'bundles': data})
+
+
+@admin_required
+def create_where_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    name = (data.get('name') or '').strip()
+    question_ids = data.get('question_ids') or []
+    if not name:
+        return JsonResponse({'error': 'Name is required'}, status=400)
+    bundle = WhereBundle.objects.create(name=name, creator=request.user)
+    if question_ids:
+        bundle.questions.set(WhereQuestion.objects.filter(id__in=question_ids, is_active=True))
+    return JsonResponse({'success': True, 'bundle': {'id': bundle.id, 'name': bundle.name, 'question_ids': list(bundle.questions.values_list('id', flat=True)), 'question_count': bundle.questions.count()}})
+
+
+@admin_required
+def delete_where_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    try:
+        bundle = WhereBundle.objects.get(id=data.get('bundle_id'), creator=request.user)
+        bundle.delete()
+        return JsonResponse({'success': True})
+    except WhereBundle.DoesNotExist:
+        return JsonResponse({'error': 'Bundle not found'}, status=404)
+
+
+# ── Bundle views (Who Is Lying) ───────────────────────────────────────────────
+
+@admin_required
+def get_who_bundles(request):
+    bundles = WhoBundle.objects.filter(creator=request.user).prefetch_related('questions')
+    data = [
+        {'id': b.id, 'name': b.name, 'question_ids': list(b.questions.values_list('id', flat=True)), 'question_count': b.questions.count()}
+        for b in bundles
+    ]
+    return JsonResponse({'bundles': data})
+
+
+@admin_required
+def create_who_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    name = (data.get('name') or '').strip()
+    question_ids = data.get('question_ids') or []
+    if not name:
+        return JsonResponse({'error': 'Name is required'}, status=400)
+    bundle = WhoBundle.objects.create(name=name, creator=request.user)
+    if question_ids:
+        bundle.questions.set(WhoQuestion.objects.filter(id__in=question_ids, is_active=True))
+    return JsonResponse({'success': True, 'bundle': {'id': bundle.id, 'name': bundle.name, 'question_ids': list(bundle.questions.values_list('id', flat=True)), 'question_count': bundle.questions.count()}})
+
+
+@admin_required
+def delete_who_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    try:
+        bundle = WhoBundle.objects.get(id=data.get('bundle_id'), creator=request.user)
+        bundle.delete()
+        return JsonResponse({'success': True})
+    except WhoBundle.DoesNotExist:
+        return JsonResponse({'error': 'Bundle not found'}, status=404)
+
+
+# ── Bundle views (Who Is That) ────────────────────────────────────────────────
+
+@admin_required
+def get_who_that_bundles(request):
+    bundles = WhoThatBundle.objects.filter(creator=request.user).prefetch_related('questions')
+    data = [
+        {'id': b.id, 'name': b.name, 'question_ids': list(b.questions.values_list('id', flat=True)), 'question_count': b.questions.count()}
+        for b in bundles
+    ]
+    return JsonResponse({'bundles': data})
+
+
+@admin_required
+def create_who_that_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    name = (data.get('name') or '').strip()
+    question_ids = data.get('question_ids') or []
+    if not name:
+        return JsonResponse({'error': 'Name is required'}, status=400)
+    bundle = WhoThatBundle.objects.create(name=name, creator=request.user)
+    if question_ids:
+        bundle.questions.set(WhoThatQuestion.objects.filter(id__in=question_ids, is_active=True))
+    return JsonResponse({'success': True, 'bundle': {'id': bundle.id, 'name': bundle.name, 'question_ids': list(bundle.questions.values_list('id', flat=True)), 'question_count': bundle.questions.count()}})
+
+
+@admin_required
+def delete_who_that_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    try:
+        bundle = WhoThatBundle.objects.get(id=data.get('bundle_id'), creator=request.user)
+        bundle.delete()
+        return JsonResponse({'success': True})
+    except WhoThatBundle.DoesNotExist:
+        return JsonResponse({'error': 'Bundle not found'}, status=404)
+
+
+# ── Bundle views (Black Jack) ─────────────────────────────────────────────────
+
+@admin_required
+def get_blackjack_bundles(request):
+    bundles = BlackJackBundle.objects.filter(creator=request.user).prefetch_related('questions')
+    data = [
+        {'id': b.id, 'name': b.name, 'question_ids': list(b.questions.values_list('id', flat=True)), 'question_count': b.questions.count()}
+        for b in bundles
+    ]
+    return JsonResponse({'bundles': data})
+
+
+@admin_required
+def create_blackjack_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    name = (data.get('name') or '').strip()
+    question_ids = data.get('question_ids') or []
+    if not name:
+        return JsonResponse({'error': 'Name is required'}, status=400)
+    bundle = BlackJackBundle.objects.create(name=name, creator=request.user)
+    if question_ids:
+        bundle.questions.set(BlackJackQuestion.objects.filter(id__in=question_ids, is_active=True))
+    return JsonResponse({'success': True, 'bundle': {'id': bundle.id, 'name': bundle.name, 'question_ids': list(bundle.questions.values_list('id', flat=True)), 'question_count': bundle.questions.count()}})
+
+
+@admin_required
+def delete_blackjack_bundle(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    try:
+        bundle = BlackJackBundle.objects.get(id=data.get('bundle_id'), creator=request.user)
+        bundle.delete()
+        return JsonResponse({'success': True})
+    except BlackJackBundle.DoesNotExist:
+        return JsonResponse({'error': 'Bundle not found'}, status=404)

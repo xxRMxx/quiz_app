@@ -169,7 +169,7 @@
                 </div>
             </div>
 
-            <!-- Sorting Ladder Questions (shown only if sorting_ladder is selected) -->
+            <!-- Sorting Ladder Questions -->
             <div id="sortingQSection" class="card mb-4 d-none">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -182,12 +182,17 @@
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('sorting_question_ids', false)">Deselect All</button>
                         </div>
                     </div>
-
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <label class="form-label mb-0 text-nowrap fw-semibold">Bundle laden:</label>
+                        <select class="form-select form-select-sm" id="sortingBundleSelect" style="max-width:320px;">
+                            <option value="">— Themen manuell wählen —</option>
+                        </select>
+                    </div>
                     {% if sorting_questions %}
                     <div class="question-list">
                         {% for q in sorting_questions %}
                         <label class="question-item">
-                            <input type="checkbox" name="sorting_question_ids" value="{{ q.id }}" class="question-checkbox" checked>
+                            <input type="checkbox" name="sorting_question_ids" value="{{ q.id }}" class="question-checkbox sorting-q-check" checked>
                             <div class="question-card">
                                 <div class="question-text">{{ q.question_text }}</div>
                                 <div class="question-meta">
@@ -206,12 +211,261 @@
                 </div>
             </div>
 
-            <!-- Games without configurable questions -->
-            <div id="otherGamesInfo" class="card mb-4 d-none">
+            <!-- Assign Questions -->
+            <div id="assignQSection" class="card mb-4 d-none">
                 <div class="card-body">
-                    <h5 class="mb-2">Other Games</h5>
-                    <p class="text-muted small mb-0">The following games will use their full question bank automatically:</p>
-                    <div id="otherGamesList" class="mt-2 d-flex flex-wrap gap-2"></div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0"><i data-lucide="list-checks" class="me-2 text-primary"></i>Assign — Select Questions</h5>
+                            <p class="text-muted small mb-0 mt-1">Choose which questions will be available in this session</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('assign_question_ids', true)">Select All</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('assign_question_ids', false)">Deselect All</button>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <label class="form-label mb-0 text-nowrap fw-semibold">Bundle laden:</label>
+                        <select class="form-select form-select-sm" id="assignBundleSelect" style="max-width:320px;">
+                            <option value="">— Fragen manuell wählen —</option>
+                        </select>
+                    </div>
+                    {% if assign_questions %}
+                    <div class="question-list">
+                        {% for q in assign_questions %}
+                        <label class="question-item">
+                            <input type="checkbox" name="assign_question_ids" value="{{ q.id }}" class="question-checkbox assign-q-check" checked>
+                            <div class="question-card">
+                                <div class="question-text">{{ q.question_text }}</div>
+                                <div class="question-meta">
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.points }} pts</span>
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.time_limit }}s</span>
+                                </div>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i data-lucide="alert-circle" class="me-2"></i>
+                        No assign questions available.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Estimation Questions -->
+            <div id="estimationQSection" class="card mb-4 d-none">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0"><i data-lucide="bar-chart-2" class="me-2 text-primary"></i>Estimation — Select Questions</h5>
+                            <p class="text-muted small mb-0 mt-1">Choose which questions will be available in this session</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('estimation_question_ids', true)">Select All</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('estimation_question_ids', false)">Deselect All</button>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <label class="form-label mb-0 text-nowrap fw-semibold">Bundle laden:</label>
+                        <select class="form-select form-select-sm" id="estimationBundleSelect" style="max-width:320px;">
+                            <option value="">— Fragen manuell wählen —</option>
+                        </select>
+                    </div>
+                    {% if estimation_questions %}
+                    <div class="question-list">
+                        {% for q in estimation_questions %}
+                        <label class="question-item">
+                            <input type="checkbox" name="estimation_question_ids" value="{{ q.id }}" class="question-checkbox estimation-q-check" checked>
+                            <div class="question-card">
+                                <div class="question-text">{{ q.question_text }}</div>
+                                <div class="question-meta">
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.correct_answer }} {{ q.unit }}</span>
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.difficulty }}</span>
+                                </div>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i data-lucide="alert-circle" class="me-2"></i>
+                        No estimation questions available.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Where Is This Questions -->
+            <div id="whereQSection" class="card mb-4 d-none">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0"><i data-lucide="map-pin" class="me-2 text-primary"></i>Where Is This — Select Questions</h5>
+                            <p class="text-muted small mb-0 mt-1">Choose which questions will be available in this session</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('where_question_ids', true)">Select All</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('where_question_ids', false)">Deselect All</button>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <label class="form-label mb-0 text-nowrap fw-semibold">Bundle laden:</label>
+                        <select class="form-select form-select-sm" id="whereBundleSelect" style="max-width:320px;">
+                            <option value="">— Fragen manuell wählen —</option>
+                        </select>
+                    </div>
+                    {% if where_questions %}
+                    <div class="question-list">
+                        {% for q in where_questions %}
+                        <label class="question-item">
+                            <input type="checkbox" name="where_question_ids" value="{{ q.id }}" class="question-checkbox where-q-check" checked>
+                            <div class="question-card">
+                                <div class="question-text">{{ q.question_text }}</div>
+                                <div class="question-meta">
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.difficulty }}</span>
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.points }} pts</span>
+                                </div>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i data-lucide="alert-circle" class="me-2"></i>
+                        No location questions available.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Who Is Lying Questions -->
+            <div id="whoQSection" class="card mb-4 d-none">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0"><i data-lucide="user-x" class="me-2 text-primary"></i>Who Is Lying — Select Questions</h5>
+                            <p class="text-muted small mb-0 mt-1">Choose which questions will be available in this session</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('who_question_ids', true)">Select All</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('who_question_ids', false)">Deselect All</button>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <label class="form-label mb-0 text-nowrap fw-semibold">Bundle laden:</label>
+                        <select class="form-select form-select-sm" id="whoBundleSelect" style="max-width:320px;">
+                            <option value="">— Fragen manuell wählen —</option>
+                        </select>
+                    </div>
+                    {% if who_questions %}
+                    <div class="question-list">
+                        {% for q in who_questions %}
+                        <label class="question-item">
+                            <input type="checkbox" name="who_question_ids" value="{{ q.id }}" class="question-checkbox who-q-check" checked>
+                            <div class="question-card">
+                                <div class="question-text">{{ q.statement }}</div>
+                                <div class="question-meta">
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.points }} pts</span>
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.time_limit }}s</span>
+                                </div>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i data-lucide="alert-circle" class="me-2"></i>
+                        No questions available.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Who Is That Questions -->
+            <div id="whoThatQSection" class="card mb-4 d-none">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0"><i data-lucide="users" class="me-2 text-primary"></i>Who Is That — Select Questions</h5>
+                            <p class="text-muted small mb-0 mt-1">Choose which questions will be available in this session</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('who_that_question_ids', true)">Select All</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('who_that_question_ids', false)">Deselect All</button>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <label class="form-label mb-0 text-nowrap fw-semibold">Bundle laden:</label>
+                        <select class="form-select form-select-sm" id="whoThatBundleSelect" style="max-width:320px;">
+                            <option value="">— Fragen manuell wählen —</option>
+                        </select>
+                    </div>
+                    {% if who_that_questions %}
+                    <div class="question-list">
+                        {% for q in who_that_questions %}
+                        <label class="question-item">
+                            <input type="checkbox" name="who_that_question_ids" value="{{ q.id }}" class="question-checkbox who-that-q-check" checked>
+                            <div class="question-card">
+                                <div class="question-text">{{ q.question_text }}</div>
+                                <div class="question-meta">
+                                    <span class="badge bg-primary-subtle text-primary">{{ q.correct_answer }}</span>
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.difficulty }}</span>
+                                </div>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i data-lucide="alert-circle" class="me-2"></i>
+                        No questions available.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Black Jack Questions -->
+            <div id="blackjackQSection" class="card mb-4 d-none">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0"><i data-lucide="spade" class="me-2 text-primary"></i>Black Jack — Select Questions</h5>
+                            <p class="text-muted small mb-0 mt-1">Choose which questions will be available in this session</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('blackjack_question_ids', true)">Select All</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll('blackjack_question_ids', false)">Deselect All</button>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <label class="form-label mb-0 text-nowrap fw-semibold">Bundle laden:</label>
+                        <select class="form-select form-select-sm" id="blackjackBundleSelect" style="max-width:320px;">
+                            <option value="">— Fragen manuell wählen —</option>
+                        </select>
+                    </div>
+                    {% if blackjack_questions %}
+                    <div class="question-list">
+                        {% for q in blackjack_questions %}
+                        <label class="question-item">
+                            <input type="checkbox" name="blackjack_question_ids" value="{{ q.id }}" class="question-checkbox blackjack-q-check" checked>
+                            <div class="question-card">
+                                <div class="question-text">{{ q.question_text }}</div>
+                                <div class="question-meta">
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.difficulty }}</span>
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ q.time_limit }}s</span>
+                                </div>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i data-lucide="alert-circle" class="me-2"></i>
+                        No questions available.
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -445,7 +699,7 @@ const GAME_LABELS = {
     blackjack: 'Black Jack',
 };
 
-const CONFIGURABLE_GAMES = ['quiz', 'sorting_ladder'];
+const CONFIGURABLE_GAMES = ['quiz', 'sorting_ladder', 'assign', 'estimation', 'where', 'who', 'who_that', 'blackjack'];
 
 function toggleAll(fieldName, checked) {
     document.querySelectorAll(`input[name="${fieldName}"]`).forEach(cb => cb.checked = checked);
@@ -477,26 +731,28 @@ function updateSelectionNumbers() {
     });
 }
 
+const GAME_SECTION_MAP = {
+    quiz:           'quizQSection',
+    sorting_ladder: 'sortingQSection',
+    assign:         'assignQSection',
+    estimation:     'estimationQSection',
+    where:          'whereQSection',
+    who:            'whoQSection',
+    who_that:       'whoThatQSection',
+    blackjack:      'blackjackQSection',
+};
+
 function goToStep2() {
     if (selectedGames.length === 0) return;
 
-    const hasQuiz = selectedGames.includes('quiz');
-    const hasSorting = selectedGames.includes('sorting_ladder');
-    const otherGames = selectedGames.filter(g => !CONFIGURABLE_GAMES.includes(g));
+    // Show/hide each game's question section
+    Object.entries(GAME_SECTION_MAP).forEach(([game, sectionId]) => {
+        const el = document.getElementById(sectionId);
+        if (el) el.classList.toggle('d-none', !selectedGames.includes(game));
+    });
 
-    document.getElementById('quizQSection').classList.toggle('d-none', !hasQuiz);
-    document.getElementById('sortingQSection').classList.toggle('d-none', !hasSorting);
-
-    const otherSection = document.getElementById('otherGamesInfo');
-    if (otherGames.length > 0) {
-        otherSection.classList.remove('d-none');
-        const list = document.getElementById('otherGamesList');
-        list.innerHTML = otherGames.map(g =>
-            `<span class="badge bg-secondary-subtle text-secondary fs-6 py-2 px-3">${GAME_LABELS[g] || g}</span>`
-        ).join('');
-    } else {
-        otherSection.classList.add('d-none');
-    }
+    // Hide "other games" info (all games now have their own section)
+    document.getElementById('otherGamesInfo').classList.add('d-none');
 
     document.getElementById('step1').classList.add('d-none');
     document.getElementById('step2').classList.remove('d-none');
@@ -534,29 +790,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Load quiz bundles into the dropdown
-    fetch('/admin-dashboard/quiz/bundles/')
-        .then(r => r.json())
-        .then(data => {
-            const sel = document.getElementById('quizBundleSelect');
-            if (!sel) return;
-            data.bundles.forEach(b => {
-                const opt = document.createElement('option');
-                opt.value = JSON.stringify(b.question_ids);
-                opt.textContent = `${b.name} (${b.question_count} Fragen)`;
-                sel.appendChild(opt);
-            });
-        });
+    // Bundle dropdowns: load for each game and wire up selection
+    const BUNDLE_CONFIG = [
+        { url: '/admin-dashboard/quiz/bundles/',          selectId: 'quizBundleSelect',       checkClass: 'quiz-q-check',        label: 'Fragen' },
+        { url: '/admin-dashboard/sorting-ladder/bundles/', selectId: 'sortingBundleSelect',   checkClass: 'sorting-q-check',     label: 'Themen' },
+        { url: '/admin-dashboard/assign/bundles/',         selectId: 'assignBundleSelect',    checkClass: 'assign-q-check',      label: 'Fragen' },
+        { url: '/admin-dashboard/estimation/bundles/',     selectId: 'estimationBundleSelect',checkClass: 'estimation-q-check',  label: 'Fragen' },
+        { url: '/admin-dashboard/where/bundles/',          selectId: 'whereBundleSelect',     checkClass: 'where-q-check',       label: 'Fragen' },
+        { url: '/admin-dashboard/who/bundles/',            selectId: 'whoBundleSelect',       checkClass: 'who-q-check',         label: 'Fragen' },
+        { url: '/admin-dashboard/who-that/bundles/',       selectId: 'whoThatBundleSelect',   checkClass: 'who-that-q-check',    label: 'Fragen' },
+        { url: '/admin-dashboard/blackjack/bundles/',      selectId: 'blackjackBundleSelect', checkClass: 'blackjack-q-check',   label: 'Fragen' },
+    ];
 
-    document.getElementById('quizBundleSelect')?.addEventListener('change', function() {
-        const checks = document.querySelectorAll('.quiz-q-check');
-        if (!this.value) {
-            // Zurück zur manuellen Auswahl: alle ankreuzen
-            checks.forEach(cb => cb.checked = true);
-            return;
-        }
-        const ids = new Set(JSON.parse(this.value));
-        checks.forEach(cb => { cb.checked = ids.has(parseInt(cb.value)); });
+    BUNDLE_CONFIG.forEach(({ url, selectId, checkClass }) => {
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                const sel = document.getElementById(selectId);
+                if (!sel) return;
+                (data.bundles || []).forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = JSON.stringify(b.question_ids);
+                    opt.textContent = `${b.name} (${b.question_count} Fragen)`;
+                    sel.appendChild(opt);
+                });
+            })
+            .catch(() => {}); // ignore if not logged in yet
+
+        document.getElementById(selectId)?.addEventListener('change', function() {
+            const checks = document.querySelectorAll('.' + checkClass);
+            if (!this.value) {
+                checks.forEach(cb => cb.checked = true);
+                return;
+            }
+            const ids = new Set(JSON.parse(this.value));
+            checks.forEach(cb => { cb.checked = ids.has(parseInt(cb.value)); });
+        });
     });
 });
 </script>

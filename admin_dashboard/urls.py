@@ -45,6 +45,9 @@ urlpatterns = [
     path('quiz/<str:room_code>/end-question/', views.end_question, name='end_question'),
 
     # Sorting Ladder Game Management
+    path('sorting-ladder/bundles/', views.get_sorting_bundles, name='get_sorting_bundles'),
+    path('sorting-ladder/bundles/create/', views.create_sorting_bundle, name='create_sorting_bundle'),
+    path('sorting-ladder/bundles/delete/', views.delete_sorting_bundle, name='delete_sorting_bundle'),
     path('sorting-ladder/', views.sorting_ladder_management, name='sorting_ladder_management'),
     path('sorting-ladder/create/', views.create_sorting_ladder_game, name='create_sorting_ladder_game'),
     path('sorting-ladder/create-custom/', views.create_sorting_ladder_custom_game, name='create_sorting_ladder_custom_game'),
@@ -63,6 +66,9 @@ urlpatterns = [
     path('sorting-ladder/<str:room_code>/end-round/', views.end_sorting_ladder_round, name='end_sorting_ladder_round'),
 
     # Estimation Game Management
+    path('estimation/bundles/', views.get_estimation_bundles, name='get_estimation_bundles'),
+    path('estimation/bundles/create/', views.create_estimation_bundle, name='create_estimation_bundle'),
+    path('estimation/bundles/delete/', views.delete_estimation_bundle, name='delete_estimation_bundle'),
     path('estimation/', views.estimation_management, name='estimation_management'),
     path('estimation/create/', views.create_estimation_quiz, name='create_estimation_quiz'),
     path('estimation/create-custom/', views.create_estimation_custom_quiz, name='create_estimation_custom_quiz'),
@@ -103,6 +109,9 @@ urlpatterns = [
     path('api/quiz/<str:room_code>/responses/', views.api_live_responses, name='api_live_responses'),
 
     # Where Is This Game Management
+    path('where/bundles/', views.get_where_bundles, name='get_where_bundles'),
+    path('where/bundles/create/', views.create_where_bundle, name='create_where_bundle'),
+    path('where/bundles/delete/', views.delete_where_bundle, name='delete_where_bundle'),
     path('where/', views.where_management, name='where_management'),
     path('where/monitor/<str:room_code>/', views.where_monitor, name='where_monitor'),
     path('where/details/<int:quiz_id>/', views.where_game_details, name='where_game_details'),
@@ -129,6 +138,9 @@ urlpatterns = [
     path('api/where/<str:room_code>/responses/', views.api_where_live_responses, name='api_where_live_responses'),
 
     # Assign Game Management
+    path('assign/bundles/', views.get_assign_bundles, name='get_assign_bundles'),
+    path('assign/bundles/create/', views.create_assign_bundle, name='create_assign_bundle'),
+    path('assign/bundles/delete/', views.delete_assign_bundle, name='delete_assign_bundle'),
     path('assign/', views.assign_management, name='assign_management'),
     path('assign/create/', views.create_assign_quiz, name='create_assign_quiz'),
     path('assign/create-custom/', views.create_assign_custom_quiz, name='create_assign_custom_quiz'),
@@ -152,6 +164,9 @@ urlpatterns = [
     path('api/assign/<str:room_code>/responses/', views.api_assign_live_responses, name='api_assign_live_responses'),
 
     # Who Is Lying Game Management
+    path('who/bundles/', views.get_who_bundles, name='get_who_bundles'),
+    path('who/bundles/create/', views.create_who_bundle, name='create_who_bundle'),
+    path('who/bundles/delete/', views.delete_who_bundle, name='delete_who_bundle'),
     path('who/', views.who_management, name='who_management'),
     path('who/create/', views.create_who_quiz, name='create_who_quiz'),
     path('who/create-custom/', views.create_who_custom_quiz, name='create_who_custom_quiz'),
@@ -178,6 +193,9 @@ urlpatterns = [
     path('api/who/questions/', views.api_who_questions, name='api_who_questions'),
 
     # Who Is That Game Management
+    path('who-that/bundles/', views.get_who_that_bundles, name='get_who_that_bundles'),
+    path('who-that/bundles/create/', views.create_who_that_bundle, name='create_who_that_bundle'),
+    path('who-that/bundles/delete/', views.delete_who_that_bundle, name='delete_who_that_bundle'),
     path('who-that/', views.who_that_management, name='who_that_management'),
     path('who-that/create/', views.create_who_that_quiz, name='create_who_that_quiz'),
     path('who-that/create-custom/', views.create_who_that_custom_quiz, name='create_who_that_custom_quiz'),
@@ -204,6 +222,9 @@ urlpatterns = [
     path('api/who-that/questions/', views.api_who_that_questions, name='api_who_that_questions'),
 
     # Blackjack Game Management
+    path('blackjack/bundles/', views.get_blackjack_bundles, name='get_blackjack_bundles'),
+    path('blackjack/bundles/create/', views.create_blackjack_bundle, name='create_blackjack_bundle'),
+    path('blackjack/bundles/delete/', views.delete_blackjack_bundle, name='delete_blackjack_bundle'),
     path('blackjack/', views.blackjack_management, name='blackjack_management'),
     path('blackjack/create/', views.create_blackjack_quiz, name='create_blackjack_quiz'),
     path('blackjack/create-custom/', views.create_black_jack_custom_quiz, name='create_black_jack_custom_quiz'),

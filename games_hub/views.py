@@ -12,12 +12,12 @@ from .models import HubSession, HubParticipant, HubGameStep, GameVote
 from QuizGame.models import Quiz as QuizGameModel, QuizParticipant, QuizQuestion
 from sorting_ladder.models import SortingLadderGame, SortingLadderParticipant, SortingQuestion
 from clue_rush.models import ClueRushGame, ClueRushParticipant
-from Assign.models import AssignQuiz, AssignParticipant
-from Estimation.models import EstimationQuiz, EstimationParticipant
-from where_is_this.models import WhereQuiz, WhereParticipant
-from who_is_lying.models import WhoQuiz, WhoParticipant
-from who_is_that.models import WhoThatQuiz, WhoThatParticipant
-from black_jack_quiz.models import BlackJackQuiz, BlackJackParticipant
+from Assign.models import AssignQuiz, AssignParticipant, AssignQuestion
+from Estimation.models import EstimationQuiz, EstimationParticipant, EstimationQuestion
+from where_is_this.models import WhereQuiz, WhereParticipant, WhereQuestion
+from who_is_lying.models import WhoQuiz, WhoParticipant, WhoQuestion
+from who_is_that.models import WhoThatQuiz, WhoThatParticipant, WhoThatQuestion
+from black_jack_quiz.models import BlackJackQuiz, BlackJackParticipant, BlackJackQuestion
 
 
 def gen_code(length=6):
@@ -50,8 +50,7 @@ def create_session(request):
         if HubSession.objects.filter(code=code).exists():
             return render(request, 'hub/create_session.html', {
                 'error': 'A session with this code already exists. Please choose a different code.',
-                'quiz_questions': QuizQuestion.objects.filter(is_active=True).order_by('-created_at'),
-                'sorting_questions': SortingQuestion.objects.filter(is_active=True).order_by('question_text'),
+                **_get_session_questions(),
             })
             
         # Reset all existing quizzes to 'waiting' so they can be reused for this new session
@@ -93,37 +92,50 @@ def create_session(request):
                 step.save()
                 
         # Associate selected questions with each quiz instance
+        GAME_QUESTION_MAP = {
+            'quiz':           (QuizGameModel,     QuizQuestion,       'quiz_question_ids'),
+            'sorting_ladder': (SortingLadderGame, SortingQuestion,    'sorting_question_ids'),
+            'assign':         (AssignQuiz,         AssignQuestion,     'assign_question_ids'),
+            'estimation':     (EstimationQuiz,     EstimationQuestion, 'estimation_question_ids'),
+            'where':          (WhereQuiz,          WhereQuestion,      'where_question_ids'),
+            'who':            (WhoQuiz,            WhoQuestion,        'who_question_ids'),
+            'who_that':       (WhoThatQuiz,        WhoThatQuestion,    'who_that_question_ids'),
+            'blackjack':      (BlackJackQuiz,      BlackJackQuestion,  'blackjack_question_ids'),
+        }
         for order, game_key in enumerate(games_ordered):
-            if not game_key:
+            if not game_key or game_key not in GAME_QUESTION_MAP:
                 continue
             try:
                 step = HubGameStep.objects.get(session=session, order=order)
-                if game_key == 'quiz' and step.room_code:
-                    question_ids = request.POST.getlist('quiz_question_ids')
-                    if question_ids:
-                        quiz_obj = QuizGameModel.objects.get(room_code=step.room_code)
-                        quiz_obj.selected_questions.set(
-                            QuizQuestion.objects.filter(id__in=question_ids)
-                        )
-                elif game_key == 'sorting_ladder' and step.room_code:
-                    question_ids = request.POST.getlist('sorting_question_ids')
-                    if question_ids:
-                        sl_obj = SortingLadderGame.objects.get(room_code=step.room_code)
-                        sl_obj.selected_questions.set(
-                            SortingQuestion.objects.filter(id__in=question_ids)
-                        )
+                if not step.room_code:
+                    continue
+                game_model, question_model, post_key = GAME_QUESTION_MAP[game_key]
+                question_ids = request.POST.getlist(post_key)
+                if question_ids:
+                    game_obj = game_model.objects.get(room_code=step.room_code)
+                    game_obj.selected_questions.set(
+                        question_model.objects.filter(id__in=question_ids)
+                    )
             except Exception:
                 pass
 
         return redirect('games_hub:monitor', session_code=code)
 
     # GET request - show the form with available questions
-    quiz_questions = QuizQuestion.objects.filter(is_active=True).order_by('-created_at')
-    sorting_questions = SortingQuestion.objects.filter(is_active=True).order_by('question_text')
-    return render(request, 'hub/create_session.html', {
-        'quiz_questions': quiz_questions,
-        'sorting_questions': sorting_questions,
-    })
+    return render(request, 'hub/create_session.html', _get_session_questions())
+
+
+def _get_session_questions():
+    return {
+        'quiz_questions':       QuizQuestion.objects.filter(is_active=True).order_by('-created_at'),
+        'sorting_questions':    SortingQuestion.objects.filter(is_active=True).order_by('question_text'),
+        'assign_questions':     AssignQuestion.objects.filter(is_active=True).order_by('-created_at'),
+        'estimation_questions': EstimationQuestion.objects.filter(is_active=True).order_by('-created_at'),
+        'where_questions':      WhereQuestion.objects.filter(is_active=True).order_by('-created_at'),
+        'who_questions':        WhoQuestion.objects.filter(is_active=True).order_by('-created_at'),
+        'who_that_questions':   WhoThatQuestion.objects.filter(is_active=True).order_by('-created_at'),
+        'blackjack_questions':  BlackJackQuestion.objects.filter(is_active=True).order_by('-created_at'),
+    }
 
 
 def get_game_participant_data(session, game_model, participant_model, room_code, game_key):
