@@ -66,6 +66,20 @@ class AssignQuiz(SyncBase):
         return f"{self.title} ({self.room_code})"
 
 
+class AssignBundle(SyncBase):
+    """A reusable, named collection of questions that can be used as a template when creating sessions."""
+    name = models.CharField(max_length=200)
+    questions = models.ManyToManyField('AssignQuestion', blank=True, related_name='bundles')
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assign_bundles')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
 class AssignQuestion(SyncBase):
     """Drag and drop questions with items to match"""
     

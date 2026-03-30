@@ -72,6 +72,20 @@ class BlackJackQuiz(SyncBase):
         return f"{self.title} ({self.room_code})"
 
 
+class BlackJackBundle(SyncBase):
+    """A reusable, named collection of questions that can be used as a template when creating sessions."""
+    name = models.CharField(max_length=200)
+    questions = models.ManyToManyField('BlackJackQuestion', blank=True, related_name='bundles')
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blackjack_bundles')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
 class BlackJackQuestion(SyncBase):
     """Questions for blackjack quiz games"""
     
