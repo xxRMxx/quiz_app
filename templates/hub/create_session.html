@@ -137,11 +137,18 @@
                         </div>
                     </div>
 
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <label class="form-label mb-0 text-nowrap fw-semibold">Bundle laden:</label>
+                        <select class="form-select form-select-sm" id="quizBundleSelect" style="max-width:320px;">
+                            <option value="">— Fragen manuell wählen —</option>
+                        </select>
+                    </div>
+
                     {% if quiz_questions %}
                     <div class="question-list">
                         {% for q in quiz_questions %}
                         <label class="question-item">
-                            <input type="checkbox" name="quiz_question_ids" value="{{ q.id }}" class="question-checkbox" checked>
+                            <input type="checkbox" name="quiz_question_ids" value="{{ q.id }}" class="question-checkbox quiz-q-check" checked>
                             <div class="question-card">
                                 <div class="question-text">{{ q.question_text }}</div>
                                 <div class="question-meta">
@@ -222,6 +229,11 @@
 </div>
 
 <style>
+.card:hover {
+    transform: none;
+    box-shadow: none;
+}
+
 .wizard-container {
     max-width: 900px;
     margin: 0 auto;
@@ -325,7 +337,6 @@
 }
 
 .game-option:hover .game-card {
-    transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
 
@@ -521,6 +532,31 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Please select at least one game.');
             return;
         }
+    });
+
+    // Load quiz bundles into the dropdown
+    fetch('/admin-dashboard/quiz/bundles/')
+        .then(r => r.json())
+        .then(data => {
+            const sel = document.getElementById('quizBundleSelect');
+            if (!sel) return;
+            data.bundles.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = JSON.stringify(b.question_ids);
+                opt.textContent = `${b.name} (${b.question_count} Fragen)`;
+                sel.appendChild(opt);
+            });
+        });
+
+    document.getElementById('quizBundleSelect')?.addEventListener('change', function() {
+        const checks = document.querySelectorAll('.quiz-q-check');
+        if (!this.value) {
+            // Zurück zur manuellen Auswahl: alle ankreuzen
+            checks.forEach(cb => cb.checked = true);
+            return;
+        }
+        const ids = new Set(JSON.parse(this.value));
+        checks.forEach(cb => { cb.checked = ids.has(parseInt(cb.value)); });
     });
 });
 </script>

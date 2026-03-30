@@ -44,10 +44,16 @@
                         {{ quiz.get_status_display }}
                     </span>
                     {% if quiz.status == 'waiting' %}
-                        <button class="btn btn-success" id="startQuizBtn">
-                            <i data-lucide="play"></i>
-                            Start Quiz
-                        </button>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="showTutorialToggle" checked>
+                                <label class="form-check-label" for="showTutorialToggle">Tutorial anzeigen</label>
+                            </div>
+                            <button class="btn btn-success" id="startQuizBtn">
+                                <i data-lucide="play"></i>
+                                Start Quiz
+                            </button>
+                        </div>
                     {% elif quiz.status == 'active' %}
                         <button class="btn btn-warning" id="endQuizBtn">
                             <i data-lucide="square"></i>
@@ -221,7 +227,7 @@
             </div>
 
             <!-- Tutorial Progress -->
-            <div class="card mt-4" id="tutorialProgressCard" {% if quiz.status != 'active' %}style="display:none"{% endif %}>
+            <div class="card mt-4" id="tutorialProgressCard" style="display:none">
                 <div class="card-header">
                     <h6 class="card-title mb-0">
                         <i data-lucide="book-open"></i>
@@ -1002,6 +1008,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('backToHubBtn')?.addEventListener('click', () => {
                 this.backToHub();
             });
+
+            // End quiz from warning modal → end quiz, then navigate
+            document.getElementById('endQuizFromWarningBtn')?.addEventListener('click', () => {
+                bootstrap.Modal.getInstance(document.getElementById('quizActiveWarningModal'))?.hide();
+                this.endQuiz();
+                setTimeout(() => this._navigateToHub(), 800);
+            });
             
             // Send Question buttons
             document.querySelectorAll('.send-question-btn').forEach(btn => {
@@ -1049,8 +1062,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         };
                     }
                 } catch(_) {}
+                const showTutorial = document.getElementById('showTutorialToggle')?.checked ?? true;
                 this.websocket.send(JSON.stringify({
-                    type: 'admin_start_quiz'
+                    type: 'admin_start_quiz',
+                    show_tutorial: showTutorial
                 }));
                 //reload page
                 location.reload();
@@ -1083,6 +1098,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         backToHub() {
+            if (this.isActive) {
+                new bootstrap.Modal(document.getElementById('quizActiveWarningModal')).show();
+                return;
+            }
+            this._navigateToHub();
+        }
+
+        _navigateToHub() {
             try {
                 const qs = new URLSearchParams(window.location.search);
                 const hub = qs.get('hub_session') || window.__hubCode || (function(){ try { return sessionStorage.getItem("_hub_admin"); } catch(_) { return null; } })();
@@ -1416,6 +1439,30 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <!-- Score Edit Modal -->
+<!-- Quiz still active warning modal -->
+<div class="modal fade" id="quizActiveWarningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i data-lucide="alert-triangle" style="width:20px;height:20px;color:var(--color-warning);vertical-align:middle;margin-right:.4rem;"></i>
+                    Quiz läuft noch
+                </h5>
+            </div>
+            <div class="modal-body">
+                Das Quiz wurde noch nicht beendet. Bitte beende das Quiz zuerst, bevor du zur Übersicht zurückkehrst.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="endQuizFromWarningBtn">
+                    <i data-lucide="square"></i>
+                    Quiz beenden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="editScoreModal" tabindex="-1" aria-labelledby="editScoreModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">

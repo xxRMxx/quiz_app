@@ -66,10 +66,9 @@ class QuizConsumer(AsyncWebsocketConsumer):
         """Handle admin starting the quiz"""
         quiz = await self.get_quiz()
         if quiz:
+            show_tutorial = data.get('show_tutorial', True)
             await self.start_quiz_db(quiz.id)
-            await self.reset_tutorial_completed(quiz.id)
 
-            # Broadcast quiz started + tutorial to all participants
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -77,13 +76,16 @@ class QuizConsumer(AsyncWebsocketConsumer):
                     'message': 'Quiz has started!'
                 }
             )
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'tutorial_start',
-                    'message': 'Tutorial gestartet'
-                }
-            )
+
+            if show_tutorial:
+                await self.reset_tutorial_completed(quiz.id)
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'tutorial_start',
+                        'message': 'Tutorial gestartet'
+                    }
+                )
 
     async def handle_tutorial_completed(self, data):
         """Handle participant completing the tutorial"""
@@ -237,7 +239,7 @@ class QuizConsumer(AsyncWebsocketConsumer):
         answer = await self.save_participant_answer(
             participant_name, hub_session, answer_text, time_taken
         )
-        
+
         if answer:
             # Send confirmation to participant
             await self.send(text_data=json.dumps({
@@ -261,6 +263,11 @@ class QuizConsumer(AsyncWebsocketConsumer):
                     }
                 }
             )
+
+            # Auto-end question if all active participants have answered
+            answered, total = await self.get_answer_progress(hub_session)
+            if total > 0 and answered >= total:
+                await self.handle_admin_end_question({})
 
     async def handle_participant_join(self, data):
         """Handle new participant joining"""
@@ -562,7 +569,27 @@ class QuizConsumer(AsyncWebsocketConsumer):
         })
 
     @database_sync_to_async
-    def save_participant_answer(self, participant_name,hub_session_code, answer_text, time_taken):
+    def get_answer_progress(self, hub_session_code):
+        """Return (answered_count, active_participant_count) for the current question."""
+        try:
+            quiz = Quiz.objects.select_related('current_question').get(room_code=self.room_code)
+            if not quiz.current_question:
+                return 0, 0
+            participants_qs = quiz.participants.filter(is_active=True)
+            if hub_session_code:
+                participants_qs = participants_qs.filter(hub_session_code=hub_session_code)
+            total = participants_qs.count()
+            answered = QuizAnswer.objects.filter(
+                quiz=quiz,
+                question=quiz.current_question,
+                participant__in=participants_qs
+            ).count()
+            return answered, total
+        except Quiz.DoesNotExist:
+            return 0, 0
+
+    @database_sync_to_async
+    def save_participant_answer(self, participant_name, hub_session_code, answer_text, time_taken):
         try:
             quiz = Quiz.objects.get(room_code=self.room_code)
             participant = quiz.participants.get(name=participant_name, hub_session_code=hub_session_code)

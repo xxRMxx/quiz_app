@@ -396,6 +396,16 @@ document.addEventListener('DOMContentLoaded', function() {
         row.querySelector('.remove-clue').addEventListener('click', () => { row.remove(); renumberClues(); });
         const durEl = row.querySelector('.clue-duration');
         if (durEl) durEl.addEventListener('input', updateTimeLimitFromClues);
+        const textEl = row.querySelector('.clue-text');
+        textEl.addEventListener('keydown', (e) => {
+            if (e.shiftKey || (e.key !== 'Tab' && e.key !== 'Enter')) return;
+            const rows = cluesContainer.querySelectorAll('.clue-row');
+            const isLast = rows[rows.length - 1] === row;
+            if (!isLast || !textEl.value.trim()) return;
+            e.preventDefault();
+            addClueRow();
+            cluesContainer.querySelector('.clue-row:last-child .clue-text').focus();
+        });
         cluesContainer.appendChild(row);
         renumberClues();
         updateTimeLimitFromClues();

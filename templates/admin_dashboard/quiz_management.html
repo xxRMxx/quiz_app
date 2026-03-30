@@ -31,6 +31,7 @@
                         <div class="mb-3">
                             <label for="questionType" class="form-label">Question Type</label>
                             <select class="form-control" id="questionType" name="question_type" required>
+                                <option value="" disabled selected>Select type...</option>
                                 <option value="multiple_choice">Multiple Choice</option>
                                 <option value="true_false">True/False</option>
                                 <option value="short_answer">Short Answer</option>
@@ -90,8 +91,9 @@
                 </div>
                 <div class="mb-3">
                     <label for="correctAnswer" class="form-label">Correct Answer *</label>
-                    <input type="text" class="form-control" id="correctAnswer" name="correct_answer"
-                           placeholder="For Multiple Choice: A, B, C or D" required>
+                    <select class="form-control" id="correctAnswerSelect" style="display:none;"></select>
+                    <input type="text" class="form-control" id="correctAnswer"
+                           placeholder="For Multiple Choice: A, B, C or D" style="display:none;">
                     <small class="form-text text-muted" id="answerHelp">
                         For Multiple Choice: A, B, C or D. For True/False: True or False.
                     </small>
@@ -148,8 +150,96 @@
             </div>
         </div>
     </div>
+
+    <!-- Quiz Bundles Card -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i data-lucide="layers"></i>
+                Quiz Bundles
+                <span class="badge bg-secondary ms-2" id="bundleCountBadge">{{ bundles|length }}</span>
+            </h5>
+            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createBundleModal">
+                <i data-lucide="plus"></i> Neues Bundle
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Anzahl Fragen</th>
+                        <th>Erstellt</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody id="bundleTableBody">
+                    {% for bundle in bundles %}
+                    <tr id="bundle-row-{{ bundle.id }}">
+                        <td class="fw-semibold">{{ bundle.name }}</td>
+                        <td>{{ bundle.questions.count }} Fragen</td>
+                        <td class="text-muted small">{{ bundle.created_at|date:"d.m.Y" }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger delete-bundle-btn" data-bundle-id="{{ bundle.id }}" data-bundle-name="{{ bundle.name }}">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr id="bundleEmptyRow">
+                        <td colspan="4" class="text-center py-4 text-muted">Noch keine Bundles erstellt.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 
+
+<!-- Create Bundle Modal -->
+<div class="modal fade" id="createBundleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i data-lucide="layers"></i> Neues Quiz Bundle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Bundle-Name *</label>
+                    <input type="text" class="form-control" id="bundleName" placeholder="z.B. Geographie Fragen">
+                </div>
+                <p class="text-muted small mb-2">Fragen aus der Question Bank auswählen:</p>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:40px;"><input type="checkbox" id="selectAllBundleQuestions"></th>
+                                <th>Frage</th>
+                                <th>Typ</th>
+                                <th>Punkte</th>
+                                <th>Zeit (s)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bundleQuestionsTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <div class="text-muted small" id="bundleQuestionCount">Lade Fragen...</div>
+                    <ul class="pagination pagination-sm mb-0" id="bundleQuestionPagination"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="saveBundleBtn">
+                    <i data-lucide="save"></i> Bundle speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Create Custom Quiz Modal -->
 <div class="modal fade" id="createCustomQuizModal" tabindex="-1" aria-labelledby="createCustomQuizModalLabel" aria-hidden="true">
@@ -512,6 +602,7 @@
         const questionType = document.getElementById('questionType');
         const multipleChoiceOptions = document.getElementById('multipleChoiceOptions');
         const correctAnswer = document.getElementById('correctAnswer');
+        const correctAnswerSelect = document.getElementById('correctAnswerSelect');
         const answerHelp = document.getElementById('answerHelp');
         const submitQuestionBtn = document.getElementById('submitQuestionBtn');
         const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
@@ -530,19 +621,75 @@
         // Reset form button
         document.getElementById('resetFormBtn').addEventListener('click', () => setFormMode('add'));
 
+        function updateCorrectAnswerSelect(preselectValue) {
+            const options = [
+                { key: 'A', el: document.getElementById('optionA') },
+                { key: 'B', el: document.getElementById('optionB') },
+                { key: 'C', el: document.getElementById('optionC') },
+                { key: 'D', el: document.getElementById('optionD') },
+            ];
+            const prev = preselectValue !== undefined ? preselectValue : correctAnswerSelect.value;
+            correctAnswerSelect.innerHTML = '';
+            options.forEach(({ key, el }) => {
+                const val = el ? el.value.trim() : '';
+                if (!val) return;
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = `${key}: ${val}`;
+                correctAnswerSelect.appendChild(opt);
+            });
+            if (prev && correctAnswerSelect.querySelector(`option[value="${prev}"]`)) {
+                correctAnswerSelect.value = prev;
+            }
+        }
+
+        ['optionA', 'optionB', 'optionC', 'optionD'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                if (questionType.value === 'multiple_choice') updateCorrectAnswerSelect();
+            });
+        });
+
         // Question type change handler
         questionType.addEventListener('change', function() {
             const type = this.value;
+            if (!type) {
+                multipleChoiceOptions.style.display = 'none';
+                correctAnswerSelect.style.display = 'none';
+                correctAnswerSelect.required = false;
+                correctAnswerSelect.removeAttribute('name');
+                correctAnswer.style.display = 'none';
+                correctAnswer.required = false;
+                correctAnswer.removeAttribute('name');
+                return;
+            }
             if (type === 'multiple_choice') {
                 multipleChoiceOptions.style.display = 'block';
-                correctAnswer.placeholder = 'A, B, C or D';
-                answerHelp.textContent = 'For Multiple Choice: enter A, B, C or D.';
+                updateCorrectAnswerSelect();
+                correctAnswerSelect.style.display = 'block';
+                correctAnswerSelect.required = true;
+                correctAnswerSelect.name = 'correct_answer';
+                correctAnswer.style.display = 'none';
+                correctAnswer.required = false;
+                correctAnswer.removeAttribute('name');
+                answerHelp.textContent = 'Wähle die richtige Antwort aus den befüllten Optionen.';
             } else if (type === 'true_false') {
                 multipleChoiceOptions.style.display = 'none';
-                correctAnswer.placeholder = 'True or False';
-                answerHelp.textContent = 'For True/False: enter exactly "True" or "False".';
+                correctAnswerSelect.innerHTML = '<option value="True">True</option><option value="False">False</option>';
+                correctAnswerSelect.style.display = 'block';
+                correctAnswerSelect.required = true;
+                correctAnswerSelect.name = 'correct_answer';
+                correctAnswer.style.display = 'none';
+                correctAnswer.required = false;
+                correctAnswer.removeAttribute('name');
+                answerHelp.textContent = '';
             } else {
                 multipleChoiceOptions.style.display = 'none';
+                correctAnswerSelect.style.display = 'none';
+                correctAnswerSelect.required = false;
+                correctAnswerSelect.removeAttribute('name');
+                correctAnswer.style.display = 'block';
+                correctAnswer.required = true;
+                correctAnswer.name = 'correct_answer';
                 correctAnswer.placeholder = 'Enter correct answer';
                 answerHelp.textContent = 'For short answer: enter the exact answer text (case-insensitive).';
             }
@@ -641,6 +788,11 @@
                     document.getElementById('correctAnswer').value = question.correct_answer || '';
                     document.getElementById('explanation').value = question.explanation || '';
                     questionType.dispatchEvent(new Event('change'));
+                    if (question.question_type === 'multiple_choice') {
+                        updateCorrectAnswerSelect(question.correct_answer);
+                    } else if (question.question_type === 'true_false') {
+                        correctAnswerSelect.value = question.correct_answer;
+                    }
                     setFormMode('edit');
                     document.getElementById('questionFormCard').scrollIntoView({ behavior: 'smooth' });
                 })
@@ -779,6 +931,129 @@
         if (new URLSearchParams(window.location.search).get('create') === '1') {
             new bootstrap.Modal(createCustomQuizModal).show();
         }
+
+        // ── Bundle logic ──────────────────────────────────────────────
+        let bundleQPage = 1;
+        const bundleModal = document.getElementById('createBundleModal');
+
+        function loadBundleQuestions(page) {
+            fetch('{% url "admin_dashboard:get_quiz_questions" %}?page=' + page, {
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            })
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.getElementById('bundleQuestionsTableBody');
+                tbody.innerHTML = '';
+                data.questions.forEach(q => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><input type="checkbox" class="bundle-q-check" value="${q.id}"></td>
+                        <td>${q.question_text}</td>
+                        <td><span class="badge bg-secondary">${q.question_type}</span></td>
+                        <td>${q.points}</td>
+                        <td>${q.time_limit}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                document.getElementById('bundleQuestionCount').textContent = `${data.count} Fragen`;
+                const pag = document.getElementById('bundleQuestionPagination');
+                pag.innerHTML = '';
+                for (let i = 1; i <= data.pages; i++) {
+                    const li = document.createElement('li');
+                    li.className = 'page-item' + (i === page ? ' active' : '');
+                    li.innerHTML = `<button class="page-link" data-page="${i}">${i}</button>`;
+                    pag.appendChild(li);
+                }
+            });
+        }
+
+        bundleModal?.addEventListener('shown.bs.modal', () => {
+            bundleQPage = 1;
+            loadBundleQuestions(1);
+        });
+
+        document.getElementById('bundleQuestionPagination')?.addEventListener('click', e => {
+            if (e.target.classList.contains('page-link')) {
+                bundleQPage = parseInt(e.target.dataset.page);
+                loadBundleQuestions(bundleQPage);
+            }
+        });
+
+        document.getElementById('selectAllBundleQuestions')?.addEventListener('change', function() {
+            document.querySelectorAll('.bundle-q-check').forEach(cb => cb.checked = this.checked);
+        });
+
+        document.getElementById('saveBundleBtn')?.addEventListener('click', function() {
+            const name = document.getElementById('bundleName').value.trim();
+            if (!name) { alert('Bitte einen Bundle-Namen angeben.'); return; }
+            const questionIds = Array.from(document.querySelectorAll('.bundle-q-check:checked')).map(cb => parseInt(cb.value));
+            if (!questionIds.length) { alert('Bitte mindestens eine Frage auswählen.'); return; }
+
+            this.classList.add('loading');
+            fetch('{% url "admin_dashboard:create_quiz_bundle" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, question_ids: questionIds })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(bundleModal).hide();
+                    document.getElementById('bundleName').value = '';
+                    const b = data.bundle;
+                    const emptyRow = document.getElementById('bundleEmptyRow');
+                    if (emptyRow) emptyRow.remove();
+                    const tr = document.createElement('tr');
+                    tr.id = `bundle-row-${b.id}`;
+                    tr.innerHTML = `
+                        <td class="fw-semibold">${b.name}</td>
+                        <td>${b.question_count} Fragen</td>
+                        <td class="text-muted small">Heute</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger delete-bundle-btn" data-bundle-id="${b.id}" data-bundle-name="${b.name}">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </td>
+                    `;
+                    document.getElementById('bundleTableBody').appendChild(tr);
+                    const badge = document.getElementById('bundleCountBadge');
+                    badge.textContent = parseInt(badge.textContent) + 1;
+                    lucide.createIcons();
+                    showNotification('Bundle gespeichert!', 'success');
+                } else {
+                    alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+                }
+            })
+            .finally(() => this.classList.remove('loading'));
+        });
+
+        document.getElementById('bundleTableBody')?.addEventListener('click', function(e) {
+            const btn = e.target.closest('.delete-bundle-btn');
+            if (!btn) return;
+            const id = btn.dataset.bundleId;
+            const name = btn.dataset.bundleName;
+            if (!confirm(`Bundle „${name}" wirklich löschen?`)) return;
+            fetch('{% url "admin_dashboard:delete_quiz_bundle" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bundle_id: id })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById(`bundle-row-${id}`)?.remove();
+                    const badge = document.getElementById('bundleCountBadge');
+                    badge.textContent = Math.max(0, parseInt(badge.textContent) - 1);
+                    if (!document.querySelector('#bundleTableBody tr')) {
+                        document.getElementById('bundleTableBody').innerHTML = '<tr id="bundleEmptyRow"><td colspan="4" class="text-center py-4 text-muted">Noch keine Bundles erstellt.</td></tr>';
+                    }
+                    showNotification('Bundle gelöscht.', 'success');
+                } else {
+                    alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+                }
+            });
+        });
+        // ── Ende Bundle logic ─────────────────────────────────────────
     });
 </script>
 
