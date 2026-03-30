@@ -177,6 +177,20 @@ class QuizAnswer(SyncBase):
         return f"{self.participant.name}: {self.answer_text[:30]}"
 
 
+class QuizBundle(SyncBase):
+    """A reusable, named collection of questions that can be used as a template when creating sessions."""
+    name = models.CharField(max_length=200)
+    questions = models.ManyToManyField('QuizQuestion', blank=True, related_name='bundles')
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='quiz_bundles')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
 class QuizSession(SyncBase):
     """Tracks the current state of a live quiz session"""
     quiz = models.OneToOneField(Quiz, on_delete=models.CASCADE, related_name='session')

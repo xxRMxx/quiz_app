@@ -9,7 +9,7 @@ from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from django.contrib import messages
 import json
-from QuizGame.models import Quiz, QuizQuestion, QuizParticipant, QuizAnswer, QuizSession
+from QuizGame.models import Quiz, QuizQuestion, QuizParticipant, QuizAnswer, QuizSession, QuizBundle
 from sorting_ladder.models import SortingLadderGame, SortingLadderParticipant, SortingQuestion, SortingItem, SortingLadderSession
 from Assign.models import AssignQuiz, AssignQuestion, AssignParticipant
 from Estimation.models import EstimationQuiz, EstimationQuestion, EstimationParticipant
@@ -1227,12 +1227,70 @@ def quiz_game_management(request):
     """Quiz game management page"""
     quizzes = Quiz.objects.all().order_by('-created_at')
     total_questions = QuizQuestion.objects.filter(is_active=True).count()
-    
+    bundles = QuizBundle.objects.filter(creator=request.user).prefetch_related('questions')
+
     context = {
         'quizzes': quizzes,
         'total_questions': total_questions,
+        'bundles': bundles,
     }
     return render(request, 'admin_dashboard/quiz_management.html', context)
+
+
+@admin_required
+def get_quiz_bundles(request):
+    """Return all bundles for the current user as JSON."""
+    bundles = QuizBundle.objects.filter(creator=request.user).prefetch_related('questions')
+    data = [
+        {
+            'id': b.id,
+            'name': b.name,
+            'question_ids': list(b.questions.values_list('id', flat=True)),
+            'question_count': b.questions.count(),
+        }
+        for b in bundles
+    ]
+    return JsonResponse({'bundles': data})
+
+
+@admin_required
+def create_quiz_bundle(request):
+    """Create a new quiz bundle."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    name = (data.get('name') or '').strip()
+    question_ids = data.get('question_ids') or []
+    if not name:
+        return JsonResponse({'error': 'Name is required'}, status=400)
+    bundle = QuizBundle.objects.create(name=name, creator=request.user)
+    if question_ids:
+        qs = QuizQuestion.objects.filter(id__in=question_ids, is_active=True)
+        bundle.questions.set(qs)
+    return JsonResponse({
+        'success': True,
+        'bundle': {
+            'id': bundle.id,
+            'name': bundle.name,
+            'question_ids': list(bundle.questions.values_list('id', flat=True)),
+            'question_count': bundle.questions.count(),
+        }
+    })
+
+
+@admin_required
+def delete_quiz_bundle(request):
+    """Delete a quiz bundle."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    data = json.loads(request.body)
+    bundle_id = data.get('bundle_id')
+    try:
+        bundle = QuizBundle.objects.get(id=bundle_id, creator=request.user)
+        bundle.delete()
+        return JsonResponse({'success': True})
+    except QuizBundle.DoesNotExist:
+        return JsonResponse({'error': 'Bundle not found'}, status=404)
 
 
 @admin_required

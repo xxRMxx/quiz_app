@@ -394,6 +394,16 @@
             if (removeBtn) {
                 removeBtn.addEventListener('click', () => { row.remove(); renumberItems(); });
             }
+            const textEl = row.querySelector('.item-text');
+            textEl.addEventListener('keydown', (e) => {
+                if (e.shiftKey || (e.key !== 'Tab' && e.key !== 'Enter')) return;
+                const rows = itemsContainer.querySelectorAll('.item-row');
+                const isLast = rows[rows.length - 1] === row;
+                if (!isLast || !textEl.value.trim()) return;
+                e.preventDefault();
+                addItemRow();
+                itemsContainer.querySelector('.item-row:last-child .item-text').focus();
+            });
             itemsContainer.appendChild(row);
             renumberItems();
         }
