@@ -1,0 +1,890 @@
+{% extends "admin_dashboard/base.html" %}
+
+{% block title %}Manage Games - QuizMaster Admin{% endblock %}
+{% block page_title %}{% if edit_mode %}Edit Game{% else %}New Game{% endif %}{% endblock %}
+{% block page_subtitle %}{% if edit_mode %}Update title and assigned questions{% else %}Create a new game instance{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">{% if edit_mode %}Edit Game{% else %}New Game{% endif %}</h2>
+        <a href="{% url 'admin_dashboard:manage_games' %}" class="btn btn-outline-secondary btn-sm">
+            <i data-lucide="arrow-left" style="width:14px;height:14px;" class="me-1"></i>Back to Overview
+        </a>
+    </div>
+
+    <!-- Step 1: Name + Type -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">Game Name *</label>
+                    <input type="text" class="form-control" id="newGameTitle" placeholder="z.B. Geografie">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Game Type *</label>
+                    <select class="form-select" id="newGameType" {% if edit_mode %}disabled{% endif %}>
+                        <option value="" disabled {% if not edit_mode %}selected{% endif %}>Select game type…</option>
+                        <option value="quiz" {% if game_type == 'quiz' %}selected{% endif %}>Quick Quiz</option>
+                        <option value="estimation" {% if game_type == 'estimation' %}selected{% endif %}>Estimation</option>
+                        <option value="assign" {% if game_type == 'assign' %}selected{% endif %}>Assign</option>
+                        <option value="where" {% if game_type == 'where' %}selected{% endif %}>Where Is This?</option>
+                        <option value="who" {% if game_type == 'who' %}selected{% endif %}>Who Is Lying?</option>
+                        <option value="who_that" {% if game_type == 'who_that' %}selected{% endif %}>Who Is That?</option>
+                        <option value="blackjack" {% if game_type == 'blackjack' %}selected{% endif %}>Black Jack Quiz</option>
+                        <option value="clue_rush" {% if game_type == 'clue_rush' %}selected{% endif %}>Clue Rush</option>
+                        <option value="sorting_ladder" {% if game_type == 'sorting_ladder' %}selected{% endif %}>Sorting Ladder</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Type-specific content (shown after type selection) -->
+    <div id="gameTypeContent" style="display:none;">
+
+        <!-- ── QUICK QUIZ ─────────────────────────────────────────────── -->
+        <div id="section-quiz" class="type-section" style="display:none;">
+
+            <!-- Assigned Questions -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3 d-flex align-items-center gap-2">
+                    <h5 class="mb-0">
+                        <i data-lucide="list-checks" style="width:18px;height:18px;" class="me-2"></i>Assigned Questions
+                    </h5>
+                    <span class="badge bg-primary" id="assignedCountBadge">0</span>
+                </div>
+                <div class="card-body p-0">
+                    <div style="max-height: 490px; overflow-y: auto;">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Question</th>
+                                    <th>Type</th>
+                                    <th>Points</th>
+                                    <th>Time (s)</th>
+                                    <th style="width:50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="assignedQuestionsBody">
+                                <tr id="assignedEmptyRow">
+                                    <td colspan="5" class="text-center py-3 text-muted">No questions assigned yet</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add / Edit Question -->
+            <div class="card border-0 shadow-sm mb-4" id="quizQuestionFormCard">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0" id="quizQuestionFormTitle">
+                        <i data-lucide="help-circle" style="width:18px;height:18px;" class="me-2"></i>Add New Question
+                    </h5>
+                    <button class="btn btn-sm btn-outline-secondary" id="quizResetFormBtn" type="button">
+                        <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Reset
+                    </button>
+                </div>
+                <div class="card-body">
+                    <form id="quizAddQuestionForm">
+                        {% csrf_token %}
+                        <input type="hidden" id="quizQuestionId" name="question_id" />
+                        <div class="mb-3">
+                            <label class="form-label">Question Text *</label>
+                            <textarea class="form-control" id="quizQuestionText" name="question_text" rows="3"
+                                      placeholder="Enter question here…" required></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Question Type</label>
+                                    <select class="form-control" id="quizQuestionType" name="question_type" required>
+                                        <option value="" disabled selected>Select type…</option>
+                                        <option value="multiple_choice">Multiple Choice</option>
+                                        <option value="true_false">True/False</option>
+                                        <option value="short_answer">Short Answer</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Points</label>
+                                    <input type="number" class="form-control" id="quizPoints" name="points"
+                                           value="10" min="1" max="100" required>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Zeit (Sek)</label>
+                                    <input type="number" class="form-control" id="quizTimeLimit" name="time_limit"
+                                           value="30" min="10" max="300" required>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Multiple Choice Options -->
+                        <div id="quizMCOptions" style="display:none;">
+                            <h6 class="mb-3">Answer Options</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Option A</label>
+                                    <input type="text" class="form-control" id="quizOptA" name="option_a" placeholder="Enter option A">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Option B</label>
+                                    <input type="text" class="form-control" id="quizOptB" name="option_b" placeholder="Enter option B">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Option C (Optional)</label>
+                                    <input type="text" class="form-control" id="quizOptC" name="option_c" placeholder="Enter option C">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Option D (Optional)</label>
+                                    <input type="text" class="form-control" id="quizOptD" name="option_d" placeholder="Enter option D">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Correct Answer *</label>
+                            <select class="form-control" id="quizCorrectAnswerSelect" style="display:none;"></select>
+                            <input type="text" class="form-control" id="quizCorrectAnswer"
+                                   placeholder="For Multiple Choice: A, B, C or D" style="display:none;">
+                            <small class="form-text text-muted" id="quizAnswerHelp">Select a question type first.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Explanation (Optional)</label>
+                            <textarea class="form-control" id="quizExplanation" name="explanation" rows="2"
+                                      placeholder="Optional explanation for the correct answer"></textarea>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary" id="quizSubmitQuestionBtn">
+                                <i data-lucide="plus" style="width:15px;height:15px;" class="me-1"></i>Add Question
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Question Bank with checkboxes -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="mb-0">
+                            <i data-lucide="database" style="width:18px;height:18px;" class="me-2"></i>Question Bank
+                        </h5>
+                        <span class="badge bg-secondary" id="quizBankCountBadge">0</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary" id="quizSelectedBadge">0 selected</span>
+                        <input type="text" class="form-control form-control-sm" id="quizBankSearch"
+                               placeholder="Search…" style="width:180px;">
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:36px;"><input type="checkbox" id="quizSelectAll"></th>
+                                    <th>Question</th>
+                                    <th>Type</th>
+                                    <th>Points</th>
+                                    <th>Time (s)</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="quizBankTableBody">
+                                <tr><td colspan="6" class="text-center py-4 text-muted">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                        <div class="text-muted small" id="quizBankInfo"></div>
+                        <ul class="pagination pagination-sm mb-0" id="quizBankPagination"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ── END QUICK QUIZ ─────────────────────────────────────────── -->
+
+        <!-- ── OTHER TYPES (generic question bank) ───────────────────── -->
+        <div id="section-generic" class="type-section" style="display:none;">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="mb-0">Question Bank</h5>
+                        <span class="badge bg-secondary" id="genericBankCountBadge">0</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary" id="genericSelectedBadge">0 selected</span>
+                        <input type="text" class="form-control form-control-sm" id="genericBankSearch"
+                               placeholder="Search…" style="width:180px;">
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr id="genericTableHead"></tr>
+                            </thead>
+                            <tbody id="genericBankTableBody">
+                                <tr><td colspan="6" class="text-center py-4 text-muted">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                        <div class="text-muted small" id="genericBankInfo"></div>
+                        <ul class="pagination pagination-sm mb-0" id="genericBankPagination"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ── END OTHER TYPES ───────────────────────────────────────── -->
+
+        <!-- Create Game Button -->
+        <div class="d-flex justify-content-end gap-2 mb-5">
+            <button type="button" class="btn btn-outline-secondary" id="cancelGameBtn">Cancel</button>
+            <button type="button" class="btn btn-primary btn-lg" id="createGameBtn">
+                <i data-lucide="save" style="width:16px;height:16px;" class="me-1"></i>
+                {% if edit_mode %}Save Changes{% else %}Create Game{% endif %}
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteQuizQuestionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Question</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this question? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteQuizQuestionBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const CSRF = '{{ csrf_token }}';
+const EDIT_MODE = {{ edit_mode|default:False|lower }};
+const EDIT_GAME_ID = {{ game_id|default:"null" }};
+const EDIT_GAME_TYPE = "{{ game_type|default:'' }}";
+const EDIT_GAME_TITLE = "{{ game_title|default:''|escapejs }}";
+const EDIT_SELECTED_IDS = new Set({{ selected_ids_json|default:"[]" }});
+
+// ── Game type config ──────────────────────────────────────────────────────────
+const GAME_CONFIG = {
+    quiz:           { createUrl: '/admin-dashboard/quiz/create-custom/',            updateUrl: '/admin-dashboard/quiz/update-custom/',            gameIdKey: 'quiz_id',  idKey: 'question_ids',
+                      selectedUrl: id => `/admin-dashboard/quiz/${id}/selected-questions/` },
+    estimation:     { questionsUrl: '/admin-dashboard/estimation/questions/',        createUrl: '/admin-dashboard/estimation/create-custom/',     updateUrl: '/admin-dashboard/estimation/update-custom/',     gameIdKey: 'quiz_id',  idKey: 'question_ids',
+                      selectedUrl: id => `/admin-dashboard/estimation/${id}/selected-questions/`,
+                      columns: [{key:'question_text',label:'Question'},{key:'correct_answer',label:'Answer'},{key:'unit',label:'Unit'},{key:'max_points',label:'Points'}] },
+    assign:         { questionsUrl: '/admin-dashboard/assign/questions/',            createUrl: '/admin-dashboard/assign/create-custom/',         updateUrl: '/admin-dashboard/assign/update-custom/',         gameIdKey: 'quiz_id',  idKey: 'question_ids',
+                      selectedUrl: id => `/admin-dashboard/assign/${id}/selected-questions/`,
+                      columns: [{key:'question_text',label:'Topic'},{key:'points',label:'Points'},{key:'time_limit',label:'Time (s)'}] },
+    where:          { questionsUrl: '/admin-dashboard/where/questions/',             createUrl: '/admin-dashboard/where/quiz/create-custom/',     updateUrl: '/admin-dashboard/where/quiz/update-custom/',     gameIdKey: 'quiz_id',  idKey: 'question_ids',
+                      selectedUrl: id => `/admin-dashboard/where/${id}/selected-questions/`,
+                      columns: [{key:'question_text',label:'Location'},{key:'difficulty',label:'Difficulty'},{key:'points',label:'Points'}] },
+    who:            { questionsUrl: '/admin-dashboard/who/questions/',               createUrl: '/admin-dashboard/who/create-custom/',            updateUrl: '/admin-dashboard/who/update-custom/',            gameIdKey: 'quiz_id',  idKey: 'question_ids',
+                      selectedUrl: id => `/admin-dashboard/who/${id}/selected-questions/`,
+                      columns: [{key:'statement',label:'Statement'},{key:'people_count',label:'People'},{key:'points',label:'Points'}] },
+    who_that:       { questionsUrl: '/admin-dashboard/who-that/questions/',          createUrl: '/admin-dashboard/who-that/create-custom/',       updateUrl: '/admin-dashboard/who-that/update-custom/',       gameIdKey: 'quiz_id',  idKey: 'question_ids',
+                      selectedUrl: id => `/admin-dashboard/who-that/${id}/selected-questions/`,
+                      columns: [{key:'question_text',label:'Question'},{key:'correct_answer',label:'Answer'},{key:'difficulty',label:'Difficulty'}] },
+    blackjack:      { questionsUrl: '/admin-dashboard/black-jack/questions/',        createUrl: '/admin-dashboard/blackjack/create-custom/',      updateUrl: '/admin-dashboard/blackjack/update-custom/',      gameIdKey: 'quiz_id',  idKey: 'question_ids',
+                      selectedUrl: id => `/admin-dashboard/blackjack/${id}/selected-questions/`,
+                      columns: [{key:'question_text',label:'Question'},{key:'correct_answer',label:'Answer'},{key:'difficulty',label:'Difficulty'},{key:'time_limit',label:'Time (s)'}] },
+    clue_rush:      { questionsUrl: '/admin-dashboard/clue-rush/questions/',         createUrl: '/admin-dashboard/clue-rush/create-custom/',      updateUrl: '/admin-dashboard/clue-rush/update-custom/',      gameIdKey: 'game_id',  idKey: 'question_ids',
+                      selectedUrl: id => `/admin-dashboard/clue-rush/${id}/selected-questions/`,
+                      columns: [{key:'question_text',label:'Question'},{key:'answer',label:'Answer'},{key:'points',label:'Points'},{key:'time_limit',label:'Time (s)'}] },
+    sorting_ladder: { questionsUrl: '/admin-dashboard/sorting-ladder/topics/',       createUrl: '/admin-dashboard/sorting-ladder/create-custom/', updateUrl: '/admin-dashboard/sorting-ladder/update-custom/', gameIdKey: 'quiz_id',  idKey: 'topic_ids', dataKey: 'topics',
+                      selectedUrl: id => `/admin-dashboard/sorting-ladder/${id}/selected-topics/`,
+                      columns: [{key:'title',label:'Topic'},{key:'description',label:'Description'},{key:'item_count',label:'Items'}] },
+};
+
+let currentType = null;
+const quizSelectedIds = new Set();
+const quizSelectedQuestions = new Map(); // id → {id, question_text, question_type, points, time_limit}
+const genericSelectedIds = new Set();
+
+// ── Type selection ────────────────────────────────────────────────────────────
+function activateType(type) {
+    currentType = type;
+    document.querySelectorAll('.type-section').forEach(s => s.style.display = 'none');
+    document.getElementById('gameTypeContent').style.display = 'block';
+    if (currentType === 'quiz') {
+        document.getElementById('section-quiz').style.display = 'block';
+        loadQuizBank(1);
+    } else {
+        document.getElementById('section-generic').style.display = 'block';
+        loadGenericBank(1);
+    }
+    lucide.createIcons();
+}
+
+document.getElementById('newGameType').addEventListener('change', function () {
+    if (!EDIT_MODE) {
+        quizSelectedIds.clear();
+        quizSelectedQuestions.clear();
+        genericSelectedIds.clear();
+    }
+    activateType(this.value);
+});
+
+// ── Cancel ────────────────────────────────────────────────────────────────────
+document.getElementById('cancelGameBtn').addEventListener('click', () => {
+    document.getElementById('newGameTitle').value = '';
+    document.getElementById('newGameType').value = '';
+    currentType = null;
+    quizSelectedIds.clear();
+    quizSelectedQuestions.clear();
+    genericSelectedIds.clear();
+    document.getElementById('gameTypeContent').style.display = 'none';
+    document.querySelectorAll('.type-section').forEach(s => s.style.display = 'none');
+});
+
+// ── Create / Save Game ────────────────────────────────────────────────────────
+document.getElementById('createGameBtn').addEventListener('click', function () {
+    const title = document.getElementById('newGameTitle').value.trim();
+    if (!title) { alert('Please enter a game name.'); return; }
+    if (!currentType) return;
+
+    const cfg = GAME_CONFIG[currentType];
+    const ids = currentType === 'quiz' ? Array.from(quizSelectedIds) : Array.from(genericSelectedIds);
+    const payload = { title };
+    payload[cfg.idKey] = ids;
+
+    const isEdit = EDIT_MODE && EDIT_GAME_ID;
+    let url, label;
+    if (isEdit) {
+        url = cfg.updateUrl;
+        payload[cfg.gameIdKey] = EDIT_GAME_ID;
+        label = 'Save Changes';
+    } else {
+        url = cfg.createUrl;
+        label = 'Create Game';
+    }
+
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving…';
+
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = '{% url "admin_dashboard:manage_games" %}';
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+            this.disabled = false;
+            this.innerHTML = `<i data-lucide="save" style="width:16px;height:16px;" class="me-1"></i>${label}`;
+            lucide.createIcons();
+        }
+    })
+    .catch(() => {
+        alert('Request failed.');
+        this.disabled = false;
+        this.innerHTML = `<i data-lucide="save" style="width:16px;height:16px;" class="me-1"></i>${label}`;
+        lucide.createIcons();
+    });
+});
+
+// ── Edit mode init ────────────────────────────────────────────────────────────
+function initEditMode() {
+    if (!EDIT_MODE || !EDIT_GAME_TYPE) return;
+
+    // Pre-fill title
+    document.getElementById('newGameTitle').value = EDIT_GAME_TITLE;
+
+    // Pre-populate selected IDs from server
+    EDIT_SELECTED_IDS.forEach(id => quizSelectedIds.add(id));
+
+    // Update button label
+    const btn = document.getElementById('createGameBtn');
+    btn.innerHTML = '<i data-lucide="save" style="width:16px;height:16px;" class="me-1"></i>Save Changes';
+
+    // Activate the type section (bank will load with pre-checked rows)
+    activateType(EDIT_GAME_TYPE);
+
+    // Load assigned question details for the "Assigned Questions" card
+    if (EDIT_GAME_TYPE === 'quiz' && EDIT_SELECTED_IDS.size > 0) {
+        const cfg = GAME_CONFIG['quiz'];
+        fetch(cfg.selectedUrl(EDIT_GAME_ID), { headers: { 'X-CSRFToken': CSRF } })
+        .then(r => r.json())
+        .then(data => {
+            const questions = data.questions || [];
+            questions.forEach(q => {
+                if (EDIT_SELECTED_IDS.has(q.id)) {
+                    quizSelectedQuestions.set(q.id, {
+                        id: q.id,
+                        question_text: q.question_text,
+                        question_type: q.question_type,
+                        points: q.points,
+                        time_limit: q.time_limit,
+                    });
+                }
+            });
+            renderAssignedQuestions();
+            updateQuizSelectedBadge();
+        });
+    } else if (EDIT_GAME_TYPE !== 'quiz' && EDIT_SELECTED_IDS.size > 0) {
+        EDIT_SELECTED_IDS.forEach(id => genericSelectedIds.add(id));
+        updateGenericSelectedBadge();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => { if (EDIT_MODE) initEditMode(); });
+
+// ════════════════════════════════════════════════════════════════════════════
+// QUICK QUIZ section
+// ════════════════════════════════════════════════════════════════════════════
+let quizBankPage = 1;
+let quizSearchTimeout = null;
+
+function getCookie(name) {
+    let v = null;
+    document.cookie.split(';').forEach(c => {
+        c = c.trim();
+        if (c.startsWith(name + '=')) v = decodeURIComponent(c.slice(name.length + 1));
+    });
+    return v;
+}
+
+function showNotification(msg, type = 'success') {
+    const el = document.createElement('div');
+    el.className = `alert alert-${type}`;
+    el.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;min-width:250px;opacity:0;transform:translateX(100%);transition:all .3s ease;';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.opacity = '1'; el.style.transform = 'translateX(0)'; }, 50);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(100%)'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// Question type logic
+const quizQType = document.getElementById('quizQuestionType');
+const quizMCOpts = document.getElementById('quizMCOptions');
+const quizCASelect = document.getElementById('quizCorrectAnswerSelect');
+const quizCAText = document.getElementById('quizCorrectAnswer');
+const quizAnswerHelp = document.getElementById('quizAnswerHelp');
+
+function updateQuizCorrectAnswerSelect(preselect) {
+    const opts = ['A','B','C','D'].map(k => ({ key: k, el: document.getElementById('quizOpt' + k) }));
+    const prev = preselect !== undefined ? preselect : quizCASelect.value;
+    quizCASelect.innerHTML = '';
+    opts.forEach(({key, el}) => {
+        const val = el ? el.value.trim() : '';
+        if (!val) return;
+        const o = document.createElement('option');
+        o.value = key; o.textContent = `${key}: ${val}`;
+        quizCASelect.appendChild(o);
+    });
+    if (prev && quizCASelect.querySelector(`option[value="${prev}"]`)) quizCASelect.value = prev;
+}
+
+['quizOptA','quizOptB','quizOptC','quizOptD'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+        if (quizQType.value === 'multiple_choice') updateQuizCorrectAnswerSelect();
+    });
+});
+
+quizQType.addEventListener('change', function () {
+    const t = this.value;
+    if (t === 'multiple_choice') {
+        quizMCOpts.style.display = 'block';
+        updateQuizCorrectAnswerSelect();
+        quizCASelect.style.display = 'block'; quizCASelect.required = true; quizCASelect.name = 'correct_answer';
+        quizCAText.style.display = 'none'; quizCAText.required = false; quizCAText.removeAttribute('name');
+        quizAnswerHelp.textContent = 'Wähle die richtige Antwort aus den befüllten Optionen.';
+    } else if (t === 'true_false') {
+        quizMCOpts.style.display = 'none';
+        quizCASelect.innerHTML = '<option value="True">True</option><option value="False">False</option>';
+        quizCASelect.style.display = 'block'; quizCASelect.required = true; quizCASelect.name = 'correct_answer';
+        quizCAText.style.display = 'none'; quizCAText.required = false; quizCAText.removeAttribute('name');
+        quizAnswerHelp.textContent = '';
+    } else if (t === 'short_answer') {
+        quizMCOpts.style.display = 'none';
+        quizCASelect.style.display = 'none'; quizCASelect.required = false; quizCASelect.removeAttribute('name');
+        quizCAText.style.display = 'block'; quizCAText.required = true; quizCAText.name = 'correct_answer';
+        quizCAText.placeholder = 'Enter correct answer';
+        quizAnswerHelp.textContent = 'For short answer: enter the exact answer text (case-insensitive).';
+    } else {
+        quizMCOpts.style.display = 'none';
+        quizCASelect.style.display = 'none'; quizCASelect.required = false; quizCASelect.removeAttribute('name');
+        quizCAText.style.display = 'none'; quizCAText.required = false; quizCAText.removeAttribute('name');
+        quizAnswerHelp.textContent = 'Select a question type first.';
+    }
+});
+
+// Reset form
+document.getElementById('quizResetFormBtn').addEventListener('click', () => setQuizFormMode('add'));
+
+function setQuizFormMode(mode, question) {
+    const title = document.getElementById('quizQuestionFormTitle');
+    const btn = document.getElementById('quizSubmitQuestionBtn');
+    if (mode === 'edit' && question) {
+        title.innerHTML = '<i data-lucide="edit" style="width:18px;height:18px;" class="me-2"></i>Edit Question';
+        btn.innerHTML = '<i data-lucide="save" style="width:15px;height:15px;" class="me-1"></i>Save Changes';
+        btn.dataset.mode = 'edit';
+        document.getElementById('quizQuestionId').value = question.id;
+        document.getElementById('quizQuestionText').value = question.question_text;
+        quizQType.value = question.question_type;
+        document.getElementById('quizPoints').value = question.points;
+        document.getElementById('quizTimeLimit').value = question.time_limit;
+        document.getElementById('quizOptA').value = question.option_a || '';
+        document.getElementById('quizOptB').value = question.option_b || '';
+        document.getElementById('quizOptC').value = question.option_c || '';
+        document.getElementById('quizOptD').value = question.option_d || '';
+        document.getElementById('quizExplanation').value = question.explanation || '';
+        quizQType.dispatchEvent(new Event('change'));
+        if (question.question_type === 'multiple_choice') updateQuizCorrectAnswerSelect(question.correct_answer);
+        else if (question.question_type === 'true_false') quizCASelect.value = question.correct_answer;
+        else quizCAText.value = question.correct_answer || '';
+        document.getElementById('quizQuestionFormCard').scrollIntoView({ behavior: 'smooth' });
+    } else {
+        title.innerHTML = '<i data-lucide="help-circle" style="width:18px;height:18px;" class="me-2"></i>Add New Question';
+        btn.innerHTML = '<i data-lucide="plus" style="width:15px;height:15px;" class="me-1"></i>Add Question';
+        btn.dataset.mode = 'add';
+        document.getElementById('quizQuestionId').value = '';
+        document.getElementById('quizAddQuestionForm').reset();
+        quizQType.dispatchEvent(new Event('change'));
+    }
+    lucide.createIcons();
+}
+
+// Render assigned questions list
+function renderAssignedQuestions() {
+    const tbody = document.getElementById('assignedQuestionsBody');
+    const badge = document.getElementById('assignedCountBadge');
+    badge.textContent = quizSelectedQuestions.size;
+
+    if (quizSelectedQuestions.size === 0) {
+        tbody.innerHTML = '<tr id="assignedEmptyRow"><td colspan="5" class="text-center py-3 text-muted">No questions assigned yet</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = Array.from(quizSelectedQuestions.values()).map(q => `
+        <tr>
+            <td>${q.question_text}</td>
+            <td><span class="badge bg-light text-dark border">${q.question_type}</span></td>
+            <td>${q.points}</td>
+            <td>${q.time_limit}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-danger assigned-remove-btn" data-id="${q.id}" title="Remove">
+                    <i data-lucide="x" style="width:13px;height:13px;"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+
+    tbody.querySelectorAll('.assigned-remove-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const id = parseInt(this.dataset.id);
+            quizSelectedIds.delete(id);
+            quizSelectedQuestions.delete(id);
+            renderAssignedQuestions();
+            updateQuizSelectedBadge();
+            // Uncheck in bank table if visible
+            const cb = document.querySelector(`.quiz-q-check[data-id="${id}"]`);
+            if (cb) cb.checked = false;
+        });
+    });
+
+    lucide.createIcons();
+}
+
+// Submit question form
+document.getElementById('quizAddQuestionForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const btn = document.getElementById('quizSubmitQuestionBtn');
+    const isEdit = btn.dataset.mode === 'edit';
+    const url = isEdit ? '{% url "admin_dashboard:update_quiz_question" %}' : '{% url "admin_dashboard:add_question" %}';
+
+    // Capture form data before reset
+    const questionText = document.getElementById('quizQuestionText').value.trim();
+    const questionType = document.getElementById('quizQuestionType').value;
+    const points = parseInt(document.getElementById('quizPoints').value);
+    const timeLimit = parseInt(document.getElementById('quizTimeLimit').value);
+
+    btn.disabled = true;
+    fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: new FormData(this),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(isEdit ? 'Question updated!' : 'Question added!', 'success');
+            if (!isEdit && data.question_id) {
+                // Auto-assign new question to this game
+                const id = data.question_id;
+                quizSelectedIds.add(id);
+                quizSelectedQuestions.set(id, { id, question_text: questionText, question_type: questionType, points, time_limit: timeLimit });
+                renderAssignedQuestions();
+                updateQuizSelectedBadge();
+            } else if (isEdit) {
+                // Update data in map if this question is already assigned
+                const id = parseInt(document.getElementById('quizQuestionId').value);
+                if (quizSelectedQuestions.has(id)) {
+                    quizSelectedQuestions.set(id, { id, question_text: questionText, question_type: questionType, points, time_limit: timeLimit });
+                    renderAssignedQuestions();
+                }
+            }
+            setQuizFormMode('add');
+            loadQuizBank(quizBankPage);
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(() => alert('Error saving question.'))
+    .finally(() => { btn.disabled = false; });
+});
+
+// Load quiz question bank
+function loadQuizBank(page) {
+    quizBankPage = page;
+    const search = document.getElementById('quizBankSearch').value.trim();
+    fetch(`/admin-dashboard/quiz/questions/?page=${page}&search=${encodeURIComponent(search)}`, {
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+    })
+    .then(r => r.json())
+    .then(data => {
+        const tbody = document.getElementById('quizBankTableBody');
+        const badge = document.getElementById('quizBankCountBadge');
+        badge.textContent = data.count;
+        document.getElementById('quizBankInfo').textContent = `${data.count} questions`;
+
+        if (!data.questions.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">No questions found</td></tr>';
+            document.getElementById('quizBankPagination').innerHTML = '';
+            return;
+        }
+
+        // Build lookup for checkbox handler
+        const qDataMap = {};
+        data.questions.forEach(q => { qDataMap[q.id] = q; });
+
+        tbody.innerHTML = data.questions.map(q => `
+            <tr>
+                <td><input type="checkbox" class="quiz-q-check" data-id="${q.id}" ${quizSelectedIds.has(q.id) ? 'checked' : ''}></td>
+                <td>${q.question_text}</td>
+                <td><span class="badge bg-light text-dark border">${q.question_type}</span></td>
+                <td>${q.points}</td>
+                <td>${q.time_limit}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary quiz-edit-btn" data-id="${q.id}">
+                        <i data-lucide="pencil" style="width:13px;height:13px;"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger quiz-delete-btn ms-1" data-id="${q.id}">
+                        <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+        // Checkboxes
+        tbody.querySelectorAll('.quiz-q-check').forEach(cb => {
+            cb.addEventListener('change', function () {
+                const id = parseInt(this.dataset.id);
+                if (this.checked) {
+                    quizSelectedIds.add(id);
+                    const q = qDataMap[id];
+                    if (q) quizSelectedQuestions.set(id, { id, question_text: q.question_text, question_type: q.question_type, points: q.points, time_limit: q.time_limit });
+                } else {
+                    quizSelectedIds.delete(id);
+                    quizSelectedQuestions.delete(id);
+                }
+                updateQuizSelectedBadge();
+                renderAssignedQuestions();
+            });
+        });
+
+        // Edit buttons
+        tbody.querySelectorAll('.quiz-edit-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                fetch(`{% url 'admin_dashboard:get_quiz_question_detail' 0 %}`.replace('/0/', `/${this.dataset.id}/`), {
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                })
+                .then(r => r.json())
+                .then(({ success, question, error }) => {
+                    if (!success) throw new Error(error || 'Loading failed.');
+                    setQuizFormMode('edit', question);
+                })
+                .catch(err => showNotification(err.message, 'danger'));
+            });
+        });
+
+        // Delete buttons
+        tbody.querySelectorAll('.quiz-delete-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const modal = document.getElementById('deleteQuizQuestionModal');
+                modal.dataset.questionId = this.dataset.id;
+                new bootstrap.Modal(modal).show();
+            });
+        });
+
+        // Select all
+        document.getElementById('quizSelectAll').addEventListener('change', function () {
+            tbody.querySelectorAll('.quiz-q-check').forEach(cb => {
+                cb.checked = this.checked;
+                const id = parseInt(cb.dataset.id);
+                if (this.checked) {
+                    quizSelectedIds.add(id);
+                    const q = qDataMap[id];
+                    if (q) quizSelectedQuestions.set(id, { id, question_text: q.question_text, question_type: q.question_type, points: q.points, time_limit: q.time_limit });
+                } else {
+                    quizSelectedIds.delete(id);
+                    quizSelectedQuestions.delete(id);
+                }
+            });
+            updateQuizSelectedBadge();
+            renderAssignedQuestions();
+        });
+
+        // Pagination
+        const pag = document.getElementById('quizBankPagination');
+        pag.innerHTML = '';
+        for (let i = 1; i <= data.pages; i++) {
+            const li = document.createElement('li');
+            li.className = 'page-item' + (i === data.current_page ? ' active' : '');
+            li.innerHTML = `<button class="page-link" data-page="${i}">${i}</button>`;
+            pag.appendChild(li);
+        }
+        pag.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => loadQuizBank(parseInt(b.dataset.page))));
+
+        lucide.createIcons();
+    })
+    .catch(() => { document.getElementById('quizBankTableBody').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-danger">Failed to load</td></tr>'; });
+}
+
+function updateQuizSelectedBadge() {
+    document.getElementById('quizSelectedBadge').textContent = `${quizSelectedIds.size} selected`;
+}
+
+// Search
+let quizSearchTimer = null;
+document.getElementById('quizBankSearch').addEventListener('input', () => {
+    clearTimeout(quizSearchTimer);
+    quizSearchTimer = setTimeout(() => loadQuizBank(1), 350);
+});
+
+// Delete confirm
+document.getElementById('confirmDeleteQuizQuestionBtn').addEventListener('click', function () {
+    const modal = document.getElementById('deleteQuizQuestionModal');
+    fetch('{% url "admin_dashboard:delete_quiz_question" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question_id: modal.dataset.questionId }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(modal).hide();
+            showNotification('Question deleted!', 'success');
+            quizSelectedIds.delete(parseInt(modal.dataset.questionId));
+            updateQuizSelectedBadge();
+            loadQuizBank(quizBankPage);
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(() => alert('Error deleting.'));
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// GENERIC section (all other types)
+// ════════════════════════════════════════════════════════════════════════════
+let genericPage = 1;
+let genericSearchTimer = null;
+
+function loadGenericBank(page) {
+    genericPage = page;
+    if (!currentType || currentType === 'quiz') return;
+    const cfg = GAME_CONFIG[currentType];
+    const search = document.getElementById('genericBankSearch').value.trim();
+    const dataKey = cfg.dataKey || 'questions';
+
+    // Render table header
+    const head = document.getElementById('genericTableHead');
+    head.innerHTML = '<th style="width:36px;"><input type="checkbox" id="genericSelectAll"></th>'
+        + cfg.columns.map(c => `<th>${c.label}</th>`).join('');
+    document.getElementById('genericSelectAll').addEventListener('change', function () {
+        document.querySelectorAll('.generic-q-check').forEach(cb => {
+            cb.checked = this.checked;
+            const id = parseInt(cb.dataset.id);
+            this.checked ? genericSelectedIds.add(id) : genericSelectedIds.delete(id);
+        });
+        updateGenericSelectedBadge();
+    });
+
+    fetch(`${cfg.questionsUrl}?page=${page}&search=${encodeURIComponent(search)}`)
+    .then(r => r.json())
+    .then(data => {
+        const items = data[dataKey] || [];
+        const total = data.count || 0;
+        const pages = data.pages || 1;
+
+        document.getElementById('genericBankCountBadge').textContent = total;
+        document.getElementById('genericBankInfo').textContent = `${total} items`;
+
+        const tbody = document.getElementById('genericBankTableBody');
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">No items found</td></tr>';
+            document.getElementById('genericBankPagination').innerHTML = '';
+            return;
+        }
+
+        tbody.innerHTML = items.map(item => {
+            const cells = cfg.columns.map(c => `<td>${item[c.key] !== undefined && item[c.key] !== null ? item[c.key] : '—'}</td>`).join('');
+            return `<tr>
+                <td><input type="checkbox" class="generic-q-check" data-id="${item.id}" ${genericSelectedIds.has(item.id) ? 'checked' : ''}></td>
+                ${cells}
+            </tr>`;
+        }).join('');
+
+        tbody.querySelectorAll('.generic-q-check').forEach(cb => {
+            cb.addEventListener('change', function () {
+                const id = parseInt(this.dataset.id);
+                this.checked ? genericSelectedIds.add(id) : genericSelectedIds.delete(id);
+                updateGenericSelectedBadge();
+            });
+        });
+
+        const pag = document.getElementById('genericBankPagination');
+        pag.innerHTML = '';
+        for (let i = 1; i <= pages; i++) {
+            const li = document.createElement('li');
+            li.className = 'page-item' + (i === (data.current_page || page) ? ' active' : '');
+            li.innerHTML = `<button class="page-link" data-page="${i}">${i}</button>`;
+            pag.appendChild(li);
+        }
+        pag.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => loadGenericBank(parseInt(b.dataset.page))));
+    })
+    .catch(() => { document.getElementById('genericBankTableBody').innerHTML = '<tr><td colspan="10" class="text-center py-4 text-danger">Failed to load</td></tr>'; });
+}
+
+function updateGenericSelectedBadge() {
+    document.getElementById('genericSelectedBadge').textContent = `${genericSelectedIds.size} selected`;
+}
+
+document.getElementById('genericBankSearch').addEventListener('input', () => {
+    clearTimeout(genericSearchTimer);
+    genericSearchTimer = setTimeout(() => loadGenericBank(1), 350);
+});
+</script>
+{% endblock %}

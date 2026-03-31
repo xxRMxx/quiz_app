@@ -335,7 +335,27 @@ def session_leaderboard(request, session_code: str):
 
 def monitor(request, session_code: str):
     session = get_object_or_404(HubSession, code=session_code)
-    steps = session.steps.all()
+    steps = list(session.steps.all())
+
+    # Annotate each step with the current status of its game instance
+    _game_model_map = {
+        'quiz':           QuizGameModel,
+        'sorting_ladder': SortingLadderGame,
+        'clue_rush':      ClueRushGame,
+        'assign':         AssignQuiz,
+        'estimation':     EstimationQuiz,
+        'where':          WhereQuiz,
+        'who':            WhoQuiz,
+        'who_that':       WhoThatQuiz,
+        'blackjack':      BlackJackQuiz,
+    }
+    for step in steps:
+        model = _game_model_map.get(step.game_key)
+        if model and step.room_code:
+            game = model.objects.filter(room_code=step.room_code).first()
+            step.game_status = getattr(game, 'status', None) if game else None
+        else:
+            step.game_status = None
 
     # Gather waiting games grouped by type for the current user
     user = request.user
@@ -384,7 +404,8 @@ def add_step_to_session(request, session_code):
     if game_key not in valid_keys:
         return JsonResponse({'error': 'Invalid game type'}, status=400)
 
-    next_order = (session.steps.aggregate(Max('order'))['order__max'] or -1) + 1
+    max_order = session.steps.aggregate(Max('order'))['order__max']
+    next_order = 0 if max_order is None else max_order + 1
     quiz_title = title or f"{session.name or session.code} - {game_key.replace('_', ' ').title()} {next_order + 1}"
     room_code = auto_create_game_quiz(game_key, request.user, quiz_title)
     if not room_code:
@@ -404,6 +425,7 @@ def add_step_to_session(request, session_code):
     return JsonResponse({
         'success': True,
         'step': {
+            'id': step.id,
             'order': step.order,
             'game_key': step.game_key,
             'game_key_display': step.get_game_key_display(),
@@ -536,6 +558,21 @@ def reorder_steps(request, session_code):
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_POST
+def delete_step(request, session_code, step_id):
+    """Delete a game step from a session and renumber remaining steps."""
+    session = get_object_or_404(HubSession, code=session_code)
+    step = get_object_or_404(HubGameStep, id=step_id, session=session)
+    step.delete()
+    # Renumber remaining steps
+    for new_order, s in enumerate(session.steps.order_by('order')):
+        if s.order != new_order:
+            s.order = new_order
+            s.save(update_fields=['order'])
+    return JsonResponse({'success': True})
 
 
 @require_POST

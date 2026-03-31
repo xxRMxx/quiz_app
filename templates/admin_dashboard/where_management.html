@@ -10,148 +10,13 @@
 
 {% block content %}
 <div class="where-management-content">
-    <!-- Question Form Card -->
-    <div class="card mb-4" id="questionFormCard">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0" id="questionFormTitle">
-                <i data-lucide="map-pin"></i>
-                Add New Question
-            </h5>
-            <button class="btn btn-sm btn-outline-secondary" id="resetFormBtn" type="button">
-                <i data-lucide="rotate-ccw"></i> Reset
-            </button>
-        </div>
-        <div class="card-body">
-            <form id="addQuestionForm">
-                <input type="hidden" id="questionId" name="question_id" />
-                <div class="row">
-                    <div class="col-lg-6">
-                        <div class="mb-3">
-                            <label for="questionText" class="form-label">Question Text *</label>
-                            <textarea class="form-control" id="questionText" name="question_text" rows="3"
-                                      placeholder="e.g., Where is the Eiffel Tower?" required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="questionImage" class="form-label">Image (Optional)</label>
-                            <input type="file" class="form-control" id="questionImage" name="image" accept="image/*">
-                            <div class="form-text">Upload an image of the location to help participants</div>
-                            <div id="imagePreviewContainer" class="mt-3" style="display: none;">
-                                <div class="image-preview-wrapper">
-                                    <img id="imagePreview" src="" alt="Question image preview" class="img-fluid rounded">
-                                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2" id="removeImageBtn">
-                                        <i data-lucide="x"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="mb-3">
-                                    <label for="difficulty" class="form-label">Difficulty</label>
-                                    <select class="form-control" id="difficulty" name="difficulty" required>
-                                        <option value="easy">Easy</option>
-                                        <option value="medium" selected>Medium</option>
-                                        <option value="hard">Hard</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="mb-3">
-                                    <label for="timeLimit" class="form-label">Time (sec)</label>
-                                    <input type="number" class="form-control" id="timeLimit" name="time_limit"
-                                           value="60" min="30" max="300" required>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="mb-3">
-                                    <label for="points" class="form-label">Max Points</label>
-                                    <input type="number" class="form-control" id="points" name="points"
-                                           value="100" min="10" max="500" required>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="mb-3">
-                                    <label for="perfectDistance" class="form-label">Perfect Distance (km)</label>
-                                    <input type="number" class="form-control" id="perfectDistance" name="perfect_distance"
-                                           value="10" min="1" max="100" step="0.1" required>
-                                    <div class="form-text">Distance for 100% points</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="hintText" class="form-label">Hint Text (Optional)</label>
-                            <textarea class="form-control" id="hintText" name="hint_text" rows="2"
-                                      placeholder="Optional hint for participants"></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="explanation" class="form-label">Explanation (Optional)</label>
-                            <textarea class="form-control" id="explanation" name="explanation" rows="3"
-                                      placeholder="Optional explanation shown after answering"></textarea>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="mb-3">
-                            <label class="form-label">Location Selection *</label>
-                            <div class="location-selector">
-                                <div class="coordinates-display mb-3">
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <label for="latitude" class="form-label">Latitude</label>
-                                            <input type="number" class="form-control" id="latitude" name="latitude"
-                                                   step="any" placeholder="48.8584" required readonly>
-                                        </div>
-                                        <div class="col-6">
-                                            <label for="longitude" class="form-label">Longitude</label>
-                                            <input type="number" class="form-control" id="longitude" name="longitude"
-                                                   step="any" placeholder="2.2945" required readonly>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="map-container mb-3">
-                                    <div id="locationMap" class="location-map"></div>
-                                    <div class="map-instructions">
-                                        <i data-lucide="mouse-pointer"></i>
-                                        <span>Click on the map to select the correct location</span>
-                                    </div>
-                                </div>
-                                <div class="distance-thresholds">
-                                    <h6>Distance Thresholds</h6>
-                                    <div class="row">
-                                        <div class="col-4">
-                                            <label for="goodDistance" class="form-label">Good (75%)</label>
-                                            <input type="number" class="form-control form-control-sm" id="goodDistance"
-                                                   name="good_distance" value="100" min="1" step="1">
-                                            <div class="form-text">km</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <label for="fairDistance" class="form-label">Fair (50%)</label>
-                                            <input type="number" class="form-control form-control-sm" id="fairDistance"
-                                                   name="fair_distance" value="500" min="1" step="1">
-                                            <div class="form-text">km</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <label for="poorDistance" class="form-label">Poor (25%)</label>
-                                            <input type="number" class="form-control form-control-sm" id="poorDistance"
-                                                   name="poor_distance" value="2000" min="1" step="1">
-                                            <div class="form-text">km</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="d-flex justify-content-end">
-                    <button type="submit" class="btn btn-primary" id="submitQuestionBtn">
-                        <i data-lucide="plus"></i>
-                        Add Question
-                    </button>
-                </div>
-            </form>
-        </div>
+    <!-- New Question Button -->
+    <div class="d-flex justify-content-end mb-3">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editQuestionModal" id="newQuestionBtn">
+            <i data-lucide="plus" style="width:16px;height:16px;" class="me-1"></i> New Question
+        </button>
     </div>
+
 
     <!-- Questions Bank Card -->
     <div class="card mb-4">
@@ -583,14 +448,20 @@
             setTimeout(() => locationMap.invalidateSize(), 250);
         }
 
-        // Initialize map when the form card is visible on page load
-        initMap();
+        // Initialize map when the modal shows
+        document.getElementById('editQuestionModal').addEventListener('shown.bs.modal', function() {
+            initMap();
+        });
+
+        // Reset form when modal closes
+        document.getElementById('editQuestionModal').addEventListener('hidden.bs.modal', () => setFormMode('add'));
 
         // Load questions on page load
         loadBankQuestions(1);
 
-        // Reset form button
-        document.getElementById('resetFormBtn').addEventListener('click', () => setFormMode('add'));
+        // Auto-open edit modal if ?edit=ID in URL
+        const autoEditId = new URLSearchParams(window.location.search).get('edit');
+        if (autoEditId) openEditById(autoEditId);
 
         // Image preview
         imageInput.addEventListener('change', function(e) {
@@ -665,7 +536,7 @@
             .then(data => {
                 if (data.success) {
                     showNotification(isEdit ? 'Location question updated successfully!' : 'Location question added successfully!', 'success');
-                    setFormMode('add');
+                    bootstrap.Modal.getInstance(document.getElementById('editQuestionModal'))?.hide();
                     loadBankQuestions(1);
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
@@ -688,6 +559,7 @@
                 document.getElementById('questionCountBadge').textContent = data.count;
                 data.questions.forEach(q => {
                     const row = document.createElement('tr');
+                    row.style.cursor = 'pointer';
                     row.innerHTML = `
                         <td>${q.question_text}</td>
                         <td>${q.difficulty}</td>
@@ -696,11 +568,15 @@
                         <td>${q.has_image ? 'Yes' : 'No'}</td>
                         <td>${q.correct_location}</td>
 
-                        <td>
+                        <td onclick="event.stopPropagation()">
                             <button class="btn btn-sm btn-outline-primary edit-question-btn" data-question-id="${q.id}"><i data-lucide="pencil"></i> Edit</button>
                             <button class="btn btn-sm btn-danger delete-q-btn" data-question-id="${q.id}"><i data-lucide="trash-2"></i> Delete</button>
                         </td>
                     `;
+                    row.addEventListener('click', function(e) {
+                        if (e.target.closest('button') || e.target.closest('a')) return;
+                        row.querySelector('.edit-question-btn').click();
+                    });
                     questionsTableBody.appendChild(row);
                 });
                 pagination.innerHTML = '';
@@ -719,49 +595,52 @@
             if (e.target.classList.contains('page-link')) loadBankQuestions(parseInt(e.target.dataset.page));
         });
 
+        function openEditById(qid) {
+            fetch(`{% url 'admin_dashboard:get_where_question_detail' 0 %}`.replace('/0/', `/${qid}/`), {
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            })
+            .then(r => r.json())
+            .then(({ success, question, error }) => {
+                if (!success) throw new Error(error || 'Failed to load question.');
+                document.getElementById('questionId').value = question.id;
+                document.getElementById('questionText').value = question.question_text;
+                document.getElementById('difficulty').value = question.difficulty;
+                document.getElementById('timeLimit').value = question.time_limit;
+                document.getElementById('points').value = question.points;
+                document.getElementById('perfectDistance').value = question.perfect_distance;
+                document.getElementById('goodDistance').value = question.good_distance;
+                document.getElementById('fairDistance').value = question.fair_distance;
+                document.getElementById('poorDistance').value = question.poor_distance;
+                document.getElementById('hintText').value = question.hint_text || '';
+                document.getElementById('explanation').value = question.explanation || '';
+                document.getElementById('latitude').value = question.latitude != null ? question.latitude : '';
+                document.getElementById('longitude').value = question.longitude != null ? question.longitude : '';
+                if (question.image) setImagePreviewFromUrl(question.image);
+                else clearImagePreview();
+
+                setFormMode('edit');
+                new bootstrap.Modal(document.getElementById('editQuestionModal')).show();
+
+                // Update map marker
+                setTimeout(() => {
+                    const lat = parseFloat(document.getElementById('latitude').value);
+                    const lng = parseFloat(document.getElementById('longitude').value);
+                    if (!isNaN(lat) && !isNaN(lng) && locationMap) {
+                        if (selectedMarker) locationMap.removeLayer(selectedMarker);
+                        selectedMarker = L.marker([lat, lng]).addTo(locationMap);
+                        locationMap.setView([lat, lng], 6);
+                        locationMap.invalidateSize();
+                    }
+                }, 300);
+            })
+            .catch(err => showNotification(err.message, 'danger'));
+        }
+
         // Edit / Delete question buttons
         questionsTableBody.addEventListener('click', function(e) {
             const editBtn = e.target.closest('.edit-question-btn');
             if (editBtn) {
-                const qid = editBtn.getAttribute('data-question-id');
-                fetch(`{% url 'admin_dashboard:get_where_question_detail' 0 %}`.replace('/0/', `/${qid}/`), {
-                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
-                })
-                .then(r => r.json())
-                .then(({ success, question, error }) => {
-                    if (!success) throw new Error(error || 'Failed to load question.');
-                    document.getElementById('questionId').value = question.id;
-                    document.getElementById('questionText').value = question.question_text;
-                    document.getElementById('difficulty').value = question.difficulty;
-                    document.getElementById('timeLimit').value = question.time_limit;
-                    document.getElementById('points').value = question.points;
-                    document.getElementById('perfectDistance').value = question.perfect_distance;
-                    document.getElementById('goodDistance').value = question.good_distance;
-                    document.getElementById('fairDistance').value = question.fair_distance;
-                    document.getElementById('poorDistance').value = question.poor_distance;
-                    document.getElementById('hintText').value = question.hint_text || '';
-                    document.getElementById('explanation').value = question.explanation || '';
-                    document.getElementById('latitude').value = question.latitude != null ? question.latitude : '';
-                    document.getElementById('longitude').value = question.longitude != null ? question.longitude : '';
-                    if (question.image) setImagePreviewFromUrl(question.image);
-                    else clearImagePreview();
-
-                    setFormMode('edit');
-                    document.getElementById('questionFormCard').scrollIntoView({ behavior: 'smooth' });
-
-                    // Update map marker
-                    setTimeout(() => {
-                        const lat = parseFloat(document.getElementById('latitude').value);
-                        const lng = parseFloat(document.getElementById('longitude').value);
-                        if (!isNaN(lat) && !isNaN(lng) && locationMap) {
-                            if (selectedMarker) locationMap.removeLayer(selectedMarker);
-                            selectedMarker = L.marker([lat, lng]).addTo(locationMap);
-                            locationMap.setView([lat, lng], 6);
-                            locationMap.invalidateSize();
-                        }
-                    }, 300);
-                })
-                .catch(err => showNotification(err.message, 'danger'));
+                openEditById(editBtn.getAttribute('data-question-id'));
                 return;
             }
 
@@ -1050,5 +929,149 @@
         });
     });
 </script>
+
+<!-- Edit / Add Question Modal -->
+<div class="modal fade" id="editQuestionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="questionFormTitle">
+                    <i data-lucide="map-pin"></i> Add New Question
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addQuestionForm" novalidate>
+                    <input type="hidden" id="questionId" name="question_id" />
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="mb-3">
+                                <label for="questionText" class="form-label">Question Text *</label>
+                                <textarea class="form-control" id="questionText" name="question_text" rows="3"
+                                          placeholder="e.g., Where is the Eiffel Tower?" required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="questionImage" class="form-label">Image (Optional)</label>
+                                <input type="file" class="form-control" id="questionImage" name="image" accept="image/*">
+                                <div class="form-text">Upload an image of the location to help participants</div>
+                                <div id="imagePreviewContainer" class="mt-3" style="display: none;">
+                                    <div class="image-preview-wrapper">
+                                        <img id="imagePreview" src="" alt="Question image preview" class="img-fluid rounded">
+                                        <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2" id="removeImageBtn">
+                                            <i data-lucide="x"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="difficulty" class="form-label">Difficulty</label>
+                                        <select class="form-control" id="difficulty" name="difficulty" required>
+                                            <option value="easy">Easy</option>
+                                            <option value="medium" selected>Medium</option>
+                                            <option value="hard">Hard</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="timeLimit" class="form-label">Time (sec)</label>
+                                        <input type="number" class="form-control" id="timeLimit" name="time_limit"
+                                               value="60" min="30" max="300" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="points" class="form-label">Max Points</label>
+                                        <input type="number" class="form-control" id="points" name="points"
+                                               value="100" min="10" max="500" required>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="perfectDistance" class="form-label">Perfect Distance (km)</label>
+                                        <input type="number" class="form-control" id="perfectDistance" name="perfect_distance"
+                                               value="10" min="1" max="100" step="0.1" required>
+                                        <div class="form-text">Distance for 100% points</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="hintText" class="form-label">Hint Text (Optional)</label>
+                                <textarea class="form-control" id="hintText" name="hint_text" rows="2"
+                                          placeholder="Optional hint for participants"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="explanation" class="form-label">Explanation (Optional)</label>
+                                <textarea class="form-control" id="explanation" name="explanation" rows="3"
+                                          placeholder="Optional explanation shown after answering"></textarea>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="mb-3">
+                                <label class="form-label">Location Selection *</label>
+                                <div class="location-selector">
+                                    <div class="coordinates-display mb-3">
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <label for="latitude" class="form-label">Latitude</label>
+                                                <input type="number" class="form-control" id="latitude" name="latitude"
+                                                       step="any" placeholder="48.8584" required readonly>
+                                            </div>
+                                            <div class="col-6">
+                                                <label for="longitude" class="form-label">Longitude</label>
+                                                <input type="number" class="form-control" id="longitude" name="longitude"
+                                                       step="any" placeholder="2.2945" required readonly>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="map-container mb-3">
+                                        <div id="locationMap" class="location-map"></div>
+                                        <div class="map-instructions">
+                                            <i data-lucide="mouse-pointer"></i>
+                                            <span>Click on the map to select the correct location</span>
+                                        </div>
+                                    </div>
+                                    <div class="distance-thresholds">
+                                        <h6>Distance Thresholds</h6>
+                                        <div class="row">
+                                            <div class="col-4">
+                                                <label for="goodDistance" class="form-label">Good (75%)</label>
+                                                <input type="number" class="form-control form-control-sm" id="goodDistance"
+                                                       name="good_distance" value="100" min="1" step="1">
+                                                <div class="form-text">km</div>
+                                            </div>
+                                            <div class="col-4">
+                                                <label for="fairDistance" class="form-label">Fair (50%)</label>
+                                                <input type="number" class="form-control form-control-sm" id="fairDistance"
+                                                       name="fair_distance" value="500" min="1" step="1">
+                                                <div class="form-text">km</div>
+                                            </div>
+                                            <div class="col-4">
+                                                <label for="poorDistance" class="form-label">Poor (25%)</label>
+                                                <input type="number" class="form-control form-control-sm" id="poorDistance"
+                                                       name="poor_distance" value="2000" min="1" step="1">
+                                                <div class="form-text">km</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="resetFormBtn" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="addQuestionForm" class="btn btn-primary" id="submitQuestionBtn" data-mode="add">
+                    <i data-lucide="plus"></i> Add Question
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

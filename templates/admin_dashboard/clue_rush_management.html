@@ -8,65 +8,11 @@
 {% block content %}
 <div class="quiz-management-content">
 
-    <!-- Inline Question Form Card -->
-    <div class="card mb-4" id="questionFormCard">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0" id="questionFormTitle">
-                <i data-lucide="help-circle"></i>
-                Add New Question
-            </h5>
-            <button type="button" class="btn btn-outline btn-sm" id="resetFormBtn">
-                <i data-lucide="rotate-ccw"></i>
-                Reset
-            </button>
-        </div>
-        <div class="card-body">
-            <form id="addQuestionForm">
-                {% csrf_token %}
-                <input type="hidden" id="questionId" name="question_id" />
-                <div class="mb-3">
-                    <label for="questionText" class="form-label">Question Text *</label>
-                    <textarea class="form-control" id="questionText" rows="3" placeholder="Enter the riddle/question..." required></textarea>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="mb-3">
-                            <label for="points" class="form-label">Points</label>
-                            <input type="number" class="form-control" id="points" value="12" min="1" max="100" required>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="mb-3">
-                            <label for="timeLimit" class="form-label">Time Limit (sec)</label>
-                            <input type="number" class="form-control" id="timeLimit" value="30" min="5" max="600" required disabled>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="mb-3">
-                            <label for="answer" class="form-label">Correct Answer *</label>
-                            <input type="text" class="form-control" id="answer" placeholder="e.g., Cristiano Ronaldo" required>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mb-2 d-flex align-items-center justify-content-between">
-                    <h6 class="mb-0">Clues</h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="addClueBtn">
-                        <i data-lucide="plus"></i> Add Clue
-                    </button>
-                </div>
-                <div id="cluesContainer" class="clues-container"></div>
-                <small class="text-muted">Each clue has text, order, and duration (seconds). Earlier clues are harder but worth more if guessed correctly.</small>
-
-                <div class="d-flex justify-content-end gap-2 mt-3">
-                    <button type="submit" class="btn btn-primary" id="submitQuestionBtn" data-mode="add">
-                        <i data-lucide="plus"></i>
-                        Save Question
-                    </button>
-                </div>
-            </form>
-        </div>
+    <!-- New Question Button -->
+    <div class="d-flex justify-content-end mb-3">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editQuestionModal" id="newQuestionBtn">
+            <i data-lucide="plus" style="width:16px;height:16px;" class="me-1"></i> New Question
+        </button>
     </div>
 
     <!-- Questions Bank Card -->
@@ -107,6 +53,58 @@
         </div>
     </div>
 
+</div>
+
+<!-- Edit / Add Question Modal -->
+<div class="modal fade" id="editQuestionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="questionFormTitle">
+                    <i data-lucide="help-circle"></i> Add New Question
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addQuestionForm" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" id="questionId" name="question_id" />
+                    <div class="mb-3">
+                        <label for="questionText" class="form-label">Question Text *</label>
+                        <textarea class="form-control" id="questionText" rows="3" placeholder="Enter the riddle/question..." required></textarea>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label for="points" class="form-label">Points</label>
+                            <input type="number" class="form-control" id="points" value="12" min="1" max="100" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="timeLimit" class="form-label">Time Limit (sec)</label>
+                            <input type="number" class="form-control" id="timeLimit" value="30" min="5" max="600" required disabled>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="answer" class="form-label">Correct Answer *</label>
+                            <input type="text" class="form-control" id="answer" placeholder="e.g., Cristiano Ronaldo" required>
+                        </div>
+                    </div>
+                    <div class="mb-2 d-flex align-items-center justify-content-between">
+                        <h6 class="mb-0">Clues</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="addClueBtn">
+                            <i data-lucide="plus"></i> Add Clue
+                        </button>
+                    </div>
+                    <div id="cluesContainer" class="clues-container"></div>
+                    <small class="text-muted">Each clue has text, order, and duration (seconds). Earlier clues are harder but worth more if guessed correctly.</small>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="resetFormBtn" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="addQuestionForm" class="btn btn-primary" id="submitQuestionBtn" data-mode="add">
+                    <i data-lucide="plus"></i> Save Question
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Create Custom Quiz Modal -->
@@ -444,13 +442,15 @@ document.addEventListener('DOMContentLoaded', function() {
         lucide.createIcons();
     }
 
-    // Reset button
-    document.getElementById('resetFormBtn').addEventListener('click', function() {
-        resetForm();
-    });
+    // Reset form when modal closes
+    document.getElementById('editQuestionModal').addEventListener('hidden.bs.modal', () => resetForm());
 
     // Load bank questions on page load
     loadBankQuestions(1);
+
+    // Auto-open edit modal if ?edit=ID in URL
+    const autoEditId = new URLSearchParams(window.location.search).get('edit');
+    if (autoEditId) openEditById(autoEditId);
 
     function loadBankQuestions(page) {
         fetch('{% url "admin_dashboard:get_clue_rush_questions" %}?page=' + page, {
@@ -465,6 +465,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             data.questions.forEach(question => {
                 const row = document.createElement('tr');
+                row.style.cursor = 'pointer';
                 row.innerHTML = `
                     <td>${question.question_text}</td>
                     <td>${question.answer}</td>
@@ -473,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${question.time_limit}</td>
                     <td>${question.created_at}</td>
 
-                    <td>
+                    <td onclick="event.stopPropagation()">
                         <button class="btn btn-sm btn-outline-primary edit-question-btn" data-question-id="${question.id}">
                             <i data-lucide="edit-2"></i> Edit
                         </button>
@@ -482,6 +483,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         </button>
                     </td>
                 `;
+                row.addEventListener('click', function(e) {
+                    if (e.target.closest('button')) return;
+                    row.querySelector('.edit-question-btn').click();
+                });
                 questionsTableBody.appendChild(row);
             });
             lucide.createIcons();
@@ -505,13 +510,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Edit button handler (inline)
-    questionsTableBody.addEventListener('click', function(e) {
-        const btn = e.target.closest('.edit-question-btn');
-        if (!btn) return;
-        const qid = btn.getAttribute('data-question-id');
-        if (!qid) return;
-
+    function openEditById(qid) {
         fetch(`{% url 'admin_dashboard:get_clue_rush_question_detail' 0 %}`.replace('/0/', `/${qid}/`), {
             method: 'GET',
             headers: { 'X-CSRFToken': csrftoken },
@@ -540,12 +539,19 @@ document.addEventListener('DOMContentLoaded', function() {
             setFormMode('edit');
             lucide.createIcons();
 
-            document.getElementById('questionFormCard').scrollIntoView({ behavior: 'smooth' });
+            new bootstrap.Modal(document.getElementById('editQuestionModal')).show();
         })
         .catch(err => {
             console.error(err);
             showNotification(err.message || 'Failed to load question.', 'danger');
         });
+    }
+
+    // Edit button handler (inline)
+    questionsTableBody.addEventListener('click', function(e) {
+        const btn = e.target.closest('.edit-question-btn');
+        if (!btn) return;
+        openEditById(btn.getAttribute('data-question-id'));
     });
 
     // Delete button handler — open confirm modal
@@ -623,7 +629,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await res.json();
             if (data.success) {
                 showNotification(qid ? 'Question updated successfully!' : 'Question added successfully!', 'success');
-                resetForm();
+                bootstrap.Modal.getInstance(document.getElementById('editQuestionModal'))?.hide();
                 loadBankQuestions(1);
             } else {
                 alert(data.error || 'Failed to save');

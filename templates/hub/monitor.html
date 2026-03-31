@@ -32,9 +32,14 @@
                         <span class="status-dot connecting"></span>
                         <span class="status-text">Connecting…</span>
                     </div>
-                    <a href="{% url 'admin_dashboard:home' %}" class="btn btn-outline-secondary">
+                    <a href="{% url 'admin_dashboard:sessions_overview' %}" class="btn btn-outline-secondary">
                         <i data-lucide="layout-dashboard" class="me-1"></i> Dashboard
                     </a>
+                    {% if not session.started_at %}
+                    <button id="startSessionBtn" class="btn btn-success">
+                        <i data-lucide="play" class="me-1"></i> Start Session
+                    </button>
+                    {% endif %}
                     <button id="endSessionBtn" class="btn btn-outline-danger">
                         <i data-lucide="square" class="me-1"></i> End Session
                     </button>
@@ -73,11 +78,27 @@
                             <div class="step-num">{{ forloop.counter }}</div>
                             <div class="step-info">
                                 <div class="step-name">{{ s.get_game_key_display }}</div>
+                                {% if s.game_status == 'completed' %}
+                                    <div class="step-status-hint">
+                                        <i data-lucide="check-circle" style="width:11px;height:11px;"></i>
+                                        Beendet
+                                    </div>
+                                {% elif s.game_status == 'active' %}
+                                    <div class="step-status-hint step-status-active">
+                                        <i data-lucide="radio" style="width:11px;height:11px;"></i>
+                                        Läuft
+                                    </div>
+                                {% else %}
+                                    <div class="step-status-hint">
+                                        <i data-lucide="clock" style="width:11px;height:11px;"></i>
+                                        Not yet started
+                                    </div>
+                                {% endif %}
                             </div>
                             <div class="step-votes">
                                 <span class="vote-badge" data-order="{{ s.order }}" title="Votes for this game"></span>
                             </div>
-                            <div class="step-action">
+                            <div class="step-action gap-1">
                                 {% if s.room_code %}
                                 <a href="{{ request.scheme }}://{{ ip }}:8000{% url 'admin_dashboard:home' %}"
                                    class="btn btn-sm btn-primary launch-btn"
@@ -86,6 +107,11 @@
                                     <i data-lucide="play" class="me-1"></i> Start
                                 </a>
                                 {% endif %}
+                                <button class="btn btn-sm btn-outline-danger delete-step-btn"
+                                        data-step-id="{{ s.id }}"
+                                        title="Spiel entfernen">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
                             </div>
                         </div>
                         {% empty %}
@@ -115,6 +141,10 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i data-lucide="trophy" class="me-2"></i>Session Scoreboard</h5>
+                    <button id="toggleScoreboardBtn" class="btn btn-sm btn-outline-secondary" title="Scoreboard für Teilnehmer ein-/ausblenden">
+                        <i data-lucide="eye-off" style="width:14px;height:14px;"></i>
+                        <span id="toggleScoreboardLabel">Für Teilnehmer einblenden</span>
+                    </button>
                 </div>
                 <div class="card-body p-0">
                     <div id="sessionScoreboardWrap">
@@ -191,7 +221,7 @@
 
 .step-header {
     display: grid;
-    grid-template-columns: 28px 36px 1fr 80px 90px;
+    grid-template-columns: 28px 36px 1fr 80px 120px;
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem 1.25rem;
@@ -208,7 +238,7 @@
 
 .step-row {
     display: grid;
-    grid-template-columns: 28px 36px 1fr 80px 90px;
+    grid-template-columns: 28px 36px 1fr 80px 120px;
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1.25rem;
@@ -338,6 +368,11 @@
 .sb-game.winner { color: #22c55e; font-weight: 700; }
 .sb-adj { text-align: center; font-size: 0.8rem; color: var(--text-muted); }
 .sb-edit { text-align: center; }
+.step-status-hint {
+    display: flex; align-items: center; gap: 3px;
+    font-size: 0.7rem; color: #6c757d; margin-top: 2px;
+}
+.step-status-active { color: #0d6efd; }
 </style>
 
 <script>
@@ -359,26 +394,33 @@ const MONITOR_ROUTES = {
 document.addEventListener('DOMContentLoaded', function () {
     lucide.createIcons();
 
-    // ── "Open" buttons → redirect lobby participants + navigate admin ──
+    // ── Helper: navigate to game monitor (used by row click + launch button) ──
+    function navigateToGame(gameKey, roomCode) {
+        const route = MONITOR_ROUTES[gameKey];
+        if (!route || !roomCode) return;
+        try {
+            ws.send(JSON.stringify({ type: 'navigate_direct', game_key: gameKey, room_code: roomCode }));
+        } catch (_) {}
+        window.location.href = route(roomCode) + `?hub_session=${SESSION_CODE}`;
+    }
+
+    // ── "Start" buttons ──
     document.querySelectorAll('.launch-btn').forEach(btn => {
         btn.addEventListener('click', function (e) {
             e.preventDefault();
+            navigateToGame(this.dataset.gameKey, this.dataset.roomCode);
+        });
+    });
+
+    // ── Click on step row → open game monitor ──
+    document.querySelectorAll('.step-row').forEach(row => {
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', function (e) {
+            // Ignore clicks on buttons, links, or the drag handle
+            if (e.target.closest('button, a, .drag-handle')) return;
             const gameKey  = this.dataset.gameKey;
             const roomCode = this.dataset.roomCode;
-            const route    = MONITOR_ROUTES[gameKey];
-            if (!route) return;
-
-            // 1. Tell all lobby participants to navigate to this game
-            try {
-                ws.send(JSON.stringify({
-                    type: 'navigate_direct',
-                    game_key: gameKey,
-                    room_code: roomCode,
-                }));
-            } catch (_) { /* WebSocket may not be connected yet – navigate admin anyway */ }
-
-            // 2. Navigate admin to the game-specific monitor
-            window.location.href = route(roomCode) + `?hub_session=${SESSION_CODE}`;
+            navigateToGame(gameKey, roomCode);
         });
     });
 
@@ -416,12 +458,39 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!e.wasClean) setTimeout(() => location.reload(), 3000);
     };
 
+    // ── Scoreboard toggle ──
+    const toggleBtn = document.getElementById('toggleScoreboardBtn');
+    const toggleLabel = document.getElementById('toggleScoreboardLabel');
+
+    function applyScoreboardState(visible) {
+        if (visible) {
+            toggleBtn.classList.replace('btn-outline-secondary', 'btn-success');
+            toggleBtn.querySelector('i').setAttribute('data-lucide', 'eye');
+            toggleLabel.textContent = 'Für Teilnehmer ausblenden';
+        } else {
+            toggleBtn.classList.replace('btn-success', 'btn-outline-secondary');
+            toggleBtn.querySelector('i').setAttribute('data-lucide', 'eye-off');
+            toggleLabel.textContent = 'Für Teilnehmer einblenden';
+        }
+        lucide.createIcons();
+    }
+
+    toggleBtn.addEventListener('click', () => {
+        ws.send(JSON.stringify({ type: 'toggle_scoreboard' }));
+    });
+
     ws.onmessage = (e) => {
         const data = JSON.parse(e.data);
         if (data.type === 'state') {
             updatePlayerList(data.participants || []);
+            if (typeof data.scoreboard_visible === 'boolean') {
+                applyScoreboardState(data.scoreboard_visible);
+            }
+        } else if (data.type === 'session_started') {
+            if (startSessionBtn) startSessionBtn.remove();
         } else if (data.type === 'session_ended') {
-            setStatus('error', 'Session ended');
+            manualEnd = true;
+            window.location.href = '{% url "admin_dashboard:sessions_overview" %}';
         } else if (data.type === 'navigate' && data.step) {
             const step = data.step;
             const route = MONITOR_ROUTES[step.game_key];
@@ -429,6 +498,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 const url = route(step.room_code);
                 window.location.href = url + `?hub_session=${SESSION_CODE}`;
             }
+        } else if (data.type === 'scoreboard_visibility') {
+            applyScoreboardState(data.visible);
         } else if (data.type === 'vote_update') {
             renderVoteBadges(data.votes);
         }
@@ -562,7 +633,12 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             body: JSON.stringify({ game_key: gameKey, question_ids: questionIds }),
         })
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok && r.headers.get('content-type')?.includes('text/html')) {
+                throw new Error(`Server error ${r.status}`);
+            }
+            return r.json();
+        })
         .then(data => {
             if (!data.success) {
                 errEl.textContent = data.error || 'Error adding game.';
@@ -593,12 +669,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="step-votes">
                     <span class="vote-badge" data-order="${step.order}" title="Votes for this game"></span>
                 </div>
-                <div class="step-action">
+                <div class="step-action gap-1">
                     <a href="#" class="btn btn-sm btn-primary launch-btn"
                        data-game-key="${step.game_key}" data-room-code="${step.room_code}"
                        data-session="{{ session.code }}">
                         <i data-lucide="play" class="me-1"></i> Start
                     </a>
+                    <button class="btn btn-sm btn-outline-danger delete-step-btn"
+                            data-step-id="${step.id}"
+                            title="Spiel entfernen">
+                        <i data-lucide="trash-2"></i>
+                    </button>
                 </div>
             `;
             stepsList.appendChild(div);
@@ -637,8 +718,8 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('quizListLoading').classList.remove('d-none');
             document.getElementById('quizSelectionCount').classList.add('d-none');
         })
-        .catch(() => {
-            errEl.textContent = 'Network error.';
+        .catch(err => {
+            errEl.textContent = err?.message || 'Fehler beim Hinzufügen.';
             errEl.classList.remove('d-none');
         })
         .finally(() => { this.disabled = false; });
@@ -699,6 +780,42 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     stepsList.querySelectorAll('.step-row').forEach(row => initDraggable(row));
+
+    // ── Delete step ──
+    stepsList.addEventListener('click', function(e) {
+        const btn = e.target.closest('.delete-step-btn');
+        if (!btn) return;
+        if (!confirm('Dieses Spiel aus dem Plan entfernen?')) return;
+        const stepId = btn.dataset.stepId;
+        fetch(`/hub/api/session/${SESSION_CODE}/delete-step/${stepId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                btn.closest('.step-row').remove();
+                // Renumber visible step numbers
+                stepsList.querySelectorAll('.step-row .step-num').forEach((el, i) => {
+                    el.textContent = i + 1;
+                });
+                document.getElementById('stepCount').textContent =
+                    stepsList.querySelectorAll('.step-row').length + ' game' +
+                    (stepsList.querySelectorAll('.step-row').length === 1 ? '' : 's');
+            }
+        })
+        .catch(() => alert('Fehler beim Löschen.'));
+    });
+
+    // ── Start session ──
+    const startSessionBtn = document.getElementById('startSessionBtn');
+    if (startSessionBtn) {
+        startSessionBtn.addEventListener('click', () => {
+            startSessionBtn.disabled = true;
+            startSessionBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Starting…';
+            ws.send(JSON.stringify({ type: 'start_session' }));
+        });
+    }
 
     // ── End session ──
     let manualEnd = false;

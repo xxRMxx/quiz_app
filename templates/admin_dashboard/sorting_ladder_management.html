@@ -7,63 +7,11 @@
 
 {% block content %}
 <div class="quiz-management-content">
-    <!-- Topic Form Card -->
-    <div class="card mb-4" id="topicFormCard">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0" id="topicFormTitle">
-                <i data-lucide="help-circle"></i>
-                Add New Topic
-            </h5>
-            <button class="btn btn-sm btn-outline-secondary" id="resetFormBtn" type="button">
-                <i data-lucide="rotate-ccw"></i> Reset
-            </button>
-        </div>
-        <div class="card-body">
-            <form id="addTopicForm">
-                <input type="hidden" id="topicId" name="topic_id" />
-                <input type="hidden" id="itemsPayload" name="items_json" />
-                <div class="mb-3">
-                    <label for="topicTitle" class="form-label">Topic Title *</label>
-                    <input type="text" class="form-control" id="topicTitle" name="title"
-                              placeholder="e.g. Countries by Land Area" required />
-                </div>
-                <div class="mb-3">
-                    <label for="topicDescription" class="form-label">Description</label>
-                    <textarea class="form-control" id="topicDescription" name="description" rows="3"
-                              placeholder="Describe the ordering rule for this topic (e.g. sort countries from smallest to largest)."></textarea>
-                </div>
-                <div class="row">
-                    <div class="col-6">
-                        <div class="mb-3">
-                            <label for="topicPoints" class="form-label">Points</label>
-                            <input type="number" class="form-control" id="topicPoints" name="points"
-                                      placeholder="e.g. 10" value="10" />
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="mb-3">
-                            <label for="topicRoundTimeLimit" class="form-label">Round Time Limit (seconds)</label>
-                            <input type="number" class="form-control" id="topicRoundTimeLimit" name="round_time_limit"
-                                      placeholder="e.g. 30" value="30" />
-                        </div>
-                    </div>
-                </div>
-                <div class="mb-2 d-flex align-items-center justify-content-between">
-                    <h6 class="mb-0">Items</h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="addItemBtn">
-                        <i data-lucide="plus"></i> Add Item
-                    </button>
-                </div>
-                <div id="itemsContainer" class="clues-container mb-3"></div>
-                <small class="text-muted">Each item represents one element that players will sort in this topic. The order field reflects its position in the ladder.</small>
-                <div class="d-flex justify-content-end mt-3">
-                    <button type="submit" class="btn btn-primary" id="submitTopicBtn">
-                        <i data-lucide="plus"></i>
-                        Add Topic
-                    </button>
-                </div>
-            </form>
-        </div>
+    <!-- New Topic Button -->
+    <div class="d-flex justify-content-end mb-3">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editTopicModal" id="newTopicBtn">
+            <i data-lucide="plus" style="width:16px;height:16px;" class="me-1"></i> New Topic
+        </button>
     </div>
 
     <!-- Topics Bank Card -->
@@ -223,6 +171,67 @@
                 <button type="button" class="btn btn-primary" id="createCustomGameBtn">
                     <i data-lucide="check"></i>
                     Create Quiz
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit / Add Topic Modal -->
+<div class="modal fade" id="editTopicModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="topicFormTitle">
+                    <i data-lucide="help-circle"></i> Add New Topic
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addTopicForm" novalidate>
+                    <input type="hidden" name="topic_id" id="topicId">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="topicTitle">Title *</label>
+                            <input type="text" class="form-control" id="topicTitle" name="title" placeholder="Enter topic title..." required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="topicPoints">Points</label>
+                            <input type="number" class="form-control" id="topicPoints" name="points" min="0" placeholder="100">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="topicRoundTimeLimit">Time Limit (s)</label>
+                            <input type="number" class="form-control" id="topicRoundTimeLimit" name="round_time_limit" min="0" placeholder="60">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="topicDescription">Description</label>
+                        <input type="text" class="form-control" id="topicDescription" name="description" placeholder="Optional description...">
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="topicUpperLabel">Upper Label</label>
+                            <input type="text" class="form-control" id="topicUpperLabel" name="upper_label" placeholder="Ascending">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="topicLowerLabel">Lower Label</label>
+                            <input type="text" class="form-control" id="topicLowerLabel" name="lower_label" placeholder="Descending">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Items *</label>
+                        <div id="itemsContainer"></div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="addItemBtn">
+                            <i data-lucide="plus" style="width:14px;height:14px;"></i> Add Item
+                        </button>
+                    </div>
+                    <input type="hidden" id="itemsPayload" name="items_payload">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="resetFormBtn" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="addTopicForm" class="btn btn-primary" id="submitTopicBtn" data-mode="add">
+                    <i data-lucide="plus"></i> Add Topic
                 </button>
             </div>
         </div>
@@ -432,8 +441,12 @@
         // Load topics on page load
         loadTopics(1);
 
-        // Reset form button
-        document.getElementById('resetFormBtn').addEventListener('click', () => setFormMode('add'));
+        // Auto-open edit modal if ?edit=ID in URL
+        const autoEditId = new URLSearchParams(window.location.search).get('edit');
+        if (autoEditId) openEditById(autoEditId);
+
+        // Reset form when modal closes
+        document.getElementById('editTopicModal').addEventListener('hidden.bs.modal', () => setFormMode('add'));
 
         // Items builder
         function renumberItems() {
@@ -517,7 +530,7 @@
                 .then(data => {
                     if (data.success) {
                         showNotification(isEdit ? 'Topic updated successfully!' : 'Topic added successfully!', 'success');
-                        setFormMode('add');
+                        bootstrap.Modal.getInstance(document.getElementById('editTopicModal'))?.hide();
                         loadTopics(1);
                     } else {
                         alert('Error saving topic: ' + (data.error || 'Unknown error'));
@@ -542,17 +555,22 @@
                 document.getElementById('topicCountBadge').textContent = data.count;
                 (data.topics || []).forEach(topic => {
                     const row = document.createElement('tr');
+                    row.style.cursor = 'pointer';
                     row.innerHTML = `
                         <td>${topic.title}</td>
                         <td>${topic.description || ''}</td>
                         <td>${topic.item_count || 0}</td>
                         <td>${topic.created_at}</td>
 
-                        <td>
+                        <td onclick="event.stopPropagation()">
                             <button class="btn btn-sm btn-outline-primary edit-topic-btn" data-topic-id="${topic.id}"><i data-lucide="pencil"></i> Edit</button>
                             <button class="btn btn-sm btn-danger delete-topic-btn" data-topic-id="${topic.id}"><i data-lucide="trash-2"></i> Delete</button>
                         </td>
                     `;
+                    row.addEventListener('click', function(e) {
+                        if (e.target.closest('button')) return;
+                        row.querySelector('.edit-topic-btn').click();
+                    });
                     topicsTableBody.appendChild(row);
                 });
                 topicsPagination.innerHTML = '';
@@ -571,37 +589,41 @@
             if (e.target.classList.contains('page-link')) loadTopics(parseInt(e.target.dataset.page));
         });
 
+        function openEditById(topicId) {
+            fetch(`{% url 'admin_dashboard:get_sorting_topic_detail' 0 %}`.replace('/0/', `/${topicId}/`), {
+                method: 'GET',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            })
+            .then(r => r.json())
+            .then(({ success, topic, error }) => {
+                if (!success) throw new Error(error || 'Failed to load topic.');
+                document.getElementById('topicId').value = topic.id;
+                document.getElementById('topicTitle').value = topic.title;
+                document.getElementById('topicDescription').value = topic.description || '';
+                document.getElementById('topicPoints').value = topic.points || '';
+                document.getElementById('topicRoundTimeLimit').value = topic.round_time_limit || '';
+                document.getElementById('topicUpperLabel').value = topic.upper_label || 'Ascending';
+                document.getElementById('topicLowerLabel').value = topic.lower_label || 'Descending';
+                if (itemsContainer) {
+                    itemsContainer.innerHTML = '';
+                    const items = Array.isArray(topic.items) ? topic.items : [];
+                    if (items.length) {
+                        items.forEach(item => addItemRow({ text: item.text, order: item.order }));
+                    } else {
+                        addItemRow();
+                    }
+                }
+                setFormMode('edit');
+                new bootstrap.Modal(document.getElementById('editTopicModal')).show();
+            })
+            .catch(err => { console.error(err); showNotification(err.message || 'Failed to load topic.', 'danger'); });
+        }
+
         // Edit / Delete topic buttons
         topicsTableBody?.addEventListener('click', function(e) {
             const editBtn = e.target.closest('.edit-topic-btn');
             if (editBtn) {
-                const topicId = editBtn.getAttribute('data-topic-id');
-                if (!topicId) return;
-                fetch(`{% url 'admin_dashboard:get_sorting_topic_detail' 0 %}`.replace('/0/', `/${topicId}/`), {
-                    method: 'GET',
-                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
-                })
-                .then(r => r.json())
-                .then(({ success, topic, error }) => {
-                    if (!success) throw new Error(error || 'Failed to load topic.');
-                    document.getElementById('topicId').value = topic.id;
-                    document.getElementById('topicTitle').value = topic.title;
-                    document.getElementById('topicDescription').value = topic.description || '';
-                    document.getElementById('topicPoints').value = topic.points || '';
-                    document.getElementById('topicRoundTimeLimit').value = topic.round_time_limit || '';
-                    if (itemsContainer) {
-                        itemsContainer.innerHTML = '';
-                        const items = Array.isArray(topic.items) ? topic.items : [];
-                        if (items.length) {
-                            items.forEach(item => addItemRow({ text: item.text, order: item.order }));
-                        } else {
-                            addItemRow();
-                        }
-                    }
-                    setFormMode('edit');
-                    document.getElementById('topicFormCard').scrollIntoView({ behavior: 'smooth' });
-                })
-                .catch(err => { console.error(err); showNotification(err.message || 'Failed to load topic.', 'danger'); });
+                openEditById(editBtn.getAttribute('data-topic-id'));
                 return;
             }
 

@@ -1,8 +1,8 @@
 {% extends "admin_dashboard/base.html" %}
 
-{% block title %}Assign Quiz Monitor: {{ quiz.room_code }} - QuizMaster Admin{% endblock %}
+{% block title %}Assign Quiz Monitor - QuizMaster Admin{% endblock %}
 
-{% block page_title %}Assign Quiz Monitor: {{ quiz.room_code }}{% endblock %}
+{% block page_title %}Assign Quiz Monitor{% endblock %}
 {% block page_subtitle %}Real-time monitoring and control for your live drag & drop quiz session{% endblock %}
 
 {% block content %}
@@ -14,10 +14,6 @@
                 <div class="quiz-info">
                     <h2 class="quiz-title">{{ quiz.title }}</h2>
                     <div class="quiz-meta">
-                        <span class="meta-item">
-                            <i data-lucide="hash"></i>
-                            Room Code: <strong>{{ quiz.room_code }}</strong>
-                        </span>
                         <span class="meta-item">
                             <i data-lucide="users"></i>
                             <span id="participantCount">{{ participant_count }}</span> Participants
@@ -68,11 +64,15 @@
         <!-- Question Control Panel -->
         <div class="col-lg-8">
             <div class="card question-panel">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
                         <i data-lucide="move-3d"></i>
                         Question Control
                     </h5>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#questionBankModal">
+                        <i data-lucide="database" style="width:14px;height:14px;"></i>
+                        Question Bank
+                    </button>
                 </div>
                 <div class="card-body">
                     {% if not quiz.current_question %}
@@ -1478,5 +1478,9 @@ document.querySelectorAll('.copy-lobby-btn-monitor').forEach(btn => {
     });
 });
 </script>
+
+{% with qb_game_key="assign" qb_room_code=quiz.room_code qb_quiz=quiz %}
+  {% include "admin_dashboard/includes/question_bank_modal.html" %}
+{% endwith %}
 
 {% endblock %}

@@ -25,7 +25,7 @@
         </div>
     </div>
 
-    <form method="post" id="createSessionForm">
+    <form method="post" id="createSessionForm" novalidate>
         {% csrf_token %}
 
         <!-- ── STEP 1: Session info + game selection ── -->
@@ -752,7 +752,8 @@ function goToStep2() {
     });
 
     // Hide "other games" info (all games now have their own section)
-    document.getElementById('otherGamesInfo').classList.add('d-none');
+    const otherGamesInfo = document.getElementById('otherGamesInfo');
+    if (otherGamesInfo) otherGamesInfo.classList.add('d-none');
 
     document.getElementById('step1').classList.add('d-none');
     document.getElementById('step2').classList.remove('d-none');

@@ -48,6 +48,8 @@ class HubConsumer(AsyncWebsocketConsumer):
             await self.handle_navigate_direct(data)
         elif msg_type == 'end_session':
             await self.handle_end_session()
+        elif msg_type == 'toggle_scoreboard':
+            await self.handle_toggle_scoreboard()
         elif msg_type == 'vote':
             await self.handle_vote(data)
         elif msg_type == 'ping':
@@ -157,6 +159,17 @@ class HubConsumer(AsyncWebsocketConsumer):
 
         # Forward to clients
         await self.send_json({'type': 'event', **ev})
+
+        # When a game starts, redirect all lobby participants to the play page
+        if etype == 'quiz_started' and ev.get('game_key') and ev.get('room_code'):
+            step = {
+                'index': -1,
+                'order': -1,
+                'game_key': ev.get('game_key'),
+                'room_code': ev.get('room_code'),
+                'title': ev.get('title', ''),
+            }
+            await self.channel_layer.group_send(self.group_name, {'type': 'navigate', 'step': step})
 
         # If a game signals it ended, auto-advance or end session
         # if etype in ('quiz_ended', 'game_ended'):
@@ -305,6 +318,26 @@ class HubConsumer(AsyncWebsocketConsumer):
         except HubSession.DoesNotExist:
             return []
 
+    async def handle_toggle_scoreboard(self):
+        visible = await self.toggle_scoreboard_db()
+        await self.channel_layer.group_send(
+            self.group_name,
+            {'type': 'scoreboard_visibility', 'visible': visible}
+        )
+
+    async def scoreboard_visibility(self, event):
+        await self.send_json({'type': 'scoreboard_visibility', 'visible': event['visible']})
+
+    @database_sync_to_async
+    def toggle_scoreboard_db(self):
+        try:
+            session = HubSession.objects.get(code=self.session_code)
+            session.scoreboard_visible = not session.scoreboard_visible
+            session.save(update_fields=['scoreboard_visible'])
+            return session.scoreboard_visible
+        except HubSession.DoesNotExist:
+            return False
+
     async def handle_end_session(self):
         await self.end_session_db()
         await self.reset_all_quizzes_to_waiting()
@@ -333,6 +366,7 @@ class HubConsumer(AsyncWebsocketConsumer):
                 'participants': participants,
                 'steps': steps,
                 'current_step_index': session.current_step_index,
+                'scoreboard_visible': session.scoreboard_visible,
             }
         except HubSession.DoesNotExist:
             return {'error': 'session_not_found'}

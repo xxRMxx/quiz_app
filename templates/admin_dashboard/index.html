@@ -2,8 +2,8 @@
 
 {% block title %}Dashboard - QuizMaster Admin{% endblock %}
 
-{% block page_title %}Dashboard{% endblock %}
-{% block page_subtitle %}Welcome to your admin dashboard{% endblock %}
+{% block page_title %}Sessions{% endblock %}
+{% block page_subtitle %}Active, planned & recent sessions{% endblock %}
 
 {% block content %}
 <div class="dashboard-content">
@@ -11,32 +11,33 @@
         <!-- Header with Action Button -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="mb-0">Dashboard Overview</h2>
-            <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
-                <a href="{% url 'games_hub:create_session' %}" class="btn btn-primary btn-md">
-                    <i class="fas fa-plus-circle me-2"></i>Start New Session
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{% url 'admin_dashboard:home' %}" class="btn btn-outline-secondary btn-md">
+                    <i data-lucide="arrow-left" style="width:16px;height:16px;" class="me-1"></i>Hauptmenü
                 </a>
-
+                <a href="{% url 'games_hub:create_session' %}" class="btn btn-primary btn-md">
+                    <i class="fas fa-plus-circle me-2"></i>New Session
+                </a>
                 <div class="btn-group" role="group">
                     <button id="btnGroupDrop1" type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                    Backup/ Restore
+                        Backup / Restore
                     </button>
                     <ul class="dropdown-menu" aria-labelledby="btnGroupDrop1">
-                    <li>
-                        <a href="#" class="dropdown-item btn btn-outline-secondary" id="backupSupabaseBtn">Backup to Supabase</a>
-                    </li>
-                    <li>
-                        <a href="#" class="dropdown-item btn btn-outline-secondary" id="restoreSupabaseBtn">Restore from Supabase</a>
-                    </li>
+                        <li>
+                            <a href="#" class="dropdown-item" id="backupSupabaseBtn">Backup to Supabase</a>
+                        </li>
+                        <li>
+                            <a href="#" class="dropdown-item" id="restoreSupabaseBtn">Restore from Supabase</a>
+                        </li>
                     </ul>
                 </div>
             </div>
         </div>
 
         <!-- Active Hub Sessions -->
-        {% if active_hub_sessions %}
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white border-0 py-3 d-flex align-items-center gap-2">
-                <span class="badge bg-primary rounded-pill" style="font-size:0.7rem;">ACTIVE</span>
+                <span class="badge bg-success rounded-pill" style="font-size:0.7rem;">LIVE</span>
                 <h5 class="mb-0">Active Sessions</h5>
                 <span class="badge bg-secondary ms-1">{{ active_hub_sessions|length }}</span>
             </div>
@@ -72,7 +73,7 @@
                                 <td onclick="event.stopPropagation()" id="votes-{{ session.code }}">
                                     <span class="text-muted" style="font-size:0.8rem;">loading…</span>
                                 </td>
-                                <td>{{ session.created_at|timesince }} ago</td>
+                                <td>{{ session.started_at|timesince }} ago</td>
                                 <td onclick="event.stopPropagation()">
                                     <button class="btn btn-sm btn-outline-danger end-session-btn"
                                             data-session-code="{{ session.code }}"
@@ -82,13 +83,70 @@
                                 </td>
                             </tr>
                             {% endwith %}
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">No active sessions</td>
+                            </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
-        {% endif %}
+
+        <!-- Planned Hub Sessions -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 py-3 d-flex align-items-center gap-2">
+                <span class="badge bg-warning text-dark rounded-pill" style="font-size:0.7rem;">PLANNED</span>
+                <h5 class="mb-0">Planned Sessions</h5>
+                <span class="badge bg-secondary ms-1">{{ planned_hub_sessions|length }}</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Session Code</th>
+                                <th>Session Name</th>
+                                <th>Lobby Link</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in planned_hub_sessions %}
+                            {% with lobby_url=request.scheme|add:"://"|add:request.get_host|add:"/hub/lobby/"|add:session.code|add:"/" %}
+                            <tr style="cursor:pointer;" onclick="window.location='{% url 'games_hub:monitor' session.code %}'">
+                                <td><code>{{ session.code }}</code></td>
+                                <td><strong>{{ session.name }}</strong></td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-1" onclick="event.stopPropagation()">
+                                        <a href="{{ lobby_url }}" target="_blank" class="text-truncate" style="max-width:220px;font-size:0.8rem;">{{ lobby_url }}</a>
+                                        <button class="btn btn-link btn-sm p-0 copy-lobby-btn" title="Copy" data-url="{{ lobby_url }}">
+                                            <i data-lucide="copy" style="width:13px;height:13px;color:#6c757d;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td>{{ session.created_at|timesince }} ago</td>
+                                <td onclick="event.stopPropagation()">
+                                    <button class="btn btn-sm btn-outline-danger end-session-btn"
+                                            data-session-code="{{ session.code }}"
+                                            data-session-name="{{ session.name }}">
+                                        <i data-lucide="trash-2" style="width:14px;height:14px;"></i> Delete
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endwith %}
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No planned sessions</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
         <!-- Active Games -->
         {% if active_games %}
@@ -104,7 +162,6 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Title</th>
-                                <th>Room Code</th>
                                 <th>Lobby Link</th>
                                 <th>Participants</th>
                                 <th>Started</th>
@@ -115,7 +172,6 @@
                             {% for game in active_games %}
                             <tr style="cursor:pointer;" onclick="window.location='{% url game.monitor_url_name game.room_code %}{% if game.hub_session_code %}?hub_session={{ game.hub_session_code }}{% endif %}'">
                                 <td><strong>{{ game.title }}</strong></td>
-                                <td><code>{{ game.room_code }}</code></td>
                                 <td>
                                     {% if game.hub_session_code %}
                                         {% with lobby_url=request.scheme|add:"://"|add:request.get_host|add:"/hub/lobby/"|add:game.hub_session_code|add:"/" %}
@@ -156,12 +212,15 @@
         </div>
         {% endif %}
 
-        {% comment %} <!-- Recent Sessions -->
+        <!-- Recent Sessions -->
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Recent Sessions</h5>
-                <button type="button" class="btn btn-danger btn-sm" id="clearSessionsBtn">
-                    <i class="fas fa-trash-alt me-2"></i>Clear All Sessions
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-secondary rounded-pill" style="font-size:0.7rem;">ENDED</span>
+                    <h5 class="mb-0">Recent Sessions</h5>
+                </div>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="clearSessionsBtn">
+                    <i data-lucide="trash-2" style="width:14px;height:14px;" class="me-1"></i>Clear All
                 </button>
             </div>
             <div class="card-body p-0">
@@ -187,17 +246,20 @@
                                 <td>{{ session.ended_at|timesince }} ago</td>
                                 <td>
                                     <a href="{% url 'games_hub:monitor' session.code %}" class="btn btn-sm btn-outline-primary">
-                                        <i data-lucide="eye" class="me-1"></i> View
+                                        <i data-lucide="eye" style="width:14px;height:14px;" class="me-1"></i>View
                                     </a>
+                                    <button class="btn btn-sm btn-outline-secondary duplicate-session-btn ms-1" data-session-code="{{ session.code }}" title="Duplicate as planned session">
+                                        <i data-lucide="copy" style="width:14px;height:14px;"></i>
+                                    </button>
                                     <button class="btn btn-sm btn-outline-danger delete-session-btn ms-1" data-session-code="{{ session.code }}">
-                                        <i data-lucide="trash-2"></i>
+                                        <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
                                     </button>
                                 </td>
                             </tr>
                             {% empty %}
                             <tr>
                                 <td colspan="6" class="text-center py-4">
-                                    <div class="text-muted">No sessions found</div>
+                                    <div class="text-muted">No ended sessions yet</div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -205,7 +267,7 @@
                     </table>
                 </div>
             </div>
-        </div> {% endcomment %}
+        </div>
 
     </div>
 </div>
@@ -594,6 +656,38 @@
                     }
                 })
                 .catch(() => { alert('Error deleting.'); this.disabled = false; });
+            });
+        });
+
+        document.querySelectorAll('.duplicate-session-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const code = this.dataset.sessionCode;
+                if (!confirm('Session "' + code + '" als neue geplante Session duplizieren?')) return;
+                const origBtn = this;
+                origBtn.disabled = true;
+                origBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+                fetch('{% url "admin_dashboard:duplicate_session" %}', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_code: code })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '{% url "admin_dashboard:home" %}';
+                    } else {
+                        alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+                        origBtn.disabled = false;
+                        origBtn.innerHTML = '<i data-lucide="copy" style="width:14px;height:14px;"></i>';
+                        lucide.createIcons();
+                    }
+                })
+                .catch(() => {
+                    alert('Fehler beim Duplizieren.');
+                    origBtn.disabled = false;
+                    origBtn.innerHTML = '<i data-lucide="copy" style="width:14px;height:14px;"></i>';
+                    lucide.createIcons();
+                });
             });
         });
 

@@ -7,121 +7,11 @@
 
 {% block content %}
 <div class="estimation-management-content">
-    <!-- Question Form Card -->
-    <div class="card mb-4" id="questionFormCard">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0" id="questionFormTitle">
-                <i data-lucide="help-circle"></i>
-                Add New Question
-            </h5>
-            <button class="btn btn-sm btn-outline-secondary" id="resetFormBtn" type="button">
-                <i data-lucide="rotate-ccw"></i> Reset
-            </button>
-        </div>
-        <div class="card-body">
-            <form id="addQuestionForm">
-                <input type="hidden" id="questionId" name="question_id" />
-                <div class="row">
-                    <div class="col-lg-6">
-                        <div class="mb-3">
-                            <label for="questionText" class="form-label">Question Text *</label>
-                            <textarea class="form-control" id="questionText" name="question_text" rows="3"
-                                      placeholder="e.g., How tall is Mount Everest?" required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="correctAnswer" class="form-label">Correct Answer *</label>
-                            <input type="number" class="form-control" id="correctAnswer" name="correct_answer"
-                                   step="any" placeholder="e.g., 8848" required>
-                        </div>
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="mb-3">
-                                    <label for="unit" class="form-label">Unit</label>
-                                    <select class="form-control" id="unit" name="unit">
-                                        <option value="number">Number (no unit)</option>
-                                        <option value="meters">Meters</option>
-                                        <option value="kilometers">Kilometers</option>
-                                        <option value="feet">Feet</option>
-                                        <option value="inches">Inches</option>
-                                        <option value="centimeters">Centimeters</option>
-                                        <option value="years">Years</option>
-                                        <option value="months">Months</option>
-                                        <option value="days">Days</option>
-                                        <option value="hours">Hours</option>
-                                        <option value="minutes">Minutes</option>
-                                        <option value="seconds">Seconds</option>
-                                        <option value="kilograms">Kilograms</option>
-                                        <option value="pounds">Pounds</option>
-                                        <option value="grams">Grams</option>
-                                        <option value="tons">Tons</option>
-                                        <option value="liters">Liters</option>
-                                        <option value="gallons">Gallons</option>
-                                        <option value="milliliters">Milliliters</option>
-                                        <option value="degrees">Degrees</option>
-                                        <option value="fahrenheit">Fahrenheit</option>
-                                        <option value="celsius">Celsius</option>
-                                        <option value="dollars">Dollars ($)</option>
-                                        <option value="euros">Euros (€)</option>
-                                        <option value="percent">Percent (%)</option>
-                                        <option value="people">People</option>
-                                        <option value="calories">Calories</option>
-                                        <option value="watts">Watts</option>
-                                        <option value="miles">Miles</option>
-                                        <option value="mph">Miles per hour</option>
-                                        <option value="kmh">Kilometers per hour</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="mb-3">
-                                    <label for="difficulty" class="form-label">Difficulty</label>
-                                    <select class="form-control" id="difficulty" name="difficulty">
-                                        <option value="easy">Easy</option>
-                                        <option value="medium" selected>Medium</option>
-                                        <option value="hard">Hard</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="mb-3">
-                                    <label for="maxPoints" class="form-label">Max Points</label>
-                                    <input type="number" class="form-control" id="maxPoints" name="max_points"
-                                           value="100" min="1" max="1000" required>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="mb-3">
-                                    <label for="tolerancePercentage" class="form-label">Tolerance %</label>
-                                    <input type="number" class="form-control" id="tolerancePercentage"
-                                           name="tolerance_percentage" value="10" min="1" max="50" step="0.1" required>
-                                    <small class="form-text text-muted">Accuracy within this % gets full points</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="hintText" class="form-label">Hint Text (Optional)</label>
-                            <textarea class="form-control" id="hintText" name="hint_text" rows="2"
-                                      placeholder="Optional hint to help participants"></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="explanation" class="form-label">Explanation (Optional)</label>
-                            <textarea class="form-control" id="explanation" name="explanation" rows="3"
-                                      placeholder="Optional explanation shown after answering"></textarea>
-                        </div>
-                    </div>
-                </div>
-                <div class="d-flex justify-content-end">
-                    <button type="submit" class="btn btn-primary" id="submitQuestionBtn">
-                        <i data-lucide="plus"></i>
-                        Add Question
-                    </button>
-                </div>
-            </form>
-        </div>
+    <!-- New Question Button -->
+    <div class="d-flex justify-content-end mb-3">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editQuestionModal" id="newQuestionBtn">
+            <i data-lucide="plus" style="width:16px;height:16px;" class="me-1"></i> New Question
+        </button>
     </div>
 
     <!-- Questions Bank Card -->
@@ -542,8 +432,12 @@
         // Load questions on page load
         loadBankQuestions(1);
 
-        // Reset form button
-        document.getElementById('resetFormBtn').addEventListener('click', () => setFormMode('add'));
+        // Auto-open edit modal if ?edit=ID in URL
+        const autoEditId = new URLSearchParams(window.location.search).get('edit');
+        if (autoEditId) openEditById(autoEditId);
+
+        // Reset form when modal closes
+        document.getElementById('editQuestionModal').addEventListener('hidden.bs.modal', () => setFormMode('add'));
 
         // Form submit (add or edit)
         document.getElementById('addQuestionForm').addEventListener('submit', function(e) {
@@ -582,7 +476,7 @@
             .then(data => {
                 if (data.success) {
                     showNotification(isEdit ? 'Question updated successfully!' : 'Question added successfully!', 'success');
-                    setFormMode('add');
+                    bootstrap.Modal.getInstance(document.getElementById('editQuestionModal'))?.hide();
                     loadBankQuestions(1);
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
@@ -605,6 +499,7 @@
                 document.getElementById('questionCountBadge').textContent = data.count;
                 data.questions.forEach(q => {
                     const row = document.createElement('tr');
+                    row.style.cursor = 'pointer';
                     row.innerHTML = `
                         <td>${q.question_text}</td>
                         <td>${q.correct_answer}</td>
@@ -614,11 +509,15 @@
                         <td>${q.time_limit}</td>
                         <td>${q.created_at}</td>
 
-                        <td>
+                        <td onclick="event.stopPropagation()">
                             <button class="btn btn-sm btn-outline-primary edit-question-btn" data-question-id="${q.id}"><i data-lucide="pencil"></i> Edit</button>
                             <button class="btn btn-sm btn-danger delete-q-btn" data-question-id="${q.id}"><i data-lucide="trash-2"></i> Delete</button>
                         </td>
                     `;
+                    row.addEventListener('click', function(e) {
+                        if (e.target.closest('button') || e.target.closest('a')) return;
+                        row.querySelector('.edit-question-btn').click();
+                    });
                     questionsTableBody.appendChild(row);
                 });
                 pagination.innerHTML = '';
@@ -637,30 +536,33 @@
             if (e.target.classList.contains('page-link')) loadBankQuestions(parseInt(e.target.dataset.page));
         });
 
+        function openEditById(qid) {
+            fetch(`{% url 'admin_dashboard:get_estimation_question_detail' 0 %}`.replace('/0/', `/${qid}/`), {
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            })
+            .then(r => r.json())
+            .then(({ success, question, error }) => {
+                if (!success) throw new Error(error || 'Failed to load question.');
+                document.getElementById('questionId').value = question.id;
+                document.getElementById('questionText').value = question.question_text;
+                document.getElementById('correctAnswer').value = question.correct_answer;
+                document.getElementById('unit').value = question.unit;
+                document.getElementById('difficulty').value = question.difficulty;
+                document.getElementById('maxPoints').value = question.max_points;
+                document.getElementById('tolerancePercentage').value = question.tolerance_percentage;
+                document.getElementById('hintText').value = question.hint_text || '';
+                document.getElementById('explanation').value = question.explanation || '';
+                setFormMode('edit');
+                new bootstrap.Modal(document.getElementById('editQuestionModal')).show();
+            })
+            .catch(err => showNotification(err.message, 'danger'));
+        }
+
         // Edit / Delete question buttons
         questionsTableBody.addEventListener('click', function(e) {
             const editBtn = e.target.closest('.edit-question-btn');
             if (editBtn) {
-                const qid = editBtn.getAttribute('data-question-id');
-                fetch(`{% url 'admin_dashboard:get_estimation_question_detail' 0 %}`.replace('/0/', `/${qid}/`), {
-                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
-                })
-                .then(r => r.json())
-                .then(({ success, question, error }) => {
-                    if (!success) throw new Error(error || 'Failed to load question.');
-                    document.getElementById('questionId').value = question.id;
-                    document.getElementById('questionText').value = question.question_text;
-                    document.getElementById('correctAnswer').value = question.correct_answer;
-                    document.getElementById('unit').value = question.unit;
-                    document.getElementById('difficulty').value = question.difficulty;
-                    document.getElementById('maxPoints').value = question.max_points;
-                    document.getElementById('tolerancePercentage').value = question.tolerance_percentage;
-                    document.getElementById('hintText').value = question.hint_text || '';
-                    document.getElementById('explanation').value = question.explanation || '';
-                    setFormMode('edit');
-                    document.getElementById('questionFormCard').scrollIntoView({ behavior: 'smooth' });
-                })
-                .catch(err => showNotification(err.message, 'danger'));
+                openEditById(editBtn.getAttribute('data-question-id'));
                 return;
             }
 
@@ -956,5 +858,123 @@
         });
     });
 </script>
+
+<!-- Edit / Add Question Modal -->
+<div class="modal fade" id="editQuestionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="questionFormTitle">
+                    <i data-lucide="help-circle"></i> Add New Question
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addQuestionForm" novalidate>
+                    <input type="hidden" id="questionId" name="question_id" />
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="mb-3">
+                                <label for="questionText" class="form-label">Question Text *</label>
+                                <textarea class="form-control" id="questionText" name="question_text" rows="3"
+                                          placeholder="e.g., How tall is Mount Everest?" required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="correctAnswer" class="form-label">Correct Answer *</label>
+                                <input type="number" class="form-control" id="correctAnswer" name="correct_answer"
+                                       step="any" placeholder="e.g., 8848" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="unit" class="form-label">Unit</label>
+                                        <select class="form-control" id="unit" name="unit">
+                                            <option value="number">Number (no unit)</option>
+                                            <option value="meters">Meters</option>
+                                            <option value="kilometers">Kilometers</option>
+                                            <option value="feet">Feet</option>
+                                            <option value="inches">Inches</option>
+                                            <option value="centimeters">Centimeters</option>
+                                            <option value="years">Years</option>
+                                            <option value="months">Months</option>
+                                            <option value="days">Days</option>
+                                            <option value="hours">Hours</option>
+                                            <option value="minutes">Minutes</option>
+                                            <option value="seconds">Seconds</option>
+                                            <option value="kilograms">Kilograms</option>
+                                            <option value="pounds">Pounds</option>
+                                            <option value="grams">Grams</option>
+                                            <option value="tons">Tons</option>
+                                            <option value="liters">Liters</option>
+                                            <option value="gallons">Gallons</option>
+                                            <option value="milliliters">Milliliters</option>
+                                            <option value="degrees">Degrees</option>
+                                            <option value="fahrenheit">Fahrenheit</option>
+                                            <option value="celsius">Celsius</option>
+                                            <option value="dollars">Dollars ($)</option>
+                                            <option value="euros">Euros (€)</option>
+                                            <option value="percent">Percent (%)</option>
+                                            <option value="people">People</option>
+                                            <option value="calories">Calories</option>
+                                            <option value="watts">Watts</option>
+                                            <option value="miles">Miles</option>
+                                            <option value="mph">Miles per hour</option>
+                                            <option value="kmh">Kilometers per hour</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="difficulty" class="form-label">Difficulty</label>
+                                        <select class="form-control" id="difficulty" name="difficulty">
+                                            <option value="easy">Easy</option>
+                                            <option value="medium" selected>Medium</option>
+                                            <option value="hard">Hard</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="maxPoints" class="form-label">Max Points</label>
+                                        <input type="number" class="form-control" id="maxPoints" name="max_points"
+                                               value="100" min="1" max="1000" required>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="tolerancePercentage" class="form-label">Tolerance %</label>
+                                        <input type="number" class="form-control" id="tolerancePercentage"
+                                               name="tolerance_percentage" value="10" min="1" max="50" step="0.1" required>
+                                        <small class="form-text text-muted">Accuracy within this % gets full points</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="hintText" class="form-label">Hint Text (Optional)</label>
+                                <textarea class="form-control" id="hintText" name="hint_text" rows="2"
+                                          placeholder="Optional hint to help participants"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="explanation" class="form-label">Explanation (Optional)</label>
+                                <textarea class="form-control" id="explanation" name="explanation" rows="3"
+                                          placeholder="Optional explanation shown after answering"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="resetFormBtn" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="addQuestionForm" class="btn btn-primary" id="submitQuestionBtn" data-mode="add">
+                    <i data-lucide="plus"></i> Add Question
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
