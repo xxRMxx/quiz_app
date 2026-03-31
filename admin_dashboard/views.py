@@ -114,6 +114,84 @@ def delete_session(request):
 
 
 @login_required
+@require_POST
+def duplicate_session(request):
+    """Create a copy of an ended session with status 'planned' (started_at=None, ended_at=None).
+    Each game step gets a fresh game instance; selected questions are copied over."""
+    if not is_admin(request.user):
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    try:
+        import random, string as _string
+        data = json.loads(request.body)
+        session_code = data.get('session_code')
+        if not session_code:
+            return JsonResponse({'success': False, 'error': 'session_code required'}, status=400)
+
+        original = get_object_or_404(HubSession, code=session_code)
+
+        # Generate a unique new code
+        def _gen():
+            return ''.join(random.choices(_string.ascii_uppercase + _string.digits, k=6))
+        new_code = _gen()
+        while HubSession.objects.filter(code=new_code).exists():
+            new_code = _gen()
+
+        new_session = HubSession.objects.create(
+            code=new_code,
+            name=original.name,
+            games_weight=original.games_weight,
+            # started_at and ended_at default to None → planned
+        )
+
+        # Map game_key → (GameModel, QuestionModel)
+        game_model_map = {
+            'quiz':           (Quiz,              QuizQuestion),
+            'assign':         (AssignQuiz,        None),
+            'estimation':     (EstimationQuiz,    None),
+            'where':          (WhereQuiz,         None),
+            'who':            (WhoQuiz,           None),
+            'who_that':       (WhoThatQuiz,       None),
+            'blackjack':      (BlackJackQuiz,     None),
+            'sorting_ladder': (SortingLadderGame, None),
+            'clue_rush':      (ClueRushGame,      None),
+        }
+
+        for step in original.steps.order_by('order'):
+            entry = game_model_map.get(step.game_key)
+            new_room_code = ''
+
+            if entry:
+                game_model, _ = entry
+                # Create fresh game instance
+                new_game = game_model.objects.create(
+                    title=step.title or step.game_key,
+                    creator=request.user,
+                    status='waiting',
+                )
+                new_room_code = new_game.room_code
+
+                # Copy selected questions from original game
+                if step.room_code:
+                    try:
+                        orig_game = game_model.objects.get(room_code=step.room_code)
+                        new_game.selected_questions.set(orig_game.selected_questions.all())
+                    except game_model.DoesNotExist:
+                        pass
+
+            HubGameStep.objects.create(
+                session=new_session,
+                order=step.order,
+                game_key=step.game_key,
+                title=step.title,
+                room_code=new_room_code,
+            )
+
+        return JsonResponse({'success': True, 'new_code': new_code})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
 def clear_all_sessions(request):
     """Clear all quiz sessions"""
     if not is_admin(request.user):
@@ -990,6 +1068,8 @@ def add_sorting_topic(request):
     description = (request.POST.get('description') or '').strip()
     points = (request.POST.get('points') or '').strip()
     round_time_limit = (request.POST.get('round_time_limit') or '').strip()
+    upper_label = (request.POST.get('upper_label') or 'Ascending').strip()
+    lower_label = (request.POST.get('lower_label') or 'Descending').strip()
 
     if not title:
         return JsonResponse({'success': False, 'error': 'Title is required.'}, status=400)
@@ -998,8 +1078,10 @@ def add_sorting_topic(request):
         question_text=title,
         description=description,
         created_by=request.user,
-        points = points,
-        round_time_limit = round_time_limit
+        points=points,
+        round_time_limit=round_time_limit,
+        upper_label=upper_label,
+        lower_label=lower_label,
     )
 
     # Optional items payload (JSON string from the modal)
@@ -1043,10 +1125,15 @@ def update_sorting_topic(request):
     round_time_limit = (request.POST.get('round_time_limit') or topic.round_time_limit).strip()
     is_active_raw = request.POST.get('is_active')
 
+    upper_label = (request.POST.get('upper_label') or topic.upper_label).strip()
+    lower_label = (request.POST.get('lower_label') or topic.lower_label).strip()
+
     topic.question_text = title
     topic.description = description
     topic.points = points
     topic.round_time_limit = round_time_limit
+    topic.upper_label = upper_label
+    topic.lower_label = lower_label
     if is_active_raw is not None:
         topic.is_active = str(is_active_raw).lower() in ('1', 'true', 'on', 'yes')
     topic.save()
@@ -1108,6 +1195,8 @@ def get_sorting_topic_detail(request, topic_id):
         'description': topic.description,
         'points': topic.points,
         'round_time_limit': topic.round_time_limit,
+        'upper_label': topic.upper_label,
+        'lower_label': topic.lower_label,
         'is_active': topic.is_active,
         'item_count': topic.elements.count(),
         'items': [
@@ -1124,7 +1213,13 @@ def get_sorting_topic_detail(request, topic_id):
     
 @admin_required
 def admin_home(request):
-    """Admin dashboard home page"""
+    """Admin dashboard landing page with main navigation buttons"""
+    return render(request, 'admin_dashboard/landing.html')
+
+
+@admin_required
+def sessions_overview(request):
+    """Sessions overview page (active, planned, recent sessions)"""
     # Get total sessions count
     total_sessions = HubSession.objects.count()
     
@@ -1143,24 +1238,9 @@ def admin_home(request):
         .order_by('-count')
     most_played_game = most_played.first()
     
-    # Active hub sessions (not yet ended)
-    active_sessions_qs = HubSession.objects.filter(
-        ended_at__isnull=True
-    ).order_by('-created_at').annotate(
-        players_count=Count('participants', distinct=True)
-    )
-
-    # Get recent sessions (last 10, only ended)
-    recent_sessions = HubSession.objects.filter(
-        ended_at__isnull=False
-    ).order_by('-ended_at')[:10].annotate(
-        games_count=Count('steps', distinct=True),
-        players_count=Count('participants', distinct=True)
-    )
-    
     # Convert game key to display name
     game_display_names = dict(HubGameStep.GAME_CHOICES)
-    
+
     # Collect all currently active/running games across all game types
     # Build mapping: game room_code -> hub session code (single query)
     room_code_to_hub_session = {
@@ -1199,6 +1279,36 @@ def admin_home(request):
     _add_games(ClueRushGame.objects.filter(status='active'), 'clue_rush', 'Clue Rush', 'admin_dashboard:clue_rush_monitor', None)
     _add_games(SortingLadderGame.objects.filter(status='active'), 'sorting_ladder', 'Sorting Ladder', 'admin_dashboard:sorting_ladder_monitor', 'admin_dashboard:end_sorting_ladder_game_by_room_code')
 
+    # Session codes that have at least one active game running
+    active_game_session_codes = {g['hub_session_code'] for g in active_games if g['hub_session_code']}
+
+    # Active hub sessions: started but not ended, OR has active games running
+    active_sessions_qs = HubSession.objects.filter(
+        ended_at__isnull=True
+    ).filter(
+        Q(started_at__isnull=False) | Q(code__in=active_game_session_codes)
+    ).order_by('-started_at').annotate(
+        players_count=Count('participants', distinct=True)
+    )
+
+    # Planned hub sessions: not started, not ended, and no active games
+    planned_sessions_qs = HubSession.objects.filter(
+        started_at__isnull=True,
+        ended_at__isnull=True
+    ).exclude(
+        code__in=active_game_session_codes
+    ).order_by('-created_at').annotate(
+        players_count=Count('participants', distinct=True)
+    )
+
+    # Get recent sessions (last 10, only ended)
+    recent_sessions = HubSession.objects.filter(
+        ended_at__isnull=False
+    ).order_by('-ended_at')[:10].annotate(
+        games_count=Count('steps', distinct=True),
+        players_count=Count('participants', distinct=True)
+    )
+
     active_games.sort(key=lambda g: g['started_at'] or timezone.now(), reverse=True)
 
     # Prepare context
@@ -1209,6 +1319,7 @@ def admin_home(request):
         'most_played_game': game_display_names.get(most_played_game['game_key'], 'N/A') if most_played_game else 'N/A',
         'active_games': active_games,
         'active_hub_sessions': active_sessions_qs,
+        'planned_hub_sessions': planned_sessions_qs,
         'recent_sessions': [{
             'name': session.name,
             'code': session.code,
@@ -1222,6 +1333,79 @@ def admin_home(request):
     }
 
     return render(request, 'admin_dashboard/index.html', context)
+
+
+@admin_required
+def manage_games(request):
+    """Unified game management page — all game types in one view."""
+    all_games = []
+
+    def _add(qs, game_type, game_type_display, monitor_url_name):
+        for game in qs:
+            try:
+                q_count = game.selected_questions.count()
+            except Exception:
+                q_count = 0
+            all_games.append({
+                'id': game.id,
+                'title': game.title,
+                'game_type': game_type,
+                'game_type_display': game_type_display,
+                'status': game.status,
+                'room_code': game.room_code,
+                'monitor_url_name': monitor_url_name,
+                'created_at': game.created_at,
+                'question_count': q_count,
+            })
+
+    _add(Quiz.objects.all().order_by('-created_at'), 'quiz', 'Quick Quiz', 'admin_dashboard:quiz_monitor')
+    _add(EstimationQuiz.objects.all().order_by('-created_at'), 'estimation', 'Estimation', 'admin_dashboard:estimation_monitor')
+    _add(AssignQuiz.objects.all().order_by('-created_at'), 'assign', 'Assign', 'admin_dashboard:assign_monitor')
+    _add(WhereQuiz.objects.all().order_by('-created_at'), 'where', 'Where Is This?', 'admin_dashboard:where_monitor')
+    _add(WhoQuiz.objects.all().order_by('-created_at'), 'who', 'Who Is Lying?', 'admin_dashboard:who_monitor')
+    _add(WhoThatQuiz.objects.all().order_by('-created_at'), 'who_that', 'Who Is That?', 'admin_dashboard:who_that_monitor')
+    _add(BlackJackQuiz.objects.all().order_by('-created_at'), 'blackjack', 'Black Jack Quiz', 'admin_dashboard:blackjack_monitor')
+    _add(SortingLadderGame.objects.all().order_by('-created_at'), 'sorting_ladder', 'Sorting Ladder', 'admin_dashboard:sorting_ladder_monitor')
+    _add(ClueRushGame.objects.all().order_by('-created_at'), 'clue_rush', 'Clue Rush', 'admin_dashboard:clue_rush_monitor')
+
+    all_games.sort(key=lambda g: g['created_at'], reverse=True)
+    return render(request, 'admin_dashboard/games_overview.html', {'all_games': all_games})
+
+
+@admin_required
+def create_game(request):
+    """New game creation form."""
+    return render(request, 'admin_dashboard/manage_games.html')
+
+
+@admin_required
+def edit_game(request, game_type, game_id):
+    """Edit an existing game instance."""
+    import json as _json
+    type_to_model = {
+        'quiz': Quiz,
+        'estimation': EstimationQuiz,
+        'assign': AssignQuiz,
+        'where': WhereQuiz,
+        'who': WhoQuiz,
+        'who_that': WhoThatQuiz,
+        'blackjack': BlackJackQuiz,
+        'sorting_ladder': SortingLadderGame,
+        'clue_rush': ClueRushGame,
+    }
+    model = type_to_model.get(game_type)
+    if not model:
+        from django.http import Http404
+        raise Http404('Unknown game type')
+    game = get_object_or_404(model, id=game_id)
+    selected_ids = list(game.selected_questions.values_list('id', flat=True))
+    return render(request, 'admin_dashboard/manage_games.html', {
+        'edit_mode': True,
+        'game_id': game_id,
+        'game_title': game.title,
+        'game_type': game_type,
+        'selected_ids_json': _json.dumps(selected_ids),
+    })
 
 
 @admin_required
@@ -7534,3 +7718,40 @@ def delete_blackjack_bundle(request):
         return JsonResponse({'success': True})
     except BlackJackBundle.DoesNotExist:
         return JsonResponse({'error': 'Bundle not found'}, status=404)
+
+
+@admin_required
+@require_POST
+def add_question_to_quiz_from_bank(request):
+    """Add a question from the question bank to a quiz's selected_questions."""
+    try:
+        data = json.loads(request.body)
+        game_key = data.get('game_key')
+        room_code = data.get('room_code')
+        question_id = data.get('question_id')
+
+        if not game_key or not room_code or not question_id:
+            return JsonResponse({'success': False, 'error': 'Missing parameters'}, status=400)
+
+        config = {
+            'quiz':           (Quiz,             QuizQuestion),
+            'sorting_ladder': (SortingLadderGame, SortingQuestion),
+            'assign':         (AssignQuiz,        AssignQuestion),
+            'estimation':     (EstimationQuiz,    EstimationQuestion),
+            'where':          (WhereQuiz,         WhereQuestion),
+            'who':            (WhoQuiz,           WhoQuestion),
+            'who_that':       (WhoThatQuiz,       WhoThatQuestion),
+            'blackjack':      (BlackJackQuiz,     BlackJackQuestion),
+            'clue_rush':      (ClueRushGame,      ClueQuestion),
+        }
+        if game_key not in config:
+            return JsonResponse({'success': False, 'error': 'Unknown game type'}, status=400)
+
+        quiz_model, question_model = config[game_key]
+        quiz = get_object_or_404(quiz_model, room_code=room_code)
+        question = get_object_or_404(question_model, id=question_id)
+        quiz.selected_questions.add(question)
+
+        return JsonResponse({'success': True, 'question_id': question.id})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

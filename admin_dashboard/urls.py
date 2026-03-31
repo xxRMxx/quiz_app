@@ -10,9 +10,14 @@ urlpatterns = [
 
     # Dashboard home
     path('', views.admin_home, name='home'),
+    path('sessions/', views.sessions_overview, name='sessions_overview'),
+    path('games/', views.manage_games, name='manage_games'),
+    path('games/new/', views.create_game, name='create_game'),
+    path('games/edit/<str:game_type>/<int:game_id>/', views.edit_game, name='edit_game'),
     path('sessions/clear/', views.clear_all_sessions, name='clear_sessions'),
     path('sessions/end/', views.end_session, name='end_session'),
     path('sessions/delete/', views.delete_session, name='delete_session'),
+    path('sessions/duplicate/', views.duplicate_session, name='duplicate_session'),
     path('sync/supabase/', views.sync_supabase, name='sync_supabase'),
     path('restore/supabase/', views.restore_supabase, name='restore_supabase'),
     path('quiz/questions/', views.get_quiz_questions, name='get_quiz_questions'),
@@ -267,6 +272,9 @@ urlpatterns = [
     # Clue Rush API endpoints
     path('api/clue-rush/<str:room_code>/participants/', views.api_clue_rush_participants, name='api_clue_rush_participants'),
     path('api/clue-rush/<str:room_code>/stats/', views.api_clue_rush_stats, name='api_clue_rush_stats'),
+
+    # Question Bank
+    path('api/add-question-from-bank/', views.add_question_to_quiz_from_bank, name='add_question_from_bank'),
 
     # Manual Score Adjustment
     path('api/score/quiz/', views.set_quiz_participant_score, name='set_quiz_participant_score'),
