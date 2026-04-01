@@ -7,91 +7,11 @@
 
 {% block content %}
 <div class="assign-management-content">
-    <!-- Question Form Card -->
-    <div class="card mb-4" id="questionFormCard">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0" id="questionFormTitle">
-                <i data-lucide="move-3d"></i>
-                Add New Question
-            </h5>
-            <button class="btn btn-sm btn-outline-secondary" id="resetFormBtn" type="button">
-                <i data-lucide="rotate-ccw"></i> Reset
-            </button>
-        </div>
-        <div class="card-body">
-            <form id="addQuestionForm">
-                <input type="hidden" id="questionId" name="question_id" />
-                <div class="row">
-                    <div class="col-lg-6">
-                        <div class="mb-3">
-                            <label for="questionText" class="form-label">Question Text *</label>
-                            <textarea class="form-control" id="questionText" name="question_text" rows="3"
-                                      placeholder="e.g., Match countries with their capitals" required></textarea>
-                        </div>
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="mb-3">
-                                    <label for="points" class="form-label">Points per Match</label>
-                                    <input type="number" class="form-control" id="points" name="points"
-                                           value="10" min="1" max="100" required>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="mb-3">
-                                    <label for="timeLimit" class="form-label">Time (sec)</label>
-                                    <input type="number" class="form-control" id="timeLimit" name="time_limit"
-                                           value="60" min="30" max="300" required>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="explanation" class="form-label">Explanation (Optional)</label>
-                            <textarea class="form-control" id="explanation" name="explanation" rows="3"
-                                      placeholder="Optional explanation shown after answering"></textarea>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="mb-3">
-                            <label class="form-label">Matches</label>
-                            <div class="items-builder">
-                                <div class="match-pairs-header">
-                                    <span class="match-pairs-label">Left Item (drag from)</span>
-                                    <span class="match-pairs-label">Right Item (drop to)</span>
-                                </div>
-                                <div class="match-pairs-list" id="matchPairsList">
-                                    <div class="match-pair-row">
-                                        <input type="text" class="form-control left-item" placeholder="Item 1">
-                                        <div class="match-pair-arrow"><i data-lucide="arrow-right"></i></div>
-                                        <input type="text" class="form-control right-item" placeholder="Match 1">
-                                        <button type="button" class="btn btn-outline btn-sm remove-pair">
-                                            <i data-lucide="x"></i>
-                                        </button>
-                                    </div>
-                                    <div class="match-pair-row">
-                                        <input type="text" class="form-control left-item" placeholder="Item 2">
-                                        <div class="match-pair-arrow"><i data-lucide="arrow-right"></i></div>
-                                        <input type="text" class="form-control right-item" placeholder="Match 2">
-                                        <button type="button" class="btn btn-outline btn-sm remove-pair">
-                                            <i data-lucide="x"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <button type="button" class="btn btn-outline btn-sm w-100 mt-2" id="addMatch">
-                                    <i data-lucide="plus"></i>
-                                    Add Match
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="d-flex justify-content-end">
-                    <button type="submit" class="btn btn-primary" id="submitQuestionBtn">
-                        <i data-lucide="plus"></i>
-                        Add Question
-                    </button>
-                </div>
-            </form>
-        </div>
+    <!-- New Question Button -->
+    <div class="d-flex justify-content-end mb-3">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editQuestionModal" id="newQuestionBtn">
+            <i data-lucide="plus" style="width:16px;height:16px;" class="me-1"></i> New Question
+        </button>
     </div>
 
     <!-- Questions Bank Card -->
@@ -306,14 +226,7 @@
     background: var(--bg-secondary);
 }
 
-.match-pairs-header {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr auto;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.match-pairs-label {
+.items-column-label {
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -321,33 +234,31 @@
     color: var(--text-muted);
 }
 
-.match-pairs-list {
+.items-list {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
 }
 
-.match-pair-row {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr auto;
+.item-input-group {
+    display: flex;
     gap: 0.5rem;
     align-items: center;
 }
 
-.match-pair-arrow {
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
+.item-input-group .form-control {
+    flex: 1;
 }
 
-.remove-pair {
+.remove-item {
     padding: 0.375rem 0.5rem;
     font-size: 0.875rem;
     color: var(--color-error);
     border-color: var(--error-200);
+    flex-shrink: 0;
 }
 
-.remove-pair:hover {
+.remove-item:hover {
     background: var(--error-50);
     border-color: var(--color-error);
     color: var(--color-error);
@@ -491,64 +402,84 @@
         const selectAllQuestions = document.getElementById('selectAllQuestions');
 
         // Items builder state
-        let pairCounter = 2;
+        let leftCounter = 2;
+        let rightCounter = 2;
 
         // Load questions on page load
         loadBankQuestions(1);
 
-        // Reset form button
-        document.getElementById('resetFormBtn').addEventListener('click', resetForm);
+        // Auto-open edit modal if ?edit=ID in URL
+        const autoEditId = new URLSearchParams(window.location.search).get('edit');
+        if (autoEditId) openEditById(autoEditId);
 
-        // Add Match button
-        document.getElementById('addMatch').addEventListener('click', function() {
-            pairCounter++;
-            const list = document.getElementById('matchPairsList');
-            const row = document.createElement('div');
-            row.className = 'match-pair-row';
-            row.innerHTML = `
-                <input type="text" class="form-control left-item" placeholder="Item ${pairCounter}">
-                <div class="match-pair-arrow"><i data-lucide="arrow-right"></i></div>
-                <input type="text" class="form-control right-item" placeholder="Match ${pairCounter}">
-                <button type="button" class="btn btn-outline btn-sm remove-pair">
-                    <i data-lucide="x"></i>
-                </button>
-            `;
-            list.appendChild(row);
-            lucide.createIcons();
-            bindRemoveHandlers();
+        // Reset form when modal closes
+        document.getElementById('editQuestionModal').addEventListener('hidden.bs.modal', () => resetForm());
+
+        // Add Left Item button
+        document.getElementById('addLeftItem').addEventListener('click', function() {
+            leftCounter++;
+            addItemToList('leftItemsList', 'left-item', `Item ${leftCounter}`);
         });
 
+        // Add Right Item button
+        document.getElementById('addRightItem').addEventListener('click', function() {
+            rightCounter++;
+            addItemToList('rightItemsList', 'right-item', `Match ${rightCounter}`);
+        });
+
+        function addItemToList(listId, itemClass, placeholder) {
+            const list = document.getElementById(listId);
+            const group = document.createElement('div');
+            group.className = 'item-input-group';
+            group.innerHTML = `
+                <input type="text" class="form-control ${itemClass}" placeholder="${placeholder}">
+                <button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>
+            `;
+            list.appendChild(group);
+            lucide.createIcons();
+            bindRemoveHandlers();
+        }
+
         function bindRemoveHandlers() {
-            document.querySelectorAll('.remove-pair').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const pairs = document.querySelectorAll('.match-pair-row');
-                    if (pairs.length > 1) {
-                        this.closest('.match-pair-row').remove();
-                    } else {
-                        alert('You must have at least one match.');
-                    }
-                });
+            document.querySelectorAll('#leftItemsList .remove-item').forEach(btn => {
+                btn.onclick = function() {
+                    const items = document.querySelectorAll('#leftItemsList .item-input-group');
+                    if (items.length > 1) this.closest('.item-input-group').remove();
+                    else alert('At least one left item is required.');
+                };
+            });
+            document.querySelectorAll('#rightItemsList .remove-item').forEach(btn => {
+                btn.onclick = function() {
+                    const items = document.querySelectorAll('#rightItemsList .item-input-group');
+                    if (items.length > 1) this.closest('.item-input-group').remove();
+                    else alert('At least one right item is required.');
+                };
             });
         }
 
         function renderAssignItems(leftItemsArr, rightItemsArr) {
-            const list = document.getElementById('matchPairsList');
-            list.innerHTML = '';
-            const maxLen = Math.max(leftItemsArr.length, rightItemsArr.length, 2);
-            for (let i = 0; i < maxLen; i++) {
-                const leftVal = (leftItemsArr[i] ?? '').toString().replace(/"/g, '&quot;');
-                const rightVal = (rightItemsArr[i] ?? '').toString().replace(/"/g, '&quot;');
-                const row = document.createElement('div');
-                row.className = 'match-pair-row';
-                row.innerHTML = `
-                    <input type="text" class="form-control left-item" placeholder="Item ${i + 1}" value="${leftVal}">
-                    <div class="match-pair-arrow"><i data-lucide="arrow-right"></i></div>
-                    <input type="text" class="form-control right-item" placeholder="Match ${i + 1}" value="${rightVal}">
-                    <button type="button" class="btn btn-outline btn-sm remove-pair"><i data-lucide="x"></i></button>
-                `;
-                list.appendChild(row);
+            const leftList = document.getElementById('leftItemsList');
+            const rightList = document.getElementById('rightItemsList');
+            leftList.innerHTML = '';
+            rightList.innerHTML = '';
+            const maxLeft = Math.max(leftItemsArr.length, 2);
+            const maxRight = Math.max(rightItemsArr.length, 2);
+            for (let i = 0; i < maxLeft; i++) {
+                const val = (leftItemsArr[i] ?? '').toString().replace(/"/g, '&quot;');
+                const group = document.createElement('div');
+                group.className = 'item-input-group';
+                group.innerHTML = `<input type="text" class="form-control left-item" placeholder="Item ${i + 1}" value="${val}"><button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>`;
+                leftList.appendChild(group);
             }
-            pairCounter = maxLen;
+            for (let i = 0; i < maxRight; i++) {
+                const val = (rightItemsArr[i] ?? '').toString().replace(/"/g, '&quot;');
+                const group = document.createElement('div');
+                group.className = 'item-input-group';
+                group.innerHTML = `<input type="text" class="form-control right-item" placeholder="Match ${i + 1}" value="${val}"><button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>`;
+                rightList.appendChild(group);
+            }
+            leftCounter = maxLeft;
+            rightCounter = maxRight;
             lucide.createIcons();
             bindRemoveHandlers();
         }
@@ -565,12 +496,11 @@
             const questionText = document.getElementById('questionText').value.trim();
             const points = parseInt(document.getElementById('points').value);
             const timeLimit = parseInt(document.getElementById('timeLimit').value);
-            const explanation = document.getElementById('explanation').value.trim();
-            const pairs = Array.from(document.querySelectorAll('.match-pair-row'));
-            const leftItems = pairs.map(row => row.querySelector('.left-item').value.trim()).filter(v => v);
-            const rightItems = pairs.map(row => row.querySelector('.right-item').value.trim()).filter(v => v);
+            const leftItems = Array.from(document.querySelectorAll('#leftItemsList .left-item')).map(i => i.value.trim()).filter(v => v);
+            const rightItems = Array.from(document.querySelectorAll('#rightItemsList .right-item')).map(i => i.value.trim()).filter(v => v);
             const correctMatches = {};
-            pairs.forEach((_, i) => { correctMatches[i] = i; });
+            const matchCount = Math.min(leftItems.length, rightItems.length);
+            for (let i = 0; i < matchCount; i++) { correctMatches[i] = i; }
 
             if (!questionText || leftItems.length === 0) {
                 alert('Please fill in the question text and add at least one left item.');
@@ -578,7 +508,7 @@
                 return;
             }
 
-            const requestData = { question_text: questionText, points, time_limit: timeLimit, left_items: leftItems, right_items: rightItems, correct_matches: correctMatches, explanation };
+            const requestData = { question_text: questionText, points, time_limit: timeLimit, left_items: leftItems, right_items: rightItems, correct_matches: correctMatches };
             if (isEdit) requestData.question_id = document.getElementById('questionId').value;
 
             const url = isEdit
@@ -594,7 +524,7 @@
             .then(data => {
                 if (data.success) {
                     showNotification(isEdit ? 'Question updated successfully!' : 'Question added successfully!', 'success');
-                    resetForm();
+                    bootstrap.Modal.getInstance(document.getElementById('editQuestionModal'))?.hide();
                     loadBankQuestions(1);
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
@@ -617,16 +547,21 @@
                 document.getElementById('questionCountBadge').textContent = data.count;
                 data.questions.forEach(q => {
                     const row = document.createElement('tr');
+                    row.style.cursor = 'pointer';
                     row.innerHTML = `
                         <td>${q.question_text}</td>
                         <td>${q.points}</td>
                         <td>${q.time_limit}</td>
                         <td>${q.created_at}</td>
-                        <td>
+                        <td onclick="event.stopPropagation()">
                             <button class="btn btn-sm btn-outline-primary edit-question-btn" data-question-id="${q.id}"><i data-lucide="pencil"></i> Edit</button>
                             <button class="btn btn-sm btn-danger delete-q-btn" data-question-id="${q.id}"><i data-lucide="trash-2"></i> Delete</button>
                         </td>
                     `;
+                    row.addEventListener('click', function(e) {
+                        if (e.target.closest('button') || e.target.closest('a')) return;
+                        row.querySelector('.edit-question-btn').click();
+                    });
                     questionsTableBody.appendChild(row);
                 });
                 pagination.innerHTML = '';
@@ -645,34 +580,30 @@
             if (e.target.classList.contains('page-link')) loadBankQuestions(parseInt(e.target.dataset.page));
         });
 
+        function openEditById(qid) {
+            fetch(`{% url 'admin_dashboard:get_assign_question_detail' 0 %}`.replace('/0/', `/${qid}/`), {
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            })
+            .then(r => r.json())
+            .then(({ success, question, error }) => {
+                if (!success) throw new Error(error || 'Failed to load question.');
+                document.getElementById('questionId').value = question.id;
+                document.getElementById('questionText').value = question.question_text;
+                document.getElementById('points').value = question.points;
+                document.getElementById('timeLimit').value = question.time_limit;
+                document.getElementById('explanation').value = question.explanation || '';
+                renderAssignItems(question.left_items || [], question.right_items || []);
+                setFormMode('edit');
+                new bootstrap.Modal(document.getElementById('editQuestionModal')).show();
+            })
+            .catch(err => showNotification(err.message, 'danger'));
+        }
+
         // Edit / Delete question buttons
         questionsTableBody.addEventListener('click', function(e) {
             const editBtn = e.target.closest('.edit-question-btn');
             if (editBtn) {
-                const qid = editBtn.getAttribute('data-question-id');
-                fetch(`{% url 'admin_dashboard:get_assign_question_detail' 0 %}`.replace('/0/', `/${qid}/`), {
-                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
-                })
-                .then(r => r.json())
-                .then(({ success, question, error }) => {
-                    if (!success) throw new Error(error || 'Failed to load question.');
-                    document.getElementById('questionId').value = question.id;
-                    document.getElementById('questionText').value = question.question_text;
-                    document.getElementById('points').value = question.points;
-                    document.getElementById('timeLimit').value = question.time_limit;
-                    document.getElementById('explanation').value = question.explanation || '';
-                    renderAssignItems(question.left_items || [], question.right_items || []);
-                    generateMatches();
-                    if (question.correct_matches) {
-                        document.querySelectorAll('.match-to').forEach(select => {
-                            const leftIndex = select.dataset.leftIndex;
-                            if (question.correct_matches[leftIndex] !== undefined) select.value = String(question.correct_matches[leftIndex]);
-                        });
-                    }
-                    setFormMode('edit');
-                    document.getElementById('questionFormCard').scrollIntoView({ behavior: 'smooth' });
-                })
-                .catch(err => showNotification(err.message, 'danger'));
+                openEditById(editBtn.getAttribute('data-question-id'));
                 return;
             }
 
@@ -722,30 +653,7 @@
 
         function resetForm() {
             setFormMode('add');
-            document.getElementById('leftItemsList').innerHTML = `
-                <div class="item-input-group">
-                    <input type="text" class="form-control left-item" placeholder="Item 1">
-                    <button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>
-                </div>
-                <div class="item-input-group">
-                    <input type="text" class="form-control left-item" placeholder="Item 2">
-                    <button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>
-                </div>
-            `;
-            document.getElementById('rightItemsList').innerHTML = `
-                <div class="item-input-group">
-                    <input type="text" class="form-control right-item" placeholder="Match 1">
-                    <button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>
-                </div>
-                <div class="item-input-group">
-                    <input type="text" class="form-control right-item" placeholder="Match 2">
-                    <button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>
-                </div>
-            `;
-            itemCounter = 2;
-            bindRemoveHandlers();
-            generateMatches();
-            lucide.createIcons();
+            renderAssignItems([], []);
         }
 
         // Delete quiz handler
@@ -987,5 +895,96 @@
         });
     });
 </script>
+
+<!-- Edit / Add Question Modal -->
+<div class="modal fade" id="editQuestionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="questionFormTitle">
+                    <i data-lucide="move-3d"></i> Add New Question
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addQuestionForm" novalidate>
+                    <input type="hidden" id="questionId" name="question_id" />
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="mb-3">
+                                <label for="questionText" class="form-label">Question Text *</label>
+                                <textarea class="form-control" id="questionText" name="question_text" rows="3"
+                                          placeholder="e.g., Match countries with their capitals" required></textarea>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="points" class="form-label">Points per Match</label>
+                                        <input type="number" class="form-control" id="points" name="points"
+                                               value="10" min="1" max="100" required>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="timeLimit" class="form-label">Time (sec)</label>
+                                        <input type="number" class="form-control" id="timeLimit" name="time_limit"
+                                               value="60" min="30" max="300" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="mb-3">
+                                <label class="form-label">Items</label>
+                                <div class="items-builder">
+                                    <div class="row g-3">
+                                        <div class="col-6">
+                                            <div class="items-column-label mb-2">Left Items <span class="text-muted fw-normal">(drag from)</span></div>
+                                            <div id="leftItemsList" class="items-list">
+                                                <div class="item-input-group">
+                                                    <input type="text" class="form-control left-item" placeholder="Item 1">
+                                                    <button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>
+                                                </div>
+                                                <div class="item-input-group">
+                                                    <input type="text" class="form-control left-item" placeholder="Item 2">
+                                                    <button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-outline btn-sm w-100 mt-2" id="addLeftItem">
+                                                <i data-lucide="plus"></i> Add Left Item
+                                            </button>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="items-column-label mb-2">Right Items <span class="text-muted fw-normal">(drop to)</span></div>
+                                            <div id="rightItemsList" class="items-list">
+                                                <div class="item-input-group">
+                                                    <input type="text" class="form-control right-item" placeholder="Match 1">
+                                                    <button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>
+                                                </div>
+                                                <div class="item-input-group">
+                                                    <input type="text" class="form-control right-item" placeholder="Match 2">
+                                                    <button type="button" class="btn btn-outline btn-sm remove-item"><i data-lucide="x"></i></button>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-outline btn-sm w-100 mt-2" id="addRightItem">
+                                                <i data-lucide="plus"></i> Add Right Item
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="resetFormBtn" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="addQuestionForm" class="btn btn-primary" id="submitQuestionBtn" data-mode="add">
+                    <i data-lucide="plus"></i> Add Question
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

@@ -1,8 +1,8 @@
 {% extends "admin_dashboard/base.html" %}
 
-{% block title %}Quick Quiz Monitor: {{ quiz.room_code }} - QuizMaster Admin{% endblock %}
+{% block title %}Quick Quiz Monitor - QuizMaster Admin{% endblock %}
 
-{% block page_title %}Quick Quiz Monitor: {{ quiz.room_code }}{% endblock %}
+{% block page_title %}Quick Quiz Monitor{% endblock %}
 {% block page_subtitle %}Real-time monitoring and control for your live quick quiz session{% endblock %}
 
 {% block content %}
@@ -14,10 +14,6 @@
                 <div class="quiz-info">
                     <h2 class="quiz-title">{{ quiz.title }}</h2>
                     <div class="quiz-meta">
-                        <span class="meta-item">
-                            <i data-lucide="hash"></i>
-                            Room Code: <strong>{{ quiz.room_code }}</strong>
-                        </span>
                         <span class="meta-item">
                             <i data-lucide="users"></i>
                             <span id="participantCount">{{ participant_count }}</span> Participants
@@ -74,11 +70,15 @@
         <!-- Question Control Panel -->
         <div class="col-lg-8">
             <div class="card question-panel">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
                         <i data-lucide="map-pin"></i>
                         Question Control
                     </h5>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#questionBankModal">
+                        <i data-lucide="database" style="width:14px;height:14px;"></i>
+                        Question Bank
+                    </button>
                 </div>
                 <div class="card-body">
                     {% if not quiz.current_question %}
@@ -90,6 +90,23 @@
                                 <div class="question-item" data-question-id="{{ question.id }}">
                                     <div class="question-content">
                                         <div class="question-text">{{ question.question_text|truncatechars:120 }}</div>
+                                        {% if question.question_type == 'multiple_choice' %}
+                                        <div class="question-answers mt-1">
+                                            {% if question.option_a %}<span class="answer-option {% if question.correct_answer == 'A' %}answer-correct{% endif %}"><strong>A</strong> {{ question.option_a }}</span>{% endif %}
+                                            {% if question.option_b %}<span class="answer-option {% if question.correct_answer == 'B' %}answer-correct{% endif %}"><strong>B</strong> {{ question.option_b }}</span>{% endif %}
+                                            {% if question.option_c %}<span class="answer-option {% if question.correct_answer == 'C' %}answer-correct{% endif %}"><strong>C</strong> {{ question.option_c }}</span>{% endif %}
+                                            {% if question.option_d %}<span class="answer-option {% if question.correct_answer == 'D' %}answer-correct{% endif %}"><strong>D</strong> {{ question.option_d }}</span>{% endif %}
+                                        </div>
+                                        {% elif question.question_type == 'true_false' %}
+                                        <div class="question-answers mt-1">
+                                            <span class="answer-option {% if question.correct_answer == 'True' %}answer-correct{% endif %}"><strong>True</strong></span>
+                                            <span class="answer-option {% if question.correct_answer == 'False' %}answer-correct{% endif %}"><strong>False</strong></span>
+                                        </div>
+                                        {% else %}
+                                        <div class="question-answers mt-1">
+                                            <span class="answer-option answer-correct"><strong>Antwort:</strong> {{ question.correct_answer }}</span>
+                                        </div>
+                                        {% endif %}
                                         <div class="question-details">
                                             <div class="detail-grid">
                                                 <div class="detail-item">
@@ -369,7 +386,30 @@
 .question-text {
     font-weight: 500;
     color: var(--text-primary);
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.question-answers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.answer-option {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.answer-correct {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+    color: #065f46;
+    font-weight: 600;
 }
 
 .question-details {
@@ -1546,5 +1586,9 @@ document.querySelectorAll('.copy-lobby-btn-monitor').forEach(btn => {
     });
 });
 </script>
+
+{% with qb_game_key="quiz" qb_room_code=quiz.room_code qb_quiz=quiz %}
+  {% include "admin_dashboard/includes/question_bank_modal.html" %}
+{% endwith %}
 
 {% endblock %}

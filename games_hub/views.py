@@ -29,113 +29,93 @@ def gen_code(length=6):
 def create_session(request):
     if request.method == 'POST':
         name = request.POST.get('name') or ''
-        games_weight = request.POST.get('games_weight') or 2.0
-        # Get the ordered list of games from the hidden input
-        games_order_json = request.POST.get('games_order', '[]')
-        
+        code = request.POST.get('code') or gen_code()
+
+        if HubSession.objects.filter(code=code).exists():
+            return render(request, 'hub/create_session.html', {
+                'error': 'A session with this code already exists. Please choose a different code.',
+                **_get_game_instances(),
+            })
+
+        # games_order: JSON array of {"game_key": "...", "room_code": "..."} objects
         try:
-            # Parse the JSON array of game keys in the order they were selected
-            games_ordered = json.loads(games_order_json)
+            games_ordered = json.loads(request.POST.get('games_order', '[]'))
             if not isinstance(games_ordered, list):
                 games_ordered = []
         except json.JSONDecodeError:
             games_ordered = []
-            
-        # Fallback to the original games list if no order is provided
-        if not games_ordered:
-            games_ordered = request.POST.getlist('games')
 
-        code = request.POST.get('code') or gen_code()
-        
-        if HubSession.objects.filter(code=code).exists():
-            return render(request, 'hub/create_session.html', {
-                'error': 'A session with this code already exists. Please choose a different code.',
-                **_get_session_questions(),
-            })
-            
-        # Reset all existing quizzes to 'waiting' so they can be reused for this new session
-        try:
-            QuizGameModel.objects.update(status='waiting')
-            AssignQuiz.objects.update(status='waiting')
-            ClueRushGame.objects.update(status='waiting')
-            EstimationQuiz.objects.update(status='waiting')
-            WhereQuiz.objects.update(status='waiting')
-            WhoQuiz.objects.update(status='waiting')
-            WhoThatQuiz.objects.update(status='waiting')
-            BlackJackQuiz.objects.update(status='waiting')
-            SortingLadderGame.objects.update(status='waiting')
-        except Exception:
-            pass
+        session = HubSession.objects.create(code=code, name=name)
 
-        # Create the session
-        session = HubSession.objects.create(code=code, name=name, games_weight=games_weight)
-        
-        # Create game steps in the selected order
-        for order, game_key in enumerate(games_ordered):
-            if not game_key:
+        GAME_MODEL_MAP = {
+            'quiz':           QuizGameModel,
+            'estimation':     EstimationQuiz,
+            'assign':         AssignQuiz,
+            'where':          WhereQuiz,
+            'who':            WhoQuiz,
+            'who_that':       WhoThatQuiz,
+            'blackjack':      BlackJackQuiz,
+            'clue_rush':      ClueRushGame,
+            'sorting_ladder': SortingLadderGame,
+        }
+
+        for order, entry in enumerate(games_ordered):
+            game_key = entry.get('game_key', '')
+            room_code = entry.get('room_code', '')
+            title = entry.get('title', game_key.replace('_', ' ').title())
+            if not game_key or not room_code:
                 continue
-                
-            # Create the game step
-            step = HubGameStep.objects.create(
+            # Reset the game instance to waiting so it can be played fresh
+            model = GAME_MODEL_MAP.get(game_key)
+            if model:
+                try:
+                    model.objects.filter(room_code=room_code).update(status='waiting')
+                except Exception:
+                    pass
+            HubGameStep.objects.create(
                 session=session,
                 order=order,
-                game_key=game_key
+                game_key=game_key,
+                room_code=room_code,
+                title=title,
             )
-            
-            # Auto-create the per-game quiz and attach room_code
-            quiz_title = f"{name} - {game_key.replace('_', ' ').title()}"
-            room_code = auto_create_game_quiz(game_key, request.user, quiz_title)
-            
-            if room_code:
-                step.room_code = room_code
-                step.title = quiz_title
-                step.save()
-                
-        # Associate selected questions with each quiz instance
-        GAME_QUESTION_MAP = {
-            'quiz':           (QuizGameModel,     QuizQuestion,       'quiz_question_ids'),
-            'sorting_ladder': (SortingLadderGame, SortingQuestion,    'sorting_question_ids'),
-            'assign':         (AssignQuiz,         AssignQuestion,     'assign_question_ids'),
-            'estimation':     (EstimationQuiz,     EstimationQuestion, 'estimation_question_ids'),
-            'where':          (WhereQuiz,          WhereQuestion,      'where_question_ids'),
-            'who':            (WhoQuiz,            WhoQuestion,        'who_question_ids'),
-            'who_that':       (WhoThatQuiz,        WhoThatQuestion,    'who_that_question_ids'),
-            'blackjack':      (BlackJackQuiz,      BlackJackQuestion,  'blackjack_question_ids'),
-        }
-        for order, game_key in enumerate(games_ordered):
-            if not game_key or game_key not in GAME_QUESTION_MAP:
-                continue
-            try:
-                step = HubGameStep.objects.get(session=session, order=order)
-                if not step.room_code:
-                    continue
-                game_model, question_model, post_key = GAME_QUESTION_MAP[game_key]
-                question_ids = request.POST.getlist(post_key)
-                if question_ids:
-                    game_obj = game_model.objects.get(room_code=step.room_code)
-                    game_obj.selected_questions.set(
-                        question_model.objects.filter(id__in=question_ids)
-                    )
-            except Exception:
-                pass
 
         return redirect('games_hub:monitor', session_code=code)
 
-    # GET request - show the form with available questions
-    return render(request, 'hub/create_session.html', _get_session_questions())
+    return render(request, 'hub/create_session.html', _get_game_instances())
 
 
-def _get_session_questions():
-    return {
-        'quiz_questions':       QuizQuestion.objects.filter(is_active=True).order_by('-created_at'),
-        'sorting_questions':    SortingQuestion.objects.filter(is_active=True).order_by('question_text'),
-        'assign_questions':     AssignQuestion.objects.filter(is_active=True).order_by('-created_at'),
-        'estimation_questions': EstimationQuestion.objects.filter(is_active=True).order_by('-created_at'),
-        'where_questions':      WhereQuestion.objects.filter(is_active=True).order_by('-created_at'),
-        'who_questions':        WhoQuestion.objects.filter(is_active=True).order_by('-created_at'),
-        'who_that_questions':   WhoThatQuestion.objects.filter(is_active=True).order_by('-created_at'),
-        'blackjack_questions':  BlackJackQuestion.objects.filter(is_active=True).order_by('-created_at'),
-    }
+def _get_game_instances():
+    """Return all game instances grouped by type for the session creation wizard."""
+    GAME_TYPES = [
+        ('quiz',           QuizGameModel,      'Quick Quiz',      'help-circle'),
+        ('estimation',     EstimationQuiz,     'Estimation',      'bar-chart-2'),
+        ('assign',         AssignQuiz,         'Assign',          'list-checks'),
+        ('where',          WhereQuiz,          'Where Is This?',  'map-pin'),
+        ('who',            WhoQuiz,            'Who Is Lying?',   'user-x'),
+        ('who_that',       WhoThatQuiz,        'Who Is That?',    'users'),
+        ('blackjack',      BlackJackQuiz,      'Black Jack',      'spade'),
+        ('clue_rush',      ClueRushGame,       'Clue Rush',       'zap'),
+        ('sorting_ladder', SortingLadderGame,  'Sorting Ladder',  'list-ordered'),
+    ]
+    games = []
+    for game_key, model, label, icon in GAME_TYPES:
+        qs = model.objects.all().order_by('-created_at') if hasattr(model, 'created_at') else model.objects.all()
+        for obj in qs:
+            try:
+                q_count = obj.selected_questions.count()
+            except Exception:
+                q_count = 0
+            games.append({
+                'game_key': game_key,
+                'label': label,
+                'icon': icon,
+                'title': getattr(obj, 'title', getattr(obj, 'name', str(obj))),
+                'room_code': obj.room_code,
+                'question_count': q_count,
+                'status': getattr(obj, 'status', ''),
+            })
+    return {'all_game_instances': games}
 
 
 def get_game_participant_data(session, game_model, participant_model, room_code, game_key):
@@ -335,7 +315,27 @@ def session_leaderboard(request, session_code: str):
 
 def monitor(request, session_code: str):
     session = get_object_or_404(HubSession, code=session_code)
-    steps = session.steps.all()
+    steps = list(session.steps.all())
+
+    # Annotate each step with the current status of its game instance
+    _game_model_map = {
+        'quiz':           QuizGameModel,
+        'sorting_ladder': SortingLadderGame,
+        'clue_rush':      ClueRushGame,
+        'assign':         AssignQuiz,
+        'estimation':     EstimationQuiz,
+        'where':          WhereQuiz,
+        'who':            WhoQuiz,
+        'who_that':       WhoThatQuiz,
+        'blackjack':      BlackJackQuiz,
+    }
+    for step in steps:
+        model = _game_model_map.get(step.game_key)
+        if model and step.room_code:
+            game = model.objects.filter(room_code=step.room_code).first()
+            step.game_status = getattr(game, 'status', None) if game else None
+        else:
+            step.game_status = None
 
     # Gather waiting games grouped by type for the current user
     user = request.user
@@ -384,7 +384,8 @@ def add_step_to_session(request, session_code):
     if game_key not in valid_keys:
         return JsonResponse({'error': 'Invalid game type'}, status=400)
 
-    next_order = (session.steps.aggregate(Max('order'))['order__max'] or -1) + 1
+    max_order = session.steps.aggregate(Max('order'))['order__max']
+    next_order = 0 if max_order is None else max_order + 1
     quiz_title = title or f"{session.name or session.code} - {game_key.replace('_', ' ').title()} {next_order + 1}"
     room_code = auto_create_game_quiz(game_key, request.user, quiz_title)
     if not room_code:
@@ -404,6 +405,7 @@ def add_step_to_session(request, session_code):
     return JsonResponse({
         'success': True,
         'step': {
+            'id': step.id,
             'order': step.order,
             'game_key': step.game_key,
             'game_key_display': step.get_game_key_display(),
@@ -536,6 +538,21 @@ def reorder_steps(request, session_code):
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_POST
+def delete_step(request, session_code, step_id):
+    """Delete a game step from a session and renumber remaining steps."""
+    session = get_object_or_404(HubSession, code=session_code)
+    step = get_object_or_404(HubGameStep, id=step_id, session=session)
+    step.delete()
+    # Renumber remaining steps
+    for new_order, s in enumerate(session.steps.order_by('order')):
+        if s.order != new_order:
+            s.order = new_order
+            s.save(update_fields=['order'])
+    return JsonResponse({'success': True})
 
 
 @require_POST

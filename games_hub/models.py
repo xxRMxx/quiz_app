@@ -12,6 +12,7 @@ class HubSession(SyncBase):
     is_active = models.BooleanField(default=True)
     current_step_index = models.IntegerField(default=0)
     games_weight = models.FloatField(default=2.0)
+    scoreboard_visible = models.BooleanField(default=False)
 
     def __str__(self):
         return f"HubSession {self.code}"

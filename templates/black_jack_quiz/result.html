@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BlackJack Quiz Results - {{ quiz.room_code }} - QuizMaster</title>
+    <title>BlackJack Quiz Results - QuizMaster</title>
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -27,10 +27,6 @@
             <div class="container">
                 <div class="header-content">
                     <div class="quiz-info">
-                        <div class="room-code">
-                            <i data-lucide="hash"></i>
-                            {{ quiz.room_code }}
-                        </div>
                         <h1 class="quiz-title">{{ quiz.title }}</h1>
                         <div class="quiz-meta">
                             <span class="meta-item">
@@ -425,7 +421,6 @@
                         <p>&copy; 2025 QuizMaster. Thanks for playing BlackJack Quiz!</p>
                     </div>
                     <div class="col-md-6 text-md-end">
-                        <div class="quiz-id">Quiz ID: {{ quiz.room_code }}</div>
                     </div>
                 </div>
             </div>
@@ -1175,7 +1170,7 @@
             document.getElementById('shareResultsBtn')?.addEventListener('click', function() {
                 const status = `{% if participant.is_busted %}BUSTED with {{ participant.total_points }} points{% elif participant.total_points == 21 %}BLACKJACK! Perfect 21 points{% else %}{{ participant.total_points }} points ({{ participant.get_distance_from_21 }} from 21){% endif %}`;
                 
-                const shareText = `I just played BlackJack Quiz on QuizMaster! 🃏\n\nMy Results:\n• ${status}\n• Rank: #{{ participant_rank }}\n• Questions: {{ total_answers }}/5\n• Best Question: {{ best_question }} pts\n\nQuiz: {{ quiz.title }} (Room {{ quiz.room_code }})`;
+                const shareText = `I just played BlackJack Quiz on QuizMaster! 🃏\n\nMy Results:\n• ${status}\n• Rank: #{{ participant_rank }}\n• Questions: {{ total_answers }}/5\n• Best Question: {{ best_question }} pts\n\nQuiz: {{ quiz.title }}`;
                 
                 if (navigator.share) {
                     navigator.share({

@@ -332,6 +332,11 @@
           return;
         }
 
+        if (data.type === 'scoreboard_visibility') {
+          setScoreboardVisible(data.visible);
+          if (data.visible) fetchLeaderboard();
+        }
+
         if (data.type === 'state') {
           // Update known participants
           lobbyNicknames = [];
@@ -344,7 +349,11 @@
           refreshVotes();
           updateNicknameStatus();
           maybeHideJoin();
-          fetchLeaderboard();
+          // Sync scoreboard visibility from session state
+          if (typeof data.scoreboard_visible === 'boolean') {
+            setScoreboardVisible(data.scoreboard_visible);
+            if (data.scoreboard_visible) fetchLeaderboard();
+          }
         }
 
         if (data.type === 'join_success') {
@@ -627,8 +636,15 @@
       const leaderboardSection = document.getElementById('leaderboardSection');
       const leaderboardBody = document.getElementById('leaderboardBody');
       const rankLabels = ['gold', 'silver', 'bronze'];
+      let scoreboardVisible = false;
+
+      function setScoreboardVisible(visible) {
+        scoreboardVisible = visible;
+        leaderboardSection.style.display = visible ? '' : 'none';
+      }
 
       function fetchLeaderboard() {
+        if (!scoreboardVisible) return;
         fetch(`/hub/api/session/${code}/leaderboard/`)
           .then(r => r.json())
           .then(data => {
@@ -645,7 +661,6 @@
 
             if (players.length === 0) return;
 
-            leaderboardSection.style.display = '';
             leaderboardBody.innerHTML = '';
             const onlineSet = new Set(lobbyNicknames.map(n => n.toLowerCase()));
             players.forEach((p, i) => {
@@ -664,7 +679,6 @@
           .catch(() => {});
       }
 
-      fetchLeaderboard();
       setInterval(fetchLeaderboard, 10000);
     </script>
   {% include 'includes/accessibility_widget.html' %}
