@@ -16,7 +16,33 @@
             <a href="{% url 'admin_dashboard:create_game' %}" class="btn btn-primary">
                 <i data-lucide="plus" style="width:16px;height:16px;" class="me-1"></i>New Game
             </a>
+            <button class="btn btn-outline-danger" id="deleteSelectedBtn" disabled>
+                <i data-lucide="trash-2" style="width:16px;height:16px;" class="me-1"></i>
+                Löschen (<span id="deleteSelectedCount">0</span>)
+            </button>
         </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-3">
+        <div class="input-group" style="max-width:300px;">
+            <span class="input-group-text bg-white border-end-0">
+                <i data-lucide="search" style="width:15px;height:15px;color:#6c757d;"></i>
+            </span>
+            <input type="text" class="form-control border-start-0" id="gameSearchInput" placeholder="Spiel suchen…">
+        </div>
+        <select class="form-select" id="gameTypeFilter" style="max-width:200px;">
+            <option value="">Alle Typen</option>
+            <option value="quick quiz">Quick Quiz</option>
+            <option value="estimation">Estimation</option>
+            <option value="assign">Assign</option>
+            <option value="where is this">Where Is This?</option>
+            <option value="who is lying">Who Is Lying?</option>
+            <option value="who is that">Who Is That?</option>
+            <option value="black jack">Black Jack Quiz</option>
+            <option value="clue rush">Clue Rush</option>
+            <option value="sorting ladder">Sorting Ladder</option>
+        </select>
+        <span class="align-self-center text-muted small ms-1" id="gameFilterCount"></span>
     </div>
 
     <div class="card border-0 shadow-sm">
@@ -25,6 +51,7 @@
                 <table class="table table-hover mb-0">
                     <thead class="table-light sticky-top">
                         <tr>
+                            <th style="width:36px;"><input type="checkbox" id="selectAllGames" title="Alle auswählen"></th>
                             <th>Name</th>
                             <th>Type</th>
                             <th>Status</th>
@@ -36,6 +63,10 @@
                     <tbody>
                         {% for game in all_games %}
                         <tr style="cursor:pointer;" onclick="window.location='{% url 'admin_dashboard:edit_game' game.game_type game.id %}'">
+                            <td onclick="event.stopPropagation()">
+                                <input type="checkbox" class="game-select-cb"
+                                       data-game-id="{{ game.id }}" data-game-type="{{ game.game_type }}">
+                            </td>
                             <td><strong>{{ game.title }}</strong></td>
                             <td><span class="badge bg-light text-dark border">{{ game.game_type_display }}</span></td>
                             <td>
@@ -57,9 +88,15 @@
                                     <i data-lucide="pencil" style="width:14px;height:14px;"></i>
                                 </a>
                                 <a href="{% url game.monitor_url_name game.room_code %}"
-                                   class="btn btn-sm btn-outline-primary">
+                                   class="btn btn-sm btn-outline-primary me-1">
                                     <i data-lucide="monitor" style="width:14px;height:14px;"></i>
                                 </a>
+                                <button class="btn btn-sm btn-outline-danger delete-game-btn"
+                                        data-game-id="{{ game.id }}"
+                                        data-game-type="{{ game.game_type }}"
+                                        data-game-title="{{ game.title }}">
+                                    <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                                </button>
                             </td>
                         </tr>
                         {% empty %}
@@ -227,6 +264,35 @@ function loadQB(page) {
     });
 }
 
+// ── Game Instances Filter ──────────────────────────────────────────────────────
+
+(function () {
+    const searchInput = document.getElementById('gameSearchInput');
+    const typeFilter  = document.getElementById('gameTypeFilter');
+    const countEl     = document.getElementById('gameFilterCount');
+    const rows        = Array.from(document.querySelectorAll('tbody tr[onclick]'));
+    const total       = rows.length;
+
+    function applyFilter() {
+        const search = searchInput.value.toLowerCase().trim();
+        const type   = typeFilter.value.toLowerCase();
+        let visible  = 0;
+        rows.forEach(row => {
+            const name     = row.querySelector('td:nth-child(2)')?.textContent.toLowerCase() || '';
+            const rowType  = row.querySelector('td:nth-child(3)')?.textContent.toLowerCase() || '';
+            const matchSearch = !search || name.includes(search);
+            const matchType   = !type   || rowType.includes(type);
+            const show = matchSearch && matchType;
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        countEl.textContent = (search || type) ? `${visible} von ${total}` : '';
+    }
+
+    searchInput.addEventListener('input', applyFilter);
+    typeFilter.addEventListener('change', applyFilter);
+})();
+
 // ── QB Edit Modal ─────────────────────────────────────────────────────────────
 
 function getCookie(name) {
@@ -260,6 +326,84 @@ function openQBEdit(id) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Delete game instance
+    let _deleteGameId = null, _deleteGameType = null;
+    document.querySelectorAll('.delete-game-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            _deleteGameId = this.dataset.gameId;
+            _deleteGameType = this.dataset.gameType;
+            document.getElementById('deleteGameTitle').textContent = this.dataset.gameTitle;
+            new bootstrap.Modal(document.getElementById('deleteGameModal')).show();
+        });
+    });
+    document.getElementById('confirmDeleteGameBtn').addEventListener('click', function() {
+        if (!_deleteGameId) return;
+        this.disabled = true;
+        fetch('{% url "admin_dashboard:delete_game_instance" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ game_id: parseInt(_deleteGameId), game_type: _deleteGameType }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('deleteGameModal')).hide();
+                window.location.reload();
+            } else {
+                alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            }
+        })
+        .catch(err => alert('Fehler: ' + err.message))
+        .finally(() => this.disabled = false);
+    });
+
+    // Checkbox selection
+    function getSelectedGames() {
+        return Array.from(document.querySelectorAll('.game-select-cb:checked'))
+            .map(cb => ({ game_id: parseInt(cb.dataset.gameId), game_type: cb.dataset.gameType }));
+    }
+    function updateDeleteBtn() {
+        const count = getSelectedGames().length;
+        document.getElementById('deleteSelectedCount').textContent = count;
+        document.getElementById('deleteSelectedBtn').disabled = count === 0;
+        document.getElementById('selectAllGames').indeterminate =
+            count > 0 && count < document.querySelectorAll('.game-select-cb').length;
+    }
+    document.querySelectorAll('.game-select-cb').forEach(cb => cb.addEventListener('change', updateDeleteBtn));
+    document.getElementById('selectAllGames').addEventListener('change', function() {
+        document.querySelectorAll('.game-select-cb:not([style*="display: none"])').forEach(cb => {
+            const row = cb.closest('tr');
+            if (!row || row.style.display !== 'none') cb.checked = this.checked;
+        });
+        updateDeleteBtn();
+    });
+
+    // Delete selected
+    document.getElementById('deleteSelectedBtn').addEventListener('click', function() {
+        const selected = getSelectedGames();
+        if (!selected.length) return;
+        document.getElementById('deleteSelectedModalCount').textContent = selected.length;
+        new bootstrap.Modal(document.getElementById('deleteSelectedGamesModal')).show();
+    });
+    document.getElementById('confirmDeleteSelectedBtn').addEventListener('click', function() {
+        const selected = getSelectedGames();
+        this.disabled = true;
+        Promise.all(selected.map(({ game_id, game_type }) =>
+            fetch('{% url "admin_dashboard:delete_game_instance" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ game_id, game_type }),
+            }).then(r => r.json())
+        ))
+        .then(results => {
+            const failed = results.filter(r => !r.success);
+            bootstrap.Modal.getInstance(document.getElementById('deleteSelectedGamesModal')).hide();
+            if (failed.length) alert(`${failed.length} Spiel(e) konnten nicht gelöscht werden.`);
+            window.location.reload();
+        })
+        .catch(err => { alert('Fehler: ' + err.message); this.disabled = false; });
+    });
+
     document.getElementById('qbEditSaveBtn').addEventListener('click', function() {
         const cfg = QB_EDIT_CFG[qbType];
         if (!cfg || !qbCurrentEditId) return;
@@ -569,6 +713,46 @@ function qbAddClueRow(container, text = '', order = '', duration = 10) {
     container.appendChild(div);
 }
 </script>
+
+<!-- Delete Selected Games Modal -->
+<div class="modal fade" id="deleteSelectedGamesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ausgewählte Spiele löschen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Sollen wirklich <strong id="deleteSelectedModalCount"></strong> ausgewählte Spiel(e) gelöscht werden?</p>
+                <p class="text-muted small">Die Fragen in der Question Bank bleiben erhalten. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteSelectedBtn">Löschen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Game Modal -->
+<div class="modal fade" id="deleteGameModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Spiel löschen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Soll <strong id="deleteGameTitle"></strong> wirklich gelöscht werden?</p>
+                <p class="text-muted small">Die Fragen in der Question Bank bleiben erhalten.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteGameBtn">Löschen</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- QB Edit Modal -->
 <div class="modal fade" id="qbEditModal" tabindex="-1" aria-hidden="true">

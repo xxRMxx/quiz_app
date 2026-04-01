@@ -31,6 +31,10 @@
             <header class="navbar-top">
                 <div class="navbar-content">
                     <div class="navbar-left">
+                        <a href="{% url 'admin_dashboard:home' %}" class="navbar-brand-link">
+                            <i data-lucide="brain-circuit" class="navbar-brand-icon"></i>
+                            <span class="navbar-brand-text">QuizMaster</span>
+                        </a>
                         <div class="page-title">
                             <h1>{% block page_title %}Dashboard{% endblock %}</h1>
                             <p class="page-subtitle">{% block page_subtitle %}{% endblock %}</p>
@@ -101,6 +105,34 @@
             display: flex;
             align-items: center;
             gap: 1rem;
+        }
+
+        .navbar-brand-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 1.1rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+            padding-right: 1rem;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .navbar-brand-link:hover {
+            color: var(--color-primary, #0d6efd);
+        }
+
+        .navbar-brand-icon {
+            width: 22px;
+            height: 22px;
+            color: var(--color-primary, #0d6efd);
+        }
+
+        .navbar-brand-text {
+            letter-spacing: -0.3px;
         }
 
         .page-title h1 {

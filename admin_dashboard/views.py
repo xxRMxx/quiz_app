@@ -1378,6 +1378,63 @@ def create_game(request):
     return render(request, 'admin_dashboard/manage_games.html')
 
 
+@require_POST
+@admin_required
+def delete_game_instance(request):
+    """Generic delete for any game instance from the games overview."""
+    try:
+        data = json.loads(request.body)
+        game_type = data.get('game_type')
+        game_id = data.get('game_id')
+        if not game_type or not game_id:
+            return JsonResponse({'success': False, 'error': 'game_type and game_id are required'}, status=400)
+
+        MODEL_MAP = {
+            'quiz':           Quiz,
+            'estimation':     EstimationQuiz,
+            'assign':         AssignQuiz,
+            'where':          WhereQuiz,
+            'who':            WhoQuiz,
+            'who_that':       WhoThatQuiz,
+            'blackjack':      BlackJackQuiz,
+            'clue_rush':      ClueRushGame,
+            'sorting_ladder': SortingLadderGame,
+        }
+        model = MODEL_MAP.get(game_type)
+        if not model:
+            return JsonResponse({'success': False, 'error': f'Unknown game type: {game_type}'}, status=400)
+
+        obj = get_object_or_404(model, id=game_id)
+        creator_field = 'creator' if hasattr(obj, 'creator') else None
+        if creator_field and not request.user.is_superuser and getattr(obj, creator_field) != request.user:
+            return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+
+        obj.delete()
+        return JsonResponse({'success': True})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+
+@require_POST
+@admin_required
+def delete_all_game_instances(request):
+    """Delete all game instances of every type."""
+    MODEL_MAP = {
+        'quiz':           Quiz,
+        'estimation':     EstimationQuiz,
+        'assign':         AssignQuiz,
+        'where':          WhereQuiz,
+        'who':            WhoQuiz,
+        'who_that':       WhoThatQuiz,
+        'blackjack':      BlackJackQuiz,
+        'clue_rush':      ClueRushGame,
+        'sorting_ladder': SortingLadderGame,
+    }
+    for model in MODEL_MAP.values():
+        model.objects.all().delete()
+    return JsonResponse({'success': True})
+
+
 @admin_required
 def edit_game(request, game_type, game_id):
     """Edit an existing game instance."""

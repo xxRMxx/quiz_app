@@ -41,6 +41,7 @@ htmlcov/
 *.mo
 *.orig
 db.sqlite3 # WICHTIG: Deine lokale Datenbank, nicht in Git pushen!
+db.sqlite3.*  # Backups & Snapshots
 media/      # Wenn du ein media-Verzeichnis für Benutzer-Uploads hast
 static/     # Wenn du ein gesammeltes statisches Verzeichnis hast
 

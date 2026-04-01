@@ -12,12 +12,12 @@
     <!-- Top bar: lobby link + end session -->
     <div class="card mb-4">
         <div class="card-body py-3">
-            <div class="row align-items-center g-3">
-                <div class="col-12 col-md-7">
+            <div class="d-flex flex-column gap-3">
+                <div>
                     <label class="form-label fw-semibold mb-1">
                         <i data-lucide="link" class="me-1"></i> Participant Lobby Link
                     </label>
-                    <div class="input-group">
+                    <div class="input-group" style="max-width:600px;">
                         <input type="text" class="form-control font-monospace" id="lobbyLink"
                                value="{{ request.scheme }}://{{ ip }}:8000{% url 'games_hub:lobby' session_code=session.code %}"
                                readonly>
@@ -27,8 +27,8 @@
                     </div>
                     <small class="text-muted">Share this link — participants enter their name and join the session</small>
                 </div>
-                <div class="col-12 col-md-5 d-flex align-items-center justify-content-md-end gap-3">
-                    <div id="wsStatus" class="d-flex align-items-center gap-2 text-muted">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div id="wsStatus" class="d-flex align-items-center gap-2 text-muted me-2">
                         <span class="status-dot connecting"></span>
                         <span class="status-text">Connecting…</span>
                     </div>
