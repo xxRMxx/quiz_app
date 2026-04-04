@@ -627,9 +627,15 @@ class SortingLadderGameConsumer(AsyncWebsocketConsumer):
         if len(elements) < 2:
             return None
 
-        # Shuffle once for all participants
+        # Shuffle once for all participants; if a starting_item is defined,
+        # ensure it appears first in the shuffled order.
         shuffled = elements[:]
         random.shuffle(shuffled)
+        starting_item_id = question.starting_item_id
+        if starting_item_id:
+            idx = next((i for i, e in enumerate(shuffled) if e.id == starting_item_id), None)
+            if idx is not None and idx != 0:
+                shuffled.insert(0, shuffled.pop(idx))
         shuffled_ids = [str(e.id) for e in shuffled]
 
         session, _ = SortingLadderSession.objects.get_or_create(quiz=quiz)

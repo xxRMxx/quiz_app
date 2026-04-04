@@ -5,6 +5,9 @@
 {% block page_subtitle %}{% if edit_mode %}Update title and assigned questions{% else %}Create a new game instance{% endif %}{% endblock %}
 
 {% block content %}
+<style>
+.drag-over { background-color: #e8f4ff !important; outline: 2px dashed #0d6efd; }
+</style>
 <div class="container-fluid py-4">
 
     <!-- Header -->
@@ -22,6 +25,7 @@
                 <div class="col-md-5">
                     <label class="form-label fw-semibold">Game Name *</label>
                     <input type="text" class="form-control" id="newGameTitle" placeholder="z.B. Geografie">
+                    <input type="text" class="form-control mt-2" id="newGameInternalDescription" placeholder="Interne Beschreibung (nur für Admins)">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-semibold">Game Type *</label>
@@ -61,6 +65,7 @@
                         <table class="table table-hover mb-0">
                             <thead class="table-light sticky-top">
                                 <tr>
+                                    <th style="width:28px;"></th>
                                     <th>Question</th>
                                     <th>Type</th>
                                     <th>Points</th>
@@ -70,7 +75,7 @@
                             </thead>
                             <tbody id="assignedQuestionsBody">
                                 <tr id="assignedEmptyRow">
-                                    <td colspan="5" class="text-center py-3 text-muted">No questions assigned yet</td>
+                                    <td colspan="6" class="text-center py-3 text-muted">No questions assigned yet</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -154,11 +159,6 @@
                             <input type="text" class="form-control" id="quizCorrectAnswer"
                                    placeholder="For Multiple Choice: A, B, C or D" style="display:none;">
                             <small class="form-text text-muted" id="quizAnswerHelp">Select a question type first.</small>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Explanation (Optional)</label>
-                            <textarea class="form-control" id="quizExplanation" name="explanation" rows="2"
-                                      placeholder="Optional explanation for the correct answer"></textarea>
                         </div>
                         <div class="d-flex justify-content-end">
                             <button type="submit" class="btn btn-primary" id="quizSubmitQuestionBtn">
@@ -260,10 +260,6 @@
                                     <option value="cm">cm</option><option value="kg">kg</option><option value="%">%</option>
                                     <option value="EUR">EUR</option><option value="year">Jahr</option><option value="other">Sonstiges</option>
                                 </select></div>
-                            <div class="col-md-3"><label class="form-label">Schwierigkeit</label>
-                                <select class="form-select" id="est-difficulty">
-                                    <option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option>
-                                </select></div>
                             <div class="col-md-3"><label class="form-label">Toleranz %</label>
                                 <input type="number" class="form-control" id="est-tolerance" value="10" min="1" max="50"></div>
                         </div>
@@ -272,8 +268,6 @@
                                 <input type="number" class="form-control" id="est-points" value="10" min="1"></div>
                             <div class="col-md-3"><label class="form-label">Zeit (Sek)</label>
                                 <input type="number" class="form-control" id="est-time" value="30" min="10"></div>
-                            <div class="col-md-6"><label class="form-label">Hinweis <small class="text-muted">(optional)</small></label>
-                                <input type="text" class="form-control" id="est-hint" placeholder="Tipp für Spieler"></div>
                         </div>
                         <div class="d-flex justify-content-end">
                             <button type="button" class="btn btn-primary generic-submit-btn" id="est-submit">
@@ -293,11 +287,22 @@
                             <div class="col-md-3"><label class="form-label">Zeit (Sek)</label>
                                 <input type="number" class="form-control" id="asgn-time" value="30" min="10"></div>
                         </div>
-                        <label class="form-label fw-semibold">Zuordnungspaare * <small class="text-muted fw-normal">(Links → Rechts)</small></label>
-                        <div id="asgn-pairs-container" class="mb-2"></div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="asgn-add-pair">
-                            <i data-lucide="plus" style="width:14px;height:14px;"></i> Paar hinzufügen
-                        </button>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Links (vorgegeben)</label>
+                                <div id="asgn-left-container" class="mb-2"></div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="asgn-add-left">
+                                    <i data-lucide="plus" style="width:14px;height:14px;"></i> Links hinzufügen
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Rechts (zuzuordnen)</label>
+                                <div id="asgn-right-container" class="mb-2"></div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="asgn-add-right">
+                                    <i data-lucide="plus" style="width:14px;height:14px;"></i> Rechts hinzufügen
+                                </button>
+                            </div>
+                        </div>
                         <div class="d-flex justify-content-end">
                             <button type="button" class="btn btn-primary generic-submit-btn" id="asgn-submit">
                                 <i data-lucide="plus" style="width:15px;height:15px;" class="me-1"></i>Add Question
@@ -348,9 +353,9 @@
                             <div class="col-md-3"><label class="form-label">Punkte</label>
                                 <input type="number" class="form-control" id="who-points" value="10" min="1"></div>
                             <div class="col-md-3"><label class="form-label">Zeit (Sek)</label>
-                                <input type="number" class="form-control" id="who-time" value="30" min="10"></div>
+                                <input type="number" class="form-control" id="who-time" value="10" min="5"></div>
                         </div>
-                        <label class="form-label fw-semibold">Personen * <small class="text-muted fw-normal">(mind. 2, genau 1 Lügner)</small></label>
+                        <label class="form-label fw-semibold">Personen * <small class="text-muted fw-normal">(mind. 2, mind. 1 Lügner)</small></label>
                         <div id="who-people-container" class="mb-2"></div>
                         <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="who-add-person">
                             <i data-lucide="plus" style="width:14px;height:14px;"></i> Person hinzufügen
@@ -369,19 +374,21 @@
                             <input type="text" class="form-control" id="whot-answer" placeholder="z.B. Albert Einstein"></div>
                         <div class="mb-3"><label class="form-label">Alternative Antworten <small class="text-muted">(optional, kommagetrennt)</small></label>
                             <input type="text" class="form-control" id="whot-alt" placeholder="z.B. Einstein, A. Einstein"></div>
+                        <div class="mb-3">
+                            <label class="form-label">Bild *</label>
+                            <input type="file" class="form-control" id="whot-image" accept="image/*">
+                            <div id="whot-image-preview-container" style="display:none; margin-top:0.5rem;">
+                                <img id="whot-image-preview" src="" alt="Preview" style="max-width:200px; max-height:200px; border-radius:4px; border:1px solid #dee2e6;">
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="document.getElementById('whot-image').value=''; document.getElementById('whot-image-preview-container').style.display='none';">
+                                    <i data-lucide="x"></i> Entfernen
+                                </button>
+                            </div>
+                        </div>
                         <div class="row g-3 mb-3">
-                            <div class="col-md-4"><label class="form-label">Schwierigkeit</label>
-                                <select class="form-select" id="whot-difficulty">
-                                    <option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option>
-                                </select></div>
                             <div class="col-md-4"><label class="form-label">Punkte</label>
                                 <input type="number" class="form-control" id="whot-points" value="10" min="1"></div>
                             <div class="col-md-4"><label class="form-label">Zeit (Sek)</label>
                                 <input type="number" class="form-control" id="whot-time" value="30" min="10"></div>
-                        </div>
-                        <div class="alert alert-info py-2 small mb-3">
-                            <i data-lucide="info" style="width:14px;height:14px;" class="me-1"></i>
-                            Bild kann über die <a href="{% url 'admin_dashboard:who_that_management' %}">Who-Is-That-Management-Seite</a> hinzugefügt werden.
                         </div>
                         <div class="d-flex justify-content-end">
                             <button type="button" class="btn btn-primary generic-submit-btn" id="whot-submit">
@@ -398,14 +405,8 @@
                         <div class="mb-3"><label class="form-label">Richtige Antwort * <small class="text-muted">(Zahl)</small></label>
                             <input type="number" class="form-control" id="bj-answer" placeholder="z.B. 1969"></div>
                         <div class="row g-3 mb-3">
-                            <div class="col-md-4"><label class="form-label">Schwierigkeit</label>
-                                <select class="form-select" id="bj-difficulty">
-                                    <option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option>
-                                </select></div>
-                            <div class="col-md-4"><label class="form-label">Zeit (Sek)</label>
+                            <div class="col-md-6"><label class="form-label">Zeit (Sek)</label>
                                 <input type="number" class="form-control" id="bj-time" value="30" min="10" max="120"></div>
-                            <div class="col-md-4"><label class="form-label">Hinweis <small class="text-muted">(optional)</small></label>
-                                <input type="text" class="form-control" id="bj-hint" placeholder="Tipp"></div>
                         </div>
                         <div class="d-flex justify-content-end">
                             <button type="button" class="btn btn-primary generic-submit-btn" id="bj-submit">
@@ -459,6 +460,12 @@
                         <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="sl-add-item">
                             <i data-lucide="plus" style="width:14px;height:14px;"></i> Item hinzufügen
                         </button>
+                        <div class="mb-3">
+                            <label class="form-label" for="sl-starting-item">Startendes Item <small class="text-muted fw-normal">(wird zuerst links angezeigt)</small></label>
+                            <select class="form-select form-select-sm" id="sl-starting-item">
+                                <option value="">— Zufällig —</option>
+                            </select>
+                        </div>
                         <div class="d-flex justify-content-end">
                             <button type="button" class="btn btn-primary generic-submit-btn" id="sl-submit">
                                 <i data-lucide="plus" style="width:15px;height:15px;" class="me-1"></i>Add Topic
@@ -541,6 +548,7 @@ const EDIT_MODE = {{ edit_mode|default:False|lower }};
 const EDIT_GAME_ID = {{ game_id|default:"null" }};
 const EDIT_GAME_TYPE = "{{ game_type|default:'' }}";
 const EDIT_GAME_TITLE = "{{ game_title|default:''|escapejs }}";
+const EDIT_GAME_INTERNAL_DESCRIPTION = "{{ game_internal_description|default:''|escapejs }}";
 const EDIT_SELECTED_IDS = new Set({{ selected_ids_json|default:"[]" }});
 
 // ── Game type config ──────────────────────────────────────────────────────────
@@ -564,7 +572,7 @@ const GAME_CONFIG = {
                       columns: [{key:'question_text',label:'Question'},{key:'correct_answer',label:'Answer'},{key:'difficulty',label:'Difficulty'}] },
     blackjack:      { questionsUrl: '/admin-dashboard/black-jack/questions/',        createUrl: '/admin-dashboard/blackjack/create-custom/',      updateUrl: '/admin-dashboard/blackjack/update-custom/',      gameIdKey: 'quiz_id',  idKey: 'question_ids',
                       selectedUrl: id => `/admin-dashboard/blackjack/${id}/selected-questions/`,
-                      columns: [{key:'question_text',label:'Question'},{key:'correct_answer',label:'Answer'},{key:'difficulty',label:'Difficulty'},{key:'time_limit',label:'Time (s)'}] },
+                      columns: [{key:'question_text',label:'Question'},{key:'correct_answer',label:'Answer'},{key:'time_limit',label:'Time (s)'}] },
     clue_rush:      { questionsUrl: '/admin-dashboard/clue-rush/questions/',         createUrl: '/admin-dashboard/clue-rush/create-custom/',      updateUrl: '/admin-dashboard/clue-rush/update-custom/',      gameIdKey: 'game_id',  idKey: 'question_ids',
                       selectedUrl: id => `/admin-dashboard/clue-rush/${id}/selected-questions/`,
                       columns: [{key:'question_text',label:'Question'},{key:'answer',label:'Answer'},{key:'points',label:'Points'},{key:'time_limit',label:'Time (s)'}] },
@@ -594,7 +602,7 @@ function activateType(type) {
         const formEl = document.getElementById(`generic-form-${type}`);
         if (formEl) formEl.classList.remove('d-none');
         // Init dynamic lists on first show
-        if (type === 'assign' && !document.getElementById('asgn-pairs-container').children.length) addAsgnPair();
+        if (type === 'assign' && !document.getElementById('asgn-left-container').children.length) { addAsgnLeft(); addAsgnRight(); }
         if (type === 'who' && !document.getElementById('who-people-container').children.length) { addWhoPerson(); addWhoPerson(); }
         if (type === 'clue_rush' && !document.getElementById('cr-clues-container').children.length) addCrClue();
         if (type === 'sorting_ladder' && !document.getElementById('sl-items-container').children.length) { addSlItem(); addSlItem(); }
@@ -633,7 +641,8 @@ document.getElementById('createGameBtn').addEventListener('click', function () {
 
     const cfg = GAME_CONFIG[currentType];
     const ids = currentType === 'quiz' ? Array.from(quizSelectedIds) : Array.from(genericSelectedIds);
-    const payload = { title };
+    const internalDescription = document.getElementById('newGameInternalDescription').value.trim();
+    const payload = { title, internal_description: internalDescription };
     payload[cfg.idKey] = ids;
 
     const isEdit = EDIT_MODE && EDIT_GAME_ID;
@@ -678,8 +687,9 @@ document.getElementById('createGameBtn').addEventListener('click', function () {
 function initEditMode() {
     if (!EDIT_MODE || !EDIT_GAME_TYPE) return;
 
-    // Pre-fill title
+    // Pre-fill title and internal description
     document.getElementById('newGameTitle').value = EDIT_GAME_TITLE;
+    document.getElementById('newGameInternalDescription').value = EDIT_GAME_INTERNAL_DESCRIPTION;
 
     // Pre-populate selected IDs from server
     EDIT_SELECTED_IDS.forEach(id => quizSelectedIds.add(id));
@@ -831,7 +841,6 @@ function setQuizFormMode(mode, question) {
         document.getElementById('quizOptB').value = question.option_b || '';
         document.getElementById('quizOptC').value = question.option_c || '';
         document.getElementById('quizOptD').value = question.option_d || '';
-        document.getElementById('quizExplanation').value = question.explanation || '';
         quizQType.dispatchEvent(new Event('change'));
         if (question.question_type === 'multiple_choice') updateQuizCorrectAnswerSelect(question.correct_answer);
         else if (question.question_type === 'true_false') quizCASelect.value = question.correct_answer;
@@ -848,6 +857,39 @@ function setQuizFormMode(mode, question) {
     lucide.createIcons();
 }
 
+// ── Drag-and-drop helper ──────────────────────────────────────────────────────
+function initDragDrop(tbody, onReorder) {
+    let dragSrc = null;
+    tbody.querySelectorAll('[draggable="true"]').forEach(row => {
+        row.addEventListener('dragstart', function (e) {
+            dragSrc = this;
+            e.dataTransfer.effectAllowed = 'move';
+            this.classList.add('opacity-50');
+        });
+        row.addEventListener('dragend', function () {
+            this.classList.remove('opacity-50');
+            tbody.querySelectorAll('[draggable="true"]').forEach(r => r.classList.remove('drag-over'));
+        });
+        row.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            tbody.querySelectorAll('[draggable="true"]').forEach(r => r.classList.remove('drag-over'));
+            if (this !== dragSrc) this.classList.add('drag-over');
+        });
+        row.addEventListener('drop', function (e) {
+            e.preventDefault();
+            if (dragSrc && this !== dragSrc) {
+                const rows = Array.from(tbody.querySelectorAll('[draggable="true"]'));
+                const srcIdx = rows.indexOf(dragSrc);
+                const dstIdx = rows.indexOf(this);
+                if (srcIdx < dstIdx) this.after(dragSrc);
+                else this.before(dragSrc);
+                onReorder();
+            }
+        });
+    });
+}
+
 // Render assigned questions list
 function renderAssignedQuestions() {
     const tbody = document.getElementById('assignedQuestionsBody');
@@ -855,12 +897,15 @@ function renderAssignedQuestions() {
     badge.textContent = quizSelectedQuestions.size;
 
     if (quizSelectedQuestions.size === 0) {
-        tbody.innerHTML = '<tr id="assignedEmptyRow"><td colspan="5" class="text-center py-3 text-muted">No questions assigned yet</td></tr>';
+        tbody.innerHTML = '<tr id="assignedEmptyRow"><td colspan="6" class="text-center py-3 text-muted">No questions assigned yet</td></tr>';
         return;
     }
 
     tbody.innerHTML = Array.from(quizSelectedQuestions.values()).map(q => `
-        <tr>
+        <tr draggable="true" data-id="${q.id}" class="assigned-row" style="cursor:grab;">
+            <td class="drag-handle text-muted" style="width:28px;cursor:grab;">
+                <i data-lucide="grip-vertical" style="width:14px;height:14px;"></i>
+            </td>
             <td>${q.question_text}</td>
             <td><span class="badge bg-light text-dark border">${q.question_type}</span></td>
             <td>${q.points}</td>
@@ -880,10 +925,18 @@ function renderAssignedQuestions() {
             quizSelectedQuestions.delete(id);
             renderAssignedQuestions();
             updateQuizSelectedBadge();
-            // Uncheck in bank table if visible
             const cb = document.querySelector(`.quiz-q-check[data-id="${id}"]`);
             if (cb) cb.checked = false;
         });
+    });
+
+    initDragDrop(tbody, () => {
+        const newOrder = Array.from(tbody.querySelectorAll('.assigned-row')).map(r => parseInt(r.dataset.id));
+        const newMap = new Map();
+        const newSet = new Set();
+        newOrder.forEach(id => { newMap.set(id, quizSelectedQuestions.get(id)); newSet.add(id); });
+        quizSelectedQuestions.clear(); quizSelectedIds.clear();
+        newMap.forEach((v, k) => { quizSelectedQuestions.set(k, v); quizSelectedIds.add(k); });
     });
 
     lucide.createIcons();
@@ -1185,16 +1238,18 @@ function renderGenericAssigned() {
     const head = document.getElementById('genericAssignedHead');
     const tbody = document.getElementById('genericAssignedBody');
     badge.textContent = genericSelectedIds.size;
-    head.innerHTML = '<tr>' + cols.map(c => `<th>${c.label}</th>`).join('') + '<th style="width:40px;"></th></tr>';
+    head.innerHTML = '<tr><th style="width:28px;"></th>' + cols.map(c => `<th>${c.label}</th>`).join('') + '<th style="width:40px;"></th></tr>';
     if (genericSelectedIds.size === 0) {
-        tbody.innerHTML = `<tr><td colspan="${cols.length + 1}" class="text-center py-3 text-muted">No questions assigned yet</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${cols.length + 2}" class="text-center py-3 text-muted">No questions assigned yet</td></tr>`;
         return;
     }
     tbody.innerHTML = Array.from(genericSelectedItems.values())
         .filter(item => genericSelectedIds.has(item.id))
         .map(item => {
             const cells = cols.map(c => `<td>${item[c.key] !== undefined && item[c.key] !== null ? item[c.key] : '—'}</td>`).join('');
-            return `<tr>${cells}<td>
+            return `<tr draggable="true" data-id="${item.id}" class="generic-assigned-row" style="cursor:grab;">
+                <td class="text-muted" style="width:28px;cursor:grab;"><i data-lucide="grip-vertical" style="width:14px;height:14px;"></i></td>
+                ${cells}<td>
                 <button class="btn btn-sm btn-outline-danger generic-assigned-remove" data-id="${item.id}">
                     <i data-lucide="x" style="width:13px;height:13px;"></i>
                 </button></td></tr>`;
@@ -1210,22 +1265,37 @@ function renderGenericAssigned() {
             if (cb) cb.checked = false;
         });
     });
+    initDragDrop(tbody, () => {
+        const newOrder = Array.from(tbody.querySelectorAll('.generic-assigned-row')).map(r => parseInt(r.dataset.id));
+        const newMap = new Map();
+        const newSet = new Set();
+        newOrder.forEach(id => { newMap.set(id, genericSelectedItems.get(id)); newSet.add(id); });
+        genericSelectedItems.clear(); genericSelectedIds.clear();
+        newMap.forEach((v, k) => { genericSelectedItems.set(k, v); genericSelectedIds.add(k); });
+    });
     lucide.createIcons();
 }
 
 // ── Dynamic list helpers ─────────────────────────────────────────────────────
 
-function addAsgnPair() {
-    const c = document.getElementById('asgn-pairs-container');
+function addAsgnLeft() {
+    const c = document.getElementById('asgn-left-container');
     const row = document.createElement('div');
-    row.className = 'd-flex gap-2 mb-1 asgn-pair-row';
+    row.className = 'd-flex gap-2 mb-1';
     row.innerHTML = `<input type="text" class="form-control form-control-sm asgn-left" placeholder="Links…">
-        <span class="align-self-center">→</span>
-        <input type="text" class="form-control form-control-sm asgn-right" placeholder="Rechts…">
-        <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.asgn-pair-row').remove()">×</button>`;
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('div').remove()">×</button>`;
     c.appendChild(row);
 }
-document.getElementById('asgn-add-pair').addEventListener('click', addAsgnPair);
+function addAsgnRight() {
+    const c = document.getElementById('asgn-right-container');
+    const row = document.createElement('div');
+    row.className = 'd-flex gap-2 mb-1';
+    row.innerHTML = `<input type="text" class="form-control form-control-sm asgn-right" placeholder="Rechts…">
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('div').remove()">×</button>`;
+    c.appendChild(row);
+}
+document.getElementById('asgn-add-left').addEventListener('click', addAsgnLeft);
+document.getElementById('asgn-add-right').addEventListener('click', addAsgnRight);
 
 function addWhoPerson() {
     const c = document.getElementById('who-people-container');
@@ -1252,6 +1322,22 @@ function addCrClue() {
 }
 document.getElementById('cr-add-clue').addEventListener('click', addCrClue);
 
+function refreshSlStartingDropdown() {
+    const select = document.getElementById('sl-starting-item');
+    if (!select) return;
+    const prev = select.value;
+    select.innerHTML = '<option value="">— Zufällig —</option>';
+    document.querySelectorAll('#sl-items-container .sl-item-row').forEach((row, i) => {
+        const text = row.querySelector('.sl-item-text')?.value.trim();
+        if (text) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = text;
+            if (String(prev) === String(i)) opt.selected = true;
+            select.appendChild(opt);
+        }
+    });
+}
 function addSlItem() {
     const c = document.getElementById('sl-items-container');
     const row = document.createElement('div');
@@ -1260,10 +1346,13 @@ function addSlItem() {
     row.innerHTML = `<span class="badge bg-secondary sl-item-idx" style="min-width:24px;">${idx}</span>
         <input type="text" class="form-control form-control-sm sl-item-text" placeholder="Item…">
         <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.sl-item-row').remove(); reindexSlItems();">×</button>`;
+    row.querySelector('.sl-item-text').addEventListener('input', refreshSlStartingDropdown);
     c.appendChild(row);
+    refreshSlStartingDropdown();
 }
 function reindexSlItems() {
     document.querySelectorAll('#sl-items-container .sl-item-idx').forEach((el, i) => { el.textContent = i + 1; });
+    refreshSlStartingDropdown();
 }
 document.getElementById('sl-add-item').addEventListener('click', addSlItem);
 
@@ -1274,18 +1363,17 @@ function resetGenericForm() {
     document.getElementById('est-question').value = '';
     document.getElementById('est-answer').value = '';
     document.getElementById('est-unit').value = 'number';
-    document.getElementById('est-difficulty').value = 'medium';
     document.getElementById('est-tolerance').value = 10;
     document.getElementById('est-points').value = 10;
     document.getElementById('est-time').value = 30;
-    document.getElementById('est-hint').value = '';
 
     document.getElementById('asgn-id').value = '';
     document.getElementById('asgn-question').value = '';
     document.getElementById('asgn-points').value = 10;
     document.getElementById('asgn-time').value = 30;
-    document.getElementById('asgn-pairs-container').innerHTML = '';
-    addAsgnPair();
+    document.getElementById('asgn-left-container').innerHTML = '';
+    document.getElementById('asgn-right-container').innerHTML = '';
+    addAsgnLeft(); addAsgnRight();
 
     document.getElementById('where-id').value = '';
     document.getElementById('where-question').value = '';
@@ -1306,16 +1394,15 @@ function resetGenericForm() {
     document.getElementById('whot-id').value = '';
     document.getElementById('whot-answer').value = '';
     document.getElementById('whot-alt').value = '';
-    document.getElementById('whot-difficulty').value = 'medium';
     document.getElementById('whot-points').value = 10;
     document.getElementById('whot-time').value = 30;
+    document.getElementById('whot-image').value = '';
+    document.getElementById('whot-image-preview-container').style.display = 'none';
 
     document.getElementById('bj-id').value = '';
     document.getElementById('bj-question').value = '';
     document.getElementById('bj-answer').value = '';
-    document.getElementById('bj-difficulty').value = 'medium';
     document.getElementById('bj-time').value = 30;
-    document.getElementById('bj-hint').value = '';
 
     document.getElementById('cr-id').value = '';
     document.getElementById('cr-answer').value = '';
@@ -1331,6 +1418,7 @@ function resetGenericForm() {
     document.getElementById('sl-upper').value = 'Aufsteigend';
     document.getElementById('sl-lower').value = 'Absteigend';
     document.getElementById('sl-items-container').innerHTML = '';
+    document.getElementById('sl-starting-item').innerHTML = '<option value="">— Zufällig —</option>';
     addSlItem(); addSlItem();
 
     document.getElementById('genericFormTitle').innerHTML =
@@ -1384,11 +1472,9 @@ document.getElementById('est-submit').addEventListener('click', function () {
     const payload = {
         question_text, correct_answer: parseFloat(correct_answer),
         unit: document.getElementById('est-unit').value,
-        difficulty: document.getElementById('est-difficulty').value,
         max_points: parseInt(document.getElementById('est-points').value),
         time_limit: parseInt(document.getElementById('est-time').value),
         tolerance_percentage: parseFloat(document.getElementById('est-tolerance').value) || 10,
-        hint_text: document.getElementById('est-hint').value.trim(),
     };
     genericPost('/admin-dashboard/estimation/add-question/', payload, true, this,
         p => ({ question_text: p.question_text, correct_answer: p.correct_answer, unit: p.unit, max_points: p.max_points }),
@@ -1399,10 +1485,13 @@ document.getElementById('est-submit').addEventListener('click', function () {
 document.getElementById('asgn-submit').addEventListener('click', function () {
     const question_text = document.getElementById('asgn-question').value.trim();
     if (!question_text) { alert('Thema ist ein Pflichtfeld.'); return; }
-    const pairs = Array.from(document.querySelectorAll('.asgn-pair-row'));
-    const left_items = pairs.map(r => r.querySelector('.asgn-left').value.trim()).filter(Boolean);
-    const right_items = pairs.map(r => r.querySelector('.asgn-right').value.trim()).filter(Boolean);
-    if (!left_items.length) { alert('Mindestens ein Paar erforderlich.'); return; }
+    const left_items = Array.from(document.querySelectorAll('#asgn-left-container .asgn-left')).map(i => i.value.trim()).filter(Boolean);
+    const right_items = Array.from(document.querySelectorAll('#asgn-right-container .asgn-right')).map(i => i.value.trim()).filter(Boolean);
+    if (!left_items.length) { alert('Mindestens ein linkes Item erforderlich.'); return; }
+    if (right_items.length < left_items.length) {
+        alert(`Die rechte Seite muss mindestens so viele Items enthalten wie die linke (${left_items.length} benötigt, ${right_items.length} vorhanden).`);
+        return;
+    }
     const correct_matches = {};
     left_items.forEach((_, i) => { correct_matches[i] = i; });
     const payload = {
@@ -1444,7 +1533,6 @@ document.getElementById('who-submit').addEventListener('click', function () {
         is_lying: r.querySelector('.who-person-liar').checked,
     })).filter(p => p.name);
     if (people.length < 2) { alert('Mindestens 2 Personen erforderlich.'); return; }
-    if (people.filter(p => p.is_lying).length !== 1) { alert('Genau 1 Person muss als Lügner markiert sein.'); return; }
     const payload = {
         statement,
         points: parseInt(document.getElementById('who-points').value),
@@ -1457,20 +1545,49 @@ document.getElementById('who-submit').addEventListener('click', function () {
 });
 
 // Who Is That
+document.getElementById('whot-image').addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('whot-image-preview').src = e.target.result;
+        document.getElementById('whot-image-preview-container').style.display = 'block';
+        lucide.createIcons();
+    };
+    reader.readAsDataURL(file);
+});
+
 document.getElementById('whot-submit').addEventListener('click', function () {
     const correct_answer = document.getElementById('whot-answer').value.trim();
     if (!correct_answer) { alert('Name der Person ist ein Pflichtfeld.'); return; }
-    const payload = {
-        correct_answer,
-        question_text: 'Who is this person?',
-        alternative_answers: document.getElementById('whot-alt').value.trim(),
-        difficulty: document.getElementById('whot-difficulty').value,
-        points: document.getElementById('whot-points').value,
-        time_limit: document.getElementById('whot-time').value,
-    };
-    genericPost('/admin-dashboard/who-that/add-question/', payload, false, this,
-        p => ({ question_text: p.question_text, correct_answer: p.correct_answer, difficulty: p.difficulty }),
-        'question_id');
+    const imageFile = document.getElementById('whot-image').files[0];
+    if (!imageFile) { alert('Bild ist ein Pflichtfeld.'); return; }
+    const fd = new FormData();
+    fd.append('correct_answer', correct_answer);
+    fd.append('question_text', 'Who is this person?');
+    fd.append('alternative_answers', document.getElementById('whot-alt').value.trim());
+    fd.append('difficulty', 'medium');
+    fd.append('points', document.getElementById('whot-points').value);
+    fd.append('time_limit', document.getElementById('whot-time').value);
+    fd.append('image', imageFile);
+    this.disabled = true;
+    fetch('/admin-dashboard/who-that/add-question/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: fd,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            genericAddSuccess(data.question_id, { question_text: 'Who is this person?', correct_answer }, this);
+            document.getElementById('whot-image').value = '';
+            document.getElementById('whot-image-preview-container').style.display = 'none';
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            this.disabled = false;
+        }
+    })
+    .catch(() => { alert('Anfrage fehlgeschlagen.'); this.disabled = false; });
 });
 
 // Blackjack
@@ -1480,12 +1597,10 @@ document.getElementById('bj-submit').addEventListener('click', function () {
     if (!question_text || correct_answer === '') { alert('Frage und Antwort sind Pflichtfelder.'); return; }
     const payload = {
         question_text, correct_answer: parseInt(correct_answer),
-        difficulty: document.getElementById('bj-difficulty').value,
         time_limit: parseInt(document.getElementById('bj-time').value),
-        hint_text: document.getElementById('bj-hint').value.trim(),
     };
     genericPost('/admin-dashboard/blackjack/add-question/', payload, true, this,
-        p => ({ question_text: p.question_text, correct_answer: p.correct_answer, difficulty: p.difficulty, time_limit: p.time_limit }),
+        p => ({ question_text: p.question_text, correct_answer: p.correct_answer, time_limit: p.time_limit }),
         'question_id');
 });
 
@@ -1495,7 +1610,7 @@ document.getElementById('cr-submit').addEventListener('click', function () {
     if (!answer) { alert('Antwort ist ein Pflichtfeld.'); return; }
     const clues = Array.from(document.querySelectorAll('.cr-clue-row')).map((r, i) => ({
         clue_text: r.querySelector('.cr-clue-text').value.trim(),
-        order: i,
+        order: i + 1,
         duration: parseInt(r.querySelector('.cr-clue-dur').value) || 10,
     })).filter(c => c.clue_text);
     if (!clues.length) { alert('Mindestens 1 Clue erforderlich.'); return; }
@@ -1519,6 +1634,7 @@ document.getElementById('sl-submit').addEventListener('click', function () {
         order: i,
     })).filter(it => it.text);
     if (items.length < 2) { alert('Mindestens 2 Items erforderlich.'); return; }
+    const startingItemOrder = document.getElementById('sl-starting-item').value;
     const payload = {
         title,
         description: document.getElementById('sl-desc').value.trim(),
@@ -1527,6 +1643,7 @@ document.getElementById('sl-submit').addEventListener('click', function () {
         upper_label: document.getElementById('sl-upper').value || 'Aufsteigend',
         lower_label: document.getElementById('sl-lower').value || 'Absteigend',
         items_json: JSON.stringify(items),
+        starting_item_order: startingItemOrder,
     };
     genericPost('/admin-dashboard/sorting-ladder/topics/add/', payload, false, this,
         p => ({ title: p.title, description: p.description, item_count: items.length }),

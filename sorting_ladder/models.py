@@ -14,6 +14,8 @@ class SortingLadderGame(SyncBase):
     ]
 
     title = models.CharField(max_length=200, default="Sorting Ladder")
+    internal_description = models.TextField(blank=True, default='')
+    question_order = models.JSONField(default=list, blank=True)
     room_code = models.CharField(max_length=4, unique=True, blank=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_sorting_games')
 
@@ -153,6 +155,7 @@ class SortingQuestion(SyncBase):
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_sorting_topics')
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    starting_item = models.ForeignKey('SortingItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='starting_in_topics')
 
     class Meta:
         ordering = ['-created_at']

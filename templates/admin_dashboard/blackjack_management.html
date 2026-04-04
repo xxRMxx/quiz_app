@@ -141,14 +141,6 @@
                             <small class="form-text text-muted">Enter a whole number only</small>
                         </div>
                         <div class="col-md-3">
-                            <label for="difficulty" class="form-label fw-semibold">Difficulty</label>
-                            <select class="form-select" id="difficulty" name="difficulty">
-                                <option value="easy">Easy</option>
-                                <option value="medium" selected>Medium</option>
-                                <option value="hard">Hard</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
                             <label for="timeLimit" class="form-label fw-semibold">Time Limit (s)</label>
                             <input type="number" class="form-control" id="timeLimit" name="time_limit"
                                    value="30" min="10" max="120" required>
@@ -169,12 +161,6 @@
                     </div>
 
                     <div class="mb-3 mt-3">
-                        <label for="hintText" class="form-label fw-semibold">Hint Text (Optional)</label>
-                        <textarea class="form-control" id="hintText" name="hint_text" rows="2"
-                                  placeholder="Optional hint to help participants"></textarea>
-                    </div>
-
-                    <div class="mb-3">
                         <label for="explanation" class="form-label fw-semibold">Explanation (Optional)</label>
                         <textarea class="form-control" id="explanation" name="explanation" rows="2"
                                   placeholder="Optional explanation shown after answering"></textarea>
@@ -210,7 +196,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th style="width:40px;"><input type="checkbox" id="selectAllBundleQuestions"></th>
-                                <th>Frage</th><th>Antwort</th><th>Schwierigkeit</th>
+                                <th>Frage</th><th>Antwort</th>
                             </tr>
                         </thead>
                         <tbody id="bundleQuestionsTableBody"></tbody>
@@ -639,7 +625,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 row.innerHTML = `
                     <td>${question.question_text}</td>
                     <td>${question.correct_answer}</td>
-                    <td>${question.difficulty}</td>
                     <td>${question.time_limit}</td>
                     <td>${question.created_at}</td>
 
@@ -686,9 +671,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('questionId').value = question.id;
             document.getElementById('questionText').value = question.question_text;
             document.getElementById('correctAnswer').value = question.correct_answer;
-            document.getElementById('difficulty').value = question.difficulty;
             document.getElementById('timeLimit').value = question.time_limit;
-            document.getElementById('hintText').value = question.hint_text || '';
             document.getElementById('explanation').value = question.explanation || '';
 
             setFormMode('edit');
@@ -757,9 +740,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const payload = {
             question_text: document.getElementById('questionText').value.trim(),
             correct_answer: document.getElementById('correctAnswer').value,
-            difficulty: document.getElementById('difficulty').value,
             time_limit: document.getElementById('timeLimit').value,
-            hint_text: document.getElementById('hintText').value.trim(),
             explanation: document.getElementById('explanation').value.trim(),
         };
         if (isEdit) payload.question_id = document.getElementById('questionId').value;
@@ -1004,7 +985,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tbody.innerHTML = '';
             (data.questions || []).forEach(q => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td><input type="checkbox" class="bundle-q-check" value="${q.id}"></td><td>${q.question_text}</td><td>${q.correct_answer}</td><td>${q.difficulty}</td>`;
+                tr.innerHTML = `<td><input type="checkbox" class="bundle-q-check" value="${q.id}"></td><td>${q.question_text}</td><td>${q.correct_answer}</td>`;
                 tbody.appendChild(tr);
             });
             document.getElementById('bundleQuestionCount').textContent = `${data.count} Fragen`;

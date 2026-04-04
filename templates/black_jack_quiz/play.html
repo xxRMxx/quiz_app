@@ -149,14 +149,6 @@
                                         {% endif %}
                                     </div>
 
-                                    <!-- Hint Display -->
-                                    <div class="hint-display" id="hintDisplay" style="display: none;">
-                                        <div class="hint-icon">
-                                            <i data-lucide="lightbulb"></i>
-                                        </div>
-                                        <div class="hint-text" id="hintText"></div>
-                                    </div>
-
                                     <!-- Answer Input Interface -->
                                     <div class="answer-interface" id="answerInterface">
                                         <div class="answer-input-container">
@@ -1484,7 +1476,6 @@
                         id: {{ quiz.current_question.id }},
                         question_text: '{{ quiz.current_question.question_text|escapejs }}',
                         time_limit: {{ quiz.current_question.time_limit }},
-                        hint_text: {% if quiz.current_question.hint_text %}'{{ quiz.current_question.hint_text|escapejs }}'{% else %}null{% endif %},
                         question_number: {{ quiz.current_question_number }}
                     };
                     this.loadQuestion(question);
@@ -1494,17 +1485,7 @@
                 loadQuestion(question) {
                     document.getElementById('questionText').textContent = question.question_text;
                     document.getElementById('currentQuestionNumber').textContent = question.question_number;
-                    
-                    // Show hint if available
-                    const hintDisplay = document.getElementById('hintDisplay');
-                    const hintText = document.getElementById('hintText');
-                    if (question.hint_text) {
-                        hintText.textContent = question.hint_text;
-                        hintDisplay.style.display = 'flex';
-                    } else {
-                        hintDisplay.style.display = 'none';
-                    }
-                    
+
                     // Reset input
                     const answerInput = document.getElementById('answerInput');
                     answerInput.value = '';

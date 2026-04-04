@@ -379,40 +379,76 @@ def add_step_to_session(request, session_code):
     game_key = data.get('game_key', '').strip()
     title = data.get('title', '').strip()
     question_ids = data.get('question_ids', [])
+    # Support single game_id or list of game_ids
+    _raw_ids = data.get('game_ids') or ([data['game_id']] if data.get('game_id') else [])
+    game_ids = [int(i) for i in _raw_ids if i]
 
     valid_keys = [choice[0] for choice in HubGameStep.GAME_CHOICES]
     if game_key not in valid_keys:
         return JsonResponse({'error': 'Invalid game type'}, status=400)
 
-    max_order = session.steps.aggregate(Max('order'))['order__max']
-    next_order = 0 if max_order is None else max_order + 1
-    quiz_title = title or f"{session.name or session.code} - {game_key.replace('_', ' ').title()} {next_order + 1}"
-    room_code = auto_create_game_quiz(game_key, request.user, quiz_title)
-    if not room_code:
-        return JsonResponse({'error': 'Game could not be created'}, status=500)
+    _game_model_map = {
+        'quiz': QuizGameModel, 'assign': AssignQuiz, 'estimation': EstimationQuiz,
+        'where': WhereQuiz, 'who': WhoQuiz, 'who_that': WhoThatQuiz,
+        'blackjack': BlackJackQuiz, 'sorting_ladder': SortingLadderGame, 'clue_rush': ClueRushGame,
+    }
 
-    # Assign selected questions to the newly created quiz
-    if question_ids:
-        _assign_questions_to_quiz(game_key, room_code, question_ids)
-
-    step = HubGameStep.objects.create(
-        session=session,
-        order=next_order,
-        game_key=game_key,
-        room_code=room_code,
-        title=quiz_title,
-    )
-    return JsonResponse({
-        'success': True,
-        'step': {
-            'id': step.id,
-            'order': step.order,
-            'game_key': step.game_key,
-            'game_key_display': step.get_game_key_display(),
-            'room_code': step.room_code,
-            'title': step.title,
-        }
-    })
+    if game_ids:
+        # Add one step per selected game instance
+        game_model = _game_model_map.get(game_key)
+        if not game_model:
+            return JsonResponse({'error': 'Unknown game type'}, status=400)
+        created_steps = []
+        for gid in game_ids:
+            try:
+                game_instance = game_model.objects.get(id=gid)
+            except game_model.DoesNotExist:
+                continue
+            max_order = session.steps.aggregate(Max('order'))['order__max']
+            next_order = 0 if max_order is None else max_order + 1
+            step = HubGameStep.objects.create(
+                session=session,
+                order=next_order,
+                game_key=game_key,
+                room_code=game_instance.room_code,
+                title=game_instance.title,
+            )
+            created_steps.append({
+                'id': step.id,
+                'order': step.order,
+                'game_key': step.game_key,
+                'game_key_display': step.get_game_key_display(),
+                'room_code': step.room_code,
+                'title': step.title,
+            })
+        return JsonResponse({'success': True, 'steps': created_steps})
+    else:
+        max_order = session.steps.aggregate(Max('order'))['order__max']
+        next_order = 0 if max_order is None else max_order + 1
+        quiz_title = title or f"{session.name or session.code} - {game_key.replace('_', ' ').title()} {next_order + 1}"
+        room_code = auto_create_game_quiz(game_key, request.user, quiz_title)
+        if not room_code:
+            return JsonResponse({'error': 'Game could not be created'}, status=500)
+        if question_ids:
+            _assign_questions_to_quiz(game_key, room_code, question_ids)
+        step = HubGameStep.objects.create(
+            session=session,
+            order=next_order,
+            game_key=game_key,
+            room_code=room_code,
+            title=quiz_title,
+        )
+        return JsonResponse({
+            'success': True,
+            'steps': [{
+                'id': step.id,
+                'order': step.order,
+                'game_key': step.game_key,
+                'game_key_display': step.get_game_key_display(),
+                'room_code': step.room_code,
+                'title': step.title,
+            }]
+        })
 
 
 def _assign_questions_to_quiz(game_key: str, room_code: str, question_ids: list):
@@ -519,6 +555,32 @@ def get_available_questions(request, game_key):
         for q in model.objects.all().order_by('id')
     ]
     return JsonResponse({'questions': questions})
+
+
+@login_required
+def get_game_instances(request, game_key):
+    """Return existing pre-configured game instances for a given game type."""
+    model_map = {
+        'quiz': QuizGameModel, 'assign': AssignQuiz, 'estimation': EstimationQuiz,
+        'where': WhereQuiz, 'who': WhoQuiz, 'who_that': WhoThatQuiz,
+        'blackjack': BlackJackQuiz, 'sorting_ladder': SortingLadderGame, 'clue_rush': ClueRushGame,
+    }
+    model = model_map.get(game_key)
+    if not model:
+        return JsonResponse({'error': 'Unknown game type'}, status=400)
+    instances = model.objects.all().order_by('-created_at')
+    return JsonResponse({
+        'instances': [
+            {
+                'id': g.id,
+                'title': g.title,
+                'internal_description': getattr(g, 'internal_description', ''),
+                'room_code': g.room_code,
+                'q_count': g.selected_questions.count(),
+            }
+            for g in instances
+        ]
+    })
 
 
 @login_required
