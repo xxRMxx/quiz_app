@@ -333,9 +333,15 @@
                             <div class="col-md-6"><label class="form-label">Hinweis <small class="text-muted">(optional)</small></label>
                                 <input type="text" class="form-control" id="where-hint" placeholder="Tipp für Spieler"></div>
                         </div>
-                        <div class="alert alert-info py-2 small mb-3">
-                            <i data-lucide="info" style="width:14px;height:14px;" class="me-1"></i>
-                            Bild kann über die <a href="{% url 'admin_dashboard:where_management' %}">Where-Management-Seite</a> hinzugefügt werden.
+                        <div class="mb-3">
+                            <label class="form-label">Bild <small class="text-muted">(optional)</small></label>
+                            <input type="file" class="form-control" id="where-image" accept="image/*">
+                            <div id="where-image-preview-container" style="display:none; margin-top:0.5rem;">
+                                <img id="where-image-preview" src="" alt="Preview" style="max-width:200px; max-height:150px; border-radius:4px; border:1px solid #dee2e6;">
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="document.getElementById('where-image').value=''; document.getElementById('where-image-preview-container').style.display='none';">
+                                    <i data-lucide="x"></i> Entfernen
+                                </button>
+                            </div>
                         </div>
                         <div class="d-flex justify-content-end">
                             <button type="button" class="btn btn-primary generic-submit-btn" id="where-submit">
@@ -590,6 +596,166 @@ const quizSelectedQuestions = new Map(); // id → {id, question_text, question_
 const genericSelectedIds = new Set();
 const genericSelectedItems = new Map(); // id → full item data
 let itemsRef = []; // reference to last loaded generic bank items
+
+// ── Generic question detail + update URLs ─────────────────────────────────────
+const GENERIC_DETAIL_URL = {
+    estimation:     id => `/admin-dashboard/estimation/question/${id}/`,
+    assign:         id => `/admin-dashboard/assign/question/${id}/`,
+    where:          id => `/admin-dashboard/where/question/${id}/`,
+    who:            id => `/admin-dashboard/who/question/${id}/`,
+    who_that:       id => `/admin-dashboard/who-that/question/${id}/`,
+    blackjack:      id => `/admin-dashboard/blackjack/question/${id}/`,
+    clue_rush:      id => `/admin-dashboard/clue-rush/question/${id}/`,
+    sorting_ladder: id => `/admin-dashboard/sorting-ladder/topic/${id}/`,
+};
+
+const GENERIC_UPDATE_URL = {
+    estimation:     '/admin-dashboard/estimation/update-question/',
+    assign:         '/admin-dashboard/assign/update-question/',
+    where:          '/admin-dashboard/where/question/update/',
+    who:            '/admin-dashboard/who/update-question/',
+    who_that:       '/admin-dashboard/who-that/update-question/',
+    blackjack:      '/admin-dashboard/blackjack/update-question/',
+    clue_rush:      '/admin-dashboard/clue-rush/update-question/',
+    sorting_ladder: '/admin-dashboard/sorting-ladder/topics/update/',
+};
+
+// Fetch item details and populate form for editing
+function loadGenericItemForEdit(id) {
+    const urlFn = GENERIC_DETAIL_URL[currentType];
+    if (!urlFn) return;
+    fetch(urlFn(id), { headers: { 'X-CSRFToken': getCookie('csrftoken') } })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) throw new Error(data.error || 'Laden fehlgeschlagen.');
+        const q = data.question || data.topic;
+        setGenericFormForEdit(currentType, q);
+    })
+    .catch(err => showNotification(err.message, 'danger'));
+}
+
+// Populate form fields for editing a generic question
+function setGenericFormForEdit(type, q) {
+    resetGenericForm();
+
+    // Switch title + button mode
+    document.getElementById('genericFormTitle').innerHTML =
+        '<i data-lucide="edit" style="width:18px;height:18px;" class="me-2"></i>Edit Question';
+    document.querySelectorAll('.generic-submit-btn').forEach(b => {
+        b.innerHTML = '<i data-lucide="save" style="width:15px;height:15px;" class="me-1"></i>Save Changes';
+        b.dataset.mode = 'edit';
+    });
+
+    if (type === 'estimation') {
+        document.getElementById('est-id').value = q.id;
+        document.getElementById('est-question').value = q.question_text || '';
+        document.getElementById('est-answer').value = q.correct_answer ?? '';
+        document.getElementById('est-unit').value = q.unit || 'number';
+        document.getElementById('est-tolerance').value = q.tolerance_percentage ?? 10;
+        document.getElementById('est-points').value = q.max_points ?? 10;
+    } else if (type === 'assign') {
+        document.getElementById('asgn-id').value = q.id;
+        document.getElementById('asgn-question').value = q.question_text || '';
+        document.getElementById('asgn-points').value = q.points ?? 10;
+        document.getElementById('asgn-time').value = q.time_limit ?? 30;
+        // Rebuild left/right item lists
+        const leftC = document.getElementById('asgn-left-container');
+        const rightC = document.getElementById('asgn-right-container');
+        leftC.innerHTML = ''; rightC.innerHTML = '';
+        (q.left_items || []).forEach(text => {
+            addAsgnLeft(); leftC.lastElementChild.querySelector('.asgn-left').value = text;
+        });
+        (q.right_items || []).forEach(text => {
+            addAsgnRight(); rightC.lastElementChild.querySelector('.asgn-right').value = text;
+        });
+        if (!leftC.children.length) addAsgnLeft();
+        if (!rightC.children.length) addAsgnRight();
+    } else if (type === 'where') {
+        document.getElementById('where-id').value = q.id;
+        document.getElementById('where-question').value = q.question_text || '';
+        document.getElementById('where-lat').value = q.latitude ?? '';
+        document.getElementById('where-lng').value = q.longitude ?? '';
+        document.getElementById('where-difficulty').value = q.difficulty || 'medium';
+        document.getElementById('where-points').value = q.points ?? 10;
+        document.getElementById('where-time').value = q.time_limit ?? 30;
+        document.getElementById('where-hint').value = q.hint_text || '';
+        if (q.image) {
+            document.getElementById('where-image-preview').src = q.image;
+            document.getElementById('where-image-preview-container').style.display = 'block';
+        }
+    } else if (type === 'who') {
+        document.getElementById('who-id').value = q.id;
+        document.getElementById('who-statement').value = q.statement || '';
+        document.getElementById('who-points').value = q.points ?? 10;
+        document.getElementById('who-time').value = q.time_limit ?? 30;
+        const pplC = document.getElementById('who-people-container');
+        pplC.innerHTML = '';
+        (q.people || []).forEach(p => {
+            addWhoPerson();
+            const row = pplC.lastElementChild;
+            row.querySelector('.who-person-name').value = p.name || '';
+            row.querySelector('.who-person-liar').checked = !!p.is_lying;
+        });
+        if (pplC.children.length < 2) { addWhoPerson(); addWhoPerson(); }
+    } else if (type === 'who_that') {
+        document.getElementById('whot-id').value = q.id;
+        document.getElementById('whot-answer').value = q.correct_answer || '';
+        document.getElementById('whot-alt').value = q.alternative_answers || '';
+        document.getElementById('whot-points').value = q.points ?? 10;
+        document.getElementById('whot-time').value = q.time_limit ?? 30;
+        if (q.image) {
+            document.getElementById('whot-image-preview').src = q.image;
+            document.getElementById('whot-image-preview-container').style.display = 'block';
+        }
+    } else if (type === 'blackjack') {
+        document.getElementById('bj-id').value = q.id;
+        document.getElementById('bj-question').value = q.question_text || '';
+        document.getElementById('bj-answer').value = q.correct_answer ?? '';
+        document.getElementById('bj-time').value = q.time_limit ?? 30;
+    } else if (type === 'clue_rush') {
+        document.getElementById('cr-id').value = q.id;
+        document.getElementById('cr-question-text').value = q.question_text || '';
+        document.getElementById('cr-answer').value = q.answer || '';
+        document.getElementById('cr-points').value = q.points ?? 12;
+        const cluesC = document.getElementById('cr-clues-container');
+        cluesC.innerHTML = '';
+        (q.clues || []).forEach(c => {
+            addCrClue();
+            const row = cluesC.lastElementChild;
+            row.querySelector('.cr-clue-text').value = c.clue_text || '';
+            row.querySelector('.cr-clue-dur').value = c.duration ?? 10;
+        });
+        if (!cluesC.children.length) addCrClue();
+    } else if (type === 'sorting_ladder') {
+        document.getElementById('sl-id').value = q.id;
+        document.getElementById('sl-title').value = q.title || '';
+        document.getElementById('sl-desc').value = q.description || '';
+        document.getElementById('sl-points').value = q.points ?? 10;
+        document.getElementById('sl-time').value = q.round_time_limit ?? 60;
+        document.getElementById('sl-upper').value = q.upper_label || 'Aufsteigend';
+        document.getElementById('sl-lower').value = q.lower_label || 'Absteigend';
+        const itemsC = document.getElementById('sl-items-container');
+        itemsC.innerHTML = '';
+        (q.items || []).forEach(it => {
+            addSlItem();
+            itemsC.lastElementChild.querySelector('.sl-item-text').value = it.text || '';
+        });
+        if (itemsC.children.length < 2) { addSlItem(); addSlItem(); }
+        // Rebuild starting-item dropdown
+        const startSel = document.getElementById('sl-starting-item');
+        startSel.innerHTML = '<option value="">— Zufällig —</option>';
+        (q.items || []).forEach(it => {
+            const opt = document.createElement('option');
+            opt.value = it.order;
+            opt.textContent = it.text;
+            if (q.starting_item_order !== null && parseFloat(q.starting_item_order) === parseFloat(it.order)) opt.selected = true;
+            startSel.appendChild(opt);
+        });
+    }
+
+    document.getElementById('genericQuestionFormCard').scrollIntoView({ behavior: 'smooth' });
+    lucide.createIcons();
+}
 
 // ── Type selection ────────────────────────────────────────────────────────────
 function activateType(type) {
@@ -1194,7 +1360,12 @@ function loadGenericBank(page) {
             const cells = cfg.columns.map(c => `<td>${item[c.key] !== undefined && item[c.key] !== null ? item[c.key] : '—'}</td>`).join('');
             return `<tr>
                 <td><input type="checkbox" class="generic-q-check" data-id="${item.id}" ${genericSelectedIds.has(item.id) ? 'checked' : ''}></td>
-                ${cells}<td></td>
+                ${cells}
+                <td>
+                    <button class="btn btn-sm btn-outline-primary generic-edit-btn" data-id="${item.id}" title="Edit">
+                        <i data-lucide="pencil" style="width:13px;height:13px;"></i>
+                    </button>
+                </td>
             </tr>`;
         }).join('');
 
@@ -1207,6 +1378,15 @@ function loadGenericBank(page) {
                 renderGenericAssigned();
             });
         });
+
+        // Edit buttons
+        tbody.querySelectorAll('.generic-edit-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                loadGenericItemForEdit(parseInt(this.dataset.id));
+            });
+        });
+
+        lucide.createIcons({ scope: tbody });
 
         const pag = document.getElementById('genericBankPagination');
         pag.innerHTML = '';
@@ -1386,6 +1566,8 @@ function resetGenericForm() {
     document.getElementById('where-points').value = 10;
     document.getElementById('where-time').value = 30;
     document.getElementById('where-hint').value = '';
+    document.getElementById('where-image').value = '';
+    document.getElementById('where-image-preview-container').style.display = 'none';
 
     document.getElementById('who-id').value = '';
     document.getElementById('who-statement').value = '';
@@ -1448,7 +1630,37 @@ function genericAddSuccess(newId, displayItem, submitBtn) {
     submitBtn.disabled = false;
 }
 
+function genericEditSuccess(submitBtn) {
+    resetGenericForm();
+    loadGenericBank(genericPage);
+    showNotification('Question updated!', 'success');
+    submitBtn.disabled = false;
+}
+
 function genericPost(url, payload, isJson, submitBtn, displayItemFn, idKey) {
+    const isEdit = submitBtn.dataset.mode === 'edit';
+    if (isEdit) {
+        const updateUrl = GENERIC_UPDATE_URL[currentType];
+        if (!updateUrl) { alert('Update-URL nicht gefunden.'); return; }
+        submitBtn.disabled = true;
+        const opts = { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } };
+        if (isJson) {
+            opts.headers['Content-Type'] = 'application/json';
+            opts.body = JSON.stringify(payload);
+        } else {
+            const fd = new FormData();
+            Object.entries(payload).forEach(([k, v]) => { if (v !== undefined && v !== null) fd.append(k, v); });
+            opts.body = fd;
+        }
+        fetch(updateUrl, opts)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) { genericEditSuccess(submitBtn); }
+            else { alert('Fehler: ' + (data.error || 'Unbekannter Fehler')); submitBtn.disabled = false; }
+        })
+        .catch(() => { alert('Anfrage fehlgeschlagen.'); submitBtn.disabled = false; });
+        return;
+    }
     submitBtn.disabled = true;
     const opts = { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } };
     if (isJson) {
@@ -1473,12 +1685,14 @@ document.getElementById('est-submit').addEventListener('click', function () {
     const question_text = document.getElementById('est-question').value.trim();
     const correct_answer = document.getElementById('est-answer').value;
     if (!question_text || correct_answer === '') { alert('Frage und Antwort sind Pflichtfelder.'); return; }
+    const estId = parseInt(document.getElementById('est-id').value);
     const payload = {
         question_text, correct_answer: parseFloat(correct_answer),
         unit: document.getElementById('est-unit').value,
         max_points: parseInt(document.getElementById('est-points').value),
         time_limit: parseInt(document.getElementById('est-time').value),
         tolerance_percentage: parseFloat(document.getElementById('est-tolerance').value) || 10,
+        ...(estId ? { question_id: estId } : {}),
     };
     genericPost('/admin-dashboard/estimation/add-question/', payload, true, this,
         p => ({ question_text: p.question_text, correct_answer: p.correct_answer, unit: p.unit, max_points: p.max_points }),
@@ -1498,11 +1712,13 @@ document.getElementById('asgn-submit').addEventListener('click', function () {
     }
     const correct_matches = {};
     left_items.forEach((_, i) => { correct_matches[i] = i; });
+    const asgnId = parseInt(document.getElementById('asgn-id').value);
     const payload = {
         question_text,
         points: parseInt(document.getElementById('asgn-points').value),
         time_limit: parseInt(document.getElementById('asgn-time').value),
         left_items, right_items, correct_matches,
+        ...(asgnId ? { question_id: asgnId } : {}),
     };
     genericPost('/admin-dashboard/assign/add-question/', payload, true, this,
         p => ({ question_text: p.question_text, points: p.points, time_limit: p.time_limit }),
@@ -1510,22 +1726,63 @@ document.getElementById('asgn-submit').addEventListener('click', function () {
 });
 
 // Where
+document.getElementById('where-image').addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('where-image-preview').src = e.target.result;
+        document.getElementById('where-image-preview-container').style.display = 'block';
+        lucide.createIcons();
+    };
+    reader.readAsDataURL(file);
+});
+
 document.getElementById('where-submit').addEventListener('click', function () {
     const question_text = document.getElementById('where-question').value.trim();
     const latitude = document.getElementById('where-lat').value;
     const longitude = document.getElementById('where-lng').value;
     if (!question_text || latitude === '' || longitude === '') { alert('Ort, Breitengrad und Längengrad sind Pflichtfelder.'); return; }
-    const payload = {
-        question_text, latitude, longitude,
-        difficulty: document.getElementById('where-difficulty').value,
-        points: document.getElementById('where-points').value,
-        time_limit: document.getElementById('where-time').value,
-        hint_text: document.getElementById('where-hint').value.trim(),
-        perfect_distance: 50, good_distance: 200, fair_distance: 500, poor_distance: 1000,
-    };
-    genericPost('/admin-dashboard/where/question/add/', payload, false, this,
-        p => ({ question_text: p.question_text, difficulty: p.difficulty, points: p.points }),
-        'question_id');
+    const isEdit = this.dataset.mode === 'edit';
+    const whereId = parseInt(document.getElementById('where-id').value);
+    const imageFile = document.getElementById('where-image').files[0];
+    const fd = new FormData();
+    fd.append('question_text', question_text);
+    fd.append('latitude', latitude);
+    fd.append('longitude', longitude);
+    fd.append('difficulty', document.getElementById('where-difficulty').value);
+    fd.append('points', document.getElementById('where-points').value);
+    fd.append('time_limit', document.getElementById('where-time').value);
+    fd.append('hint_text', document.getElementById('where-hint').value.trim());
+    fd.append('perfect_distance', 50);
+    fd.append('good_distance', 200);
+    fd.append('fair_distance', 500);
+    fd.append('poor_distance', 1000);
+    if (imageFile) fd.append('image', imageFile);
+    if (whereId) fd.append('question_id', whereId);
+    this.disabled = true;
+    const url = isEdit ? '/admin-dashboard/where/question/update/' : '/admin-dashboard/where/question/add/';
+    fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: fd,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            if (isEdit) {
+                genericEditSuccess(this);
+            } else {
+                genericAddSuccess(data.question_id, { question_text, difficulty: document.getElementById('where-difficulty').value, points: document.getElementById('where-points').value }, this);
+            }
+            document.getElementById('where-image').value = '';
+            document.getElementById('where-image-preview-container').style.display = 'none';
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            this.disabled = false;
+        }
+    })
+    .catch(() => { alert('Anfrage fehlgeschlagen.'); this.disabled = false; });
 });
 
 // Who Is Lying
@@ -1537,11 +1794,13 @@ document.getElementById('who-submit').addEventListener('click', function () {
         is_lying: r.querySelector('.who-person-liar').checked,
     })).filter(p => p.name);
     if (people.length < 2) { alert('Mindestens 2 Personen erforderlich.'); return; }
+    const whoId = parseInt(document.getElementById('who-id').value);
     const payload = {
         statement,
         points: parseInt(document.getElementById('who-points').value),
         time_limit: parseInt(document.getElementById('who-time').value),
         people,
+        ...(whoId ? { question_id: whoId } : {}),
     };
     genericPost('/admin-dashboard/who/add-question/', payload, true, this,
         p => ({ statement: p.statement, people_count: p.people.length, points: p.points }),
@@ -1565,7 +1824,9 @@ document.getElementById('whot-submit').addEventListener('click', function () {
     const correct_answer = document.getElementById('whot-answer').value.trim();
     if (!correct_answer) { alert('Name der Person ist ein Pflichtfeld.'); return; }
     const imageFile = document.getElementById('whot-image').files[0];
-    if (!imageFile) { alert('Bild ist ein Pflichtfeld.'); return; }
+    const isEdit = this.dataset.mode === 'edit';
+    if (!imageFile && !isEdit) { alert('Bild ist ein Pflichtfeld.'); return; }
+    const whotId = parseInt(document.getElementById('whot-id').value);
     const fd = new FormData();
     fd.append('correct_answer', correct_answer);
     fd.append('question_text', 'Who is this person?');
@@ -1573,9 +1834,11 @@ document.getElementById('whot-submit').addEventListener('click', function () {
     fd.append('difficulty', 'medium');
     fd.append('points', document.getElementById('whot-points').value);
     fd.append('time_limit', document.getElementById('whot-time').value);
-    fd.append('image', imageFile);
+    if (imageFile) fd.append('image', imageFile);
+    if (whotId) fd.append('question_id', whotId);
     this.disabled = true;
-    fetch('/admin-dashboard/who-that/add-question/', {
+    const url = isEdit ? '/admin-dashboard/who-that/update-question/' : '/admin-dashboard/who-that/add-question/';
+    fetch(url, {
         method: 'POST',
         headers: { 'X-CSRFToken': getCookie('csrftoken') },
         body: fd,
@@ -1583,7 +1846,11 @@ document.getElementById('whot-submit').addEventListener('click', function () {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            genericAddSuccess(data.question_id, { question_text: 'Who is this person?', correct_answer }, this);
+            if (isEdit) {
+                genericEditSuccess(this);
+            } else {
+                genericAddSuccess(data.question_id, { question_text: 'Who is this person?', correct_answer }, this);
+            }
             document.getElementById('whot-image').value = '';
             document.getElementById('whot-image-preview-container').style.display = 'none';
         } else {
@@ -1599,9 +1866,11 @@ document.getElementById('bj-submit').addEventListener('click', function () {
     const question_text = document.getElementById('bj-question').value.trim();
     const correct_answer = document.getElementById('bj-answer').value;
     if (!question_text || correct_answer === '') { alert('Frage und Antwort sind Pflichtfelder.'); return; }
+    const bjId = parseInt(document.getElementById('bj-id').value);
     const payload = {
         question_text, correct_answer: parseInt(correct_answer),
         time_limit: parseInt(document.getElementById('bj-time').value),
+        ...(bjId ? { question_id: bjId } : {}),
     };
     genericPost('/admin-dashboard/blackjack/add-question/', payload, true, this,
         p => ({ question_text: p.question_text, correct_answer: p.correct_answer, time_limit: p.time_limit }),
@@ -1620,12 +1889,14 @@ document.getElementById('cr-submit').addEventListener('click', function () {
         duration: parseInt(r.querySelector('.cr-clue-dur').value) || 10,
     })).filter(c => c.clue_text);
     if (!clues.length) { alert('Mindestens 1 Clue erforderlich.'); return; }
+    const crId = parseInt(document.getElementById('cr-id').value);
     const payload = {
         question_text: questionText,
         answer,
         points: parseInt(document.getElementById('cr-points').value),
         time_limit: clues.reduce((s, c) => s + c.duration, 0),
         clues,
+        ...(crId ? { question_id: crId } : {}),
     };
     genericPost('/admin-dashboard/clue-rush/add-question/', payload, true, this,
         p => ({ question_text: p.question_text, answer: p.answer, points: p.points, time_limit: p.time_limit }),
@@ -1642,6 +1913,7 @@ document.getElementById('sl-submit').addEventListener('click', function () {
     })).filter(it => it.text);
     if (items.length < 2) { alert('Mindestens 2 Items erforderlich.'); return; }
     const startingItemOrder = document.getElementById('sl-starting-item').value;
+    const slId = parseInt(document.getElementById('sl-id').value);
     const payload = {
         title,
         description: document.getElementById('sl-desc').value.trim(),
@@ -1651,6 +1923,7 @@ document.getElementById('sl-submit').addEventListener('click', function () {
         lower_label: document.getElementById('sl-lower').value || 'Absteigend',
         items_json: JSON.stringify(items),
         starting_item_order: startingItemOrder,
+        ...(slId ? { topic_id: slId } : {}),
     };
     genericPost('/admin-dashboard/sorting-ladder/topics/add/', payload, false, this,
         p => ({ title: p.title, description: p.description, item_count: items.length }),

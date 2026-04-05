@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Lobby {{ session.code }}</title>
+    <title>Lobby · {{ session_name }}</title>
     <style>
       body { 
         font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; 
@@ -158,7 +158,7 @@
   <body>
     <div class="container">
       <div class="header">
-        <div class="title">Lobby · Session {{ session_code }}</div>
+        <div class="title" id="lobbyTitle">{{ session_name }}</div>
       </div>
 
       <div id="joinCard" class="card join-card">
@@ -363,6 +363,8 @@
           joinBtn.disabled = true;
           joinBtn.textContent = 'Joined';
           currentNickname = nicknameInput.value.trim();
+          const titleEl = document.getElementById('lobbyTitle');
+          if (titleEl) titleEl.textContent = '{{ session_name }} (' + currentNickname + ')';
         }
 
         if (data.type === 'join_error') {
@@ -508,6 +510,11 @@
         const alreadyIn = nick && takenNicknames.has(nick.toLowerCase());
         if (cameFromGame() || alreadyIn) {
           joinCard.style.display = 'none';
+          if (nick) {
+            currentNickname = nick;
+            const titleEl = document.getElementById('lobbyTitle');
+            if (titleEl) titleEl.textContent = '{{ session_name }} (' + nick + ')';
+          }
         }
       }
       function updateNicknameStatus() {

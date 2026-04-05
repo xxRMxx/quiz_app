@@ -2889,21 +2889,54 @@ def api_live_responses(request, room_code):
             return JsonResponse({'error': 'Unauthorized'}, status=403)
         
         if not quiz.current_question:
-            return JsonResponse({
-                'success': True,
-                'responses': []
-            })
-        
-        responses = QuizAnswer.objects.filter(
+            # Auto-end race condition: question may have been cleared before the
+            # monitor page finished reloading. Return most recent answers from
+            # this session so responses are still visible after the page reload.
+            if not quiz.started_at:
+                return JsonResponse({'success': True, 'responses': []})
+            recent_qs = QuizAnswer.objects.filter(
+                quiz=quiz,
+                submitted_at__gte=quiz.started_at
+            ).select_related('participant', 'question').order_by('-submitted_at')[:20]
+            responses_data = []
+            for response in recent_qs:
+                display_answer = response.answer_text
+                if response.question.question_type == 'multiple_choice':
+                    opt_map = dict(response.question.get_options())
+                    display_answer = opt_map.get(response.answer_text.upper(), response.answer_text)
+                responses_data.append({
+                    'participant_name': response.participant.name,
+                    'answer_text': display_answer,
+                    'is_correct': response.is_correct,
+                    'time_taken': response.time_taken,
+                    'points_earned': response.points_earned,
+                    'submitted_at': response.submitted_at.isoformat(),
+                })
+            return JsonResponse({'success': True, 'responses': responses_data})
+
+        qs = QuizAnswer.objects.filter(
             quiz=quiz,
-            question=quiz.current_question
-        ).select_related('participant').order_by('-submitted_at')[:20]
-        
+            question=quiz.current_question,
+        )
+        # Filter to only answers submitted after the question was last sent (handles replayed questions)
+        if quiz.question_start_time:
+            qs = qs.filter(submitted_at__gte=quiz.question_start_time)
+        elif quiz.started_at:
+            qs = qs.filter(submitted_at__gte=quiz.started_at)
+        responses = qs.select_related('participant').order_by('-submitted_at')[:20]
+
+        # Build key→text map for multiple choice display
+        option_map = {}
+        if quiz.current_question.question_type == 'multiple_choice':
+            option_map = dict(quiz.current_question.get_options())
+
         responses_data = []
         for response in responses:
+            display_answer = option_map.get(response.answer_text.upper(), response.answer_text) \
+                if option_map else response.answer_text
             responses_data.append({
                 'participant_name': response.participant.name,
-                'answer_text': response.answer_text,
+                'answer_text': display_answer,
                 'is_correct': response.is_correct,
                 'time_taken': response.time_taken,
                 'points_earned': response.points_earned,
@@ -3308,7 +3341,7 @@ def get_where_question_detail(request, question_id):
             'longitude': question.correct_longitude,
             'hint_text': question.hint_text or '',
             'explanation': question.explanation or '',
-            'image': question.image.url,
+            'image': question.image.url if question.image else None,
         }
         return JsonResponse({'success': True, 'question': data})
     except Exception as e:

@@ -288,6 +288,7 @@ def lobby(request, session_code: str):
     
     return render(request, 'hub/lobby.html', {
         'session_code': session_code,
+        'session_name': session.name or session_code,
         'participants': list(participants.values('id', 'nickname'))
     })
 
