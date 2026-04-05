@@ -42,7 +42,7 @@
                     {% if quiz.status == 'waiting' %}
                         <button class="btn btn-success" id="startQuizBtn">
                             <i data-lucide="play"></i>
-                            Start Game
+                            Spiel starten
                         </button>
                     {% elif quiz.status == 'active' %}
                         <button class="btn btn-warning" id="endQuizBtn">
@@ -84,6 +84,11 @@
                                 <div class="question-item" data-question-id="{{ question.id }}" data-question-total-elements="{{ question.elements.count }}">
                                     <div class="question-content">
                                         <div class="question-text">{{ question.question_text|truncatechars:120 }}</div>
+                                        <div class="question-answers mt-1">
+                                            {% for el in question.elements.all %}
+                                                <span class="answer-option answer-correct">{{ forloop.counter }}. {{ el.text }}</span>
+                                            {% endfor %}
+                                        </div>
                                         <div class="question-details">
                                             <div class="detail-grid">
                                                 <div class="detail-item">
@@ -365,7 +370,29 @@
 .question-text {
     font-weight: 500;
     color: var(--text-primary);
-    margin-bottom: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.question-answers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.answer-option {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+}
+
+.answer-correct {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+    color: #065f46;
+    font-weight: 500;
 }
 
 .question-details {
@@ -1042,8 +1069,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.log('{{quiz.room_code}}');
                         hubWs.onopen = () => {
                             hubWs.send(JSON.stringify({
-                                type: 'broadcast',
-                                event: { type: 'quiz_started', game_key: 'sorting_ladder', room_code: '{{ quiz.room_code }}', title: '{{ quiz.title }}' }
+                                type: 'navigate_direct',
+                                game_key: 'sorting_ladder',
+                                room_code: '{{ quiz.room_code }}'
                             }));
                             setTimeout(() => hubWs.close(), 100);
                         };
@@ -1392,6 +1420,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn("[HubScript] Unknown game_key:", step.game_key);
           }
 
+        } else if (data.type === 'recall_to_lobby') {
+          window.location.href = new URL(`/hub/lobby/${hubCode}/`, window.location.origin).toString();
         } else if (data.type === 'session_ended') {
           console.log("[HubScript] Session ended message received.");
           const u = new URL(`/hub/lobby/${hubCode}/`, window.location.origin);

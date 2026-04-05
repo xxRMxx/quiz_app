@@ -41,7 +41,7 @@
                     {% if quiz.status == 'waiting' %}
                         <button class="btn btn-success" id="startQuizBtn">
                             <i data-lucide="play"></i>
-                            Start Quiz
+                            Spiel starten
                         </button>
                     {% elif quiz.status == 'active' %}
                         <button class="btn btn-warning" id="endQuizBtn">
@@ -83,6 +83,9 @@
                                 <div class="question-item" data-question-id="{{ question.id }}">
                                     <div class="question-content">
                                         <div class="question-text">{{ question.question_text|truncatechars:120 }}</div>
+                                        <div class="question-answers mt-1">
+                                            <span class="answer-option answer-correct"><strong>Antwort:</strong> {{ question.answer }}</span>
+                                        </div>
                                         <div class="question-details">
                                             <div class="detail-grid">
                                                 <div class="detail-item">
@@ -379,7 +382,29 @@
 .question-text {
     font-weight: 500;
     color: var(--text-primary);
-    margin-bottom: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.question-answers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.answer-option {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+}
+
+.answer-correct {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+    color: #065f46;
+    font-weight: 500;
 }
 
 .question-details {
@@ -1051,7 +1076,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         startQuiz() {
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                // Also notify hub directly (in case backend mirror is unavailable)
+                this.websocket.send(JSON.stringify({
+                    type: 'admin_start_quiz'
+                }));
+                // Notify hub so participants get navigated, then reload
                 try {
                     const qs = new URLSearchParams(window.location.search);
                     const hub = qs.get('hub_session') || window.__hubCode || (function(){ try { return sessionStorage.getItem("_hub_admin"); } catch(_) { return null; } })();
@@ -1059,18 +1087,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         const hubWs = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/hub/' + hub + '/');
                         hubWs.onopen = () => {
                             hubWs.send(JSON.stringify({
-                                type: 'broadcast',
-                                event: { type: 'quiz_started', game_key: 'clue_rush', room_code: '{{ quiz.room_code }}', title: '{{ quiz.title }}' }
+                                type: 'navigate_direct',
+                                game_key: 'clue_rush',
+                                room_code: '{{ quiz.room_code }}'
                             }));
-                            setTimeout(() => hubWs.close(), 100);
+                            setTimeout(() => { hubWs.close(); location.reload(); }, 150);
                         };
+                        hubWs.onerror = () => location.reload();
+                    } else {
+                        location.reload();
                     }
-                } catch(_) {}
-                this.websocket.send(JSON.stringify({
-                    type: 'admin_start_quiz'
-                }));
-                //reload page
-                location.reload();
+                } catch(_) {
+                    location.reload();
+                }
             }
         }
         
@@ -1467,6 +1496,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn("[HubScript] Unknown game_key:", step.game_key);
           }
 
+        } else if (data.type === 'recall_to_lobby') {
+          window.location.href = new URL(`/hub/lobby/${hubCode}/`, window.location.origin).toString();
         } else if (data.type === 'session_ended') {
           console.log("[HubScript] Session ended message received.");
           const u = new URL(`/hub/lobby/${hubCode}/`, window.location.origin);
@@ -1493,7 +1524,7 @@ document.addEventListener('DOMContentLoaded', function() {
     console.error("[HubScript] General error:", err);
   }
 })();
-
+</script>
 
 <!-- Score Edit Modal -->
 <div class="modal fade" id="editScoreModal" tabindex="-1" aria-hidden="true">

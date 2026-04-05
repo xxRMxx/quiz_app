@@ -42,7 +42,7 @@
                     {% if quiz.status == 'waiting' %}
                         <button class="btn btn-success" id="startQuizBtn">
                             <i data-lucide="play"></i>
-                            Start Quiz
+                            Spiel starten
                         </button>
                     {% elif quiz.status == 'active' %}
                         <button class="btn btn-warning" id="endQuizBtn">
@@ -1027,8 +1027,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         const hubWs = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/hub/' + hub + '/');
                         hubWs.onopen = () => {
                             hubWs.send(JSON.stringify({
-                                type: 'broadcast',
-                                event: { type: 'quiz_started', game_key: 'assign', room_code: '{{ quiz.room_code }}', title: '{{ quiz.title }}' }
+                                type: 'navigate_direct',
+                                game_key: 'assign',
+                                room_code: '{{ quiz.room_code }}'
                             }));
                             setTimeout(() => hubWs.close(), 100);
                         };
@@ -1375,6 +1376,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.warn("[HubScript] Unknown game_key:", step.game_key);
             }
 
+            } else if (data.type === 'recall_to_lobby') {
+            window.location.href = new URL(`/hub/lobby/${hubCode}/`, window.location.origin).toString();
             } else if (data.type === 'session_ended') {
             console.log("[HubScript] Session ended message received.");
             const u = new URL(`/hub/lobby/${hubCode}/`, window.location.origin);

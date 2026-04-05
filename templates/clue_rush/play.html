@@ -99,16 +99,15 @@
 
                                 <!-- Question Content -->
                                 <div class="question-content">
-                                    <div class="question-text" id="questionText">
-                                        {% if quiz.current_question %}
-                                            {{ quiz.current_question.question_text }}
-                                        {% endif %}
-                                    </div>
+                                    <div class="question-text d-none" id="questionText"></div>
 
                                     <!-- Clues (revealed over time) -->
                                     <div id="cluesContainer" class="mb-3">
                                         <ul class="list-group" id="playerCluesList"></ul>
                                     </div>
+
+                                    <!-- Participant question label (set dynamically) -->
+                                    <div id="participantQuestionLabel" class="participant-question-label d-none"></div>
 
                                     <!-- Answer Options -->
                                     <div class="answer-options" id="answerOptions">
@@ -771,6 +770,14 @@
             height: 20px;
         }
 
+        /* Participant question label */
+        .participant-question-label {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary, #1e293b);
+            margin-bottom: 0.5rem;
+        }
+
         /* Short Answer Input */
         .short-answer-input {
             width: 100%;
@@ -1043,17 +1050,11 @@
 
                 showClue(clue) {
                     try {
-                        // Replace any existing clue with the latest one
-                        this.resetClues();
+                        // Append clue to existing list (clues accumulate until next question)
                         this.addClue(clue);
-                        // Auto-hide after duration
+                        // Start per-clue timer on both displays
                         const duration = parseInt(clue.duration, 10);
                         if (!isNaN(duration) && duration > 0) {
-                            clearTimeout(this._clueHideTimer);
-                            this._clueHideTimer = setTimeout(() => {
-                                this.resetClues();
-                            }, duration * 1000);
-                            // Start per-clue timer on both displays
                             this.startClueTimer(duration);
                         }
                     } catch (e) { console.error(e); }
@@ -1142,6 +1143,18 @@
 
                 loadQuestion(question) {
                     document.getElementById('questionText').textContent = question.question_text;
+
+                    // Show question text as label above answer input
+                    const labelEl = document.getElementById('participantQuestionLabel');
+                    if (labelEl) {
+                        if (question.question_text) {
+                            labelEl.textContent = question.question_text;
+                            labelEl.classList.remove('d-none');
+                        } else {
+                            labelEl.classList.add('d-none');
+                        }
+                    }
+
                     const optionsContainer = document.getElementById('answerOptions');
                     optionsContainer.innerHTML = '';
 

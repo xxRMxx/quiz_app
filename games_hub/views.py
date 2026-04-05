@@ -404,6 +404,17 @@ def add_step_to_session(request, session_code):
                 game_instance = game_model.objects.get(id=gid)
             except game_model.DoesNotExist:
                 continue
+            # Reset game state so it can be played again
+            game_instance.status = 'waiting'
+            game_instance.synced = False
+            for attr in ('started_at', 'ended_at', 'question_start_time'):
+                if hasattr(game_instance, attr):
+                    setattr(game_instance, attr, None)
+            if hasattr(game_instance, 'current_question'):
+                game_instance.current_question = None
+            if hasattr(game_instance, 'current_question_number'):
+                game_instance.current_question_number = 0
+            game_instance.save()
             max_order = session.steps.aggregate(Max('order'))['order__max']
             next_order = 0 if max_order is None else max_order + 1
             step = HubGameStep.objects.create(

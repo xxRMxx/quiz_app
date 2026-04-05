@@ -418,6 +418,9 @@
                     <!-- CLUE RUSH -->
                     <div id="generic-form-clue_rush" class="generic-type-form d-none">
                         <input type="hidden" id="cr-id">
+                        <div class="mb-3"><label class="form-label">Frage *</label>
+                            <input type="text" class="form-control" id="cr-question-text" placeholder="z. B. Welches Land wird gesucht?" required>
+                            <small class="text-muted">Wird auf Teilnehmerseite als Frage angezeigt.</small></div>
                         <div class="mb-3"><label class="form-label">Gesuchter Begriff (Antwort) *</label>
                             <input type="text" class="form-control" id="cr-answer" placeholder="z.B. Eiffelturm"></div>
                         <div class="row g-3 mb-3">
@@ -1405,6 +1408,7 @@ function resetGenericForm() {
     document.getElementById('bj-time').value = 30;
 
     document.getElementById('cr-id').value = '';
+    document.getElementById('cr-question-text').value = '';
     document.getElementById('cr-answer').value = '';
     document.getElementById('cr-points').value = 12;
     document.getElementById('cr-clues-container').innerHTML = '';
@@ -1606,7 +1610,9 @@ document.getElementById('bj-submit').addEventListener('click', function () {
 
 // Clue Rush
 document.getElementById('cr-submit').addEventListener('click', function () {
+    const questionText = document.getElementById('cr-question-text').value.trim();
     const answer = document.getElementById('cr-answer').value.trim();
+    if (!questionText) { alert('Frage ist ein Pflichtfeld.'); return; }
     if (!answer) { alert('Antwort ist ein Pflichtfeld.'); return; }
     const clues = Array.from(document.querySelectorAll('.cr-clue-row')).map((r, i) => ({
         clue_text: r.querySelector('.cr-clue-text').value.trim(),
@@ -1615,7 +1621,8 @@ document.getElementById('cr-submit').addEventListener('click', function () {
     })).filter(c => c.clue_text);
     if (!clues.length) { alert('Mindestens 1 Clue erforderlich.'); return; }
     const payload = {
-        question_text: answer, answer,
+        question_text: questionText,
+        answer,
         points: parseInt(document.getElementById('cr-points').value),
         time_limit: clues.reduce((s, c) => s + c.duration, 0),
         clues,

@@ -40,6 +40,9 @@
                         <i data-lucide="play" class="me-1"></i> Start Session
                     </button>
                     {% endif %}
+                    <button id="recallLobbyBtn" class="btn btn-outline-warning">
+                        <i data-lucide="users" class="me-1"></i> Alle in Lobby zurück schicken (Debug-only)
+                    </button>
                     <button id="endSessionBtn" class="btn btn-outline-danger">
                         <i data-lucide="square" class="me-1"></i> End Session
                     </button>
@@ -71,13 +74,13 @@
                             <div class="step-header-action">Action</div>
                         </div>
                         {% for s in steps %}
-                        <div class="step-row {% if forloop.first %}step-first{% endif %}" id="step-{{ forloop.counter0 }}"
+                        <div class="step-row {% if forloop.first %}step-first{% endif %}{% if s.game_status == 'completed' %} completed{% endif %}" id="step-{{ forloop.counter0 }}"
                              data-game-key="{{ s.game_key }}" data-room-code="{{ s.room_code }}" data-order="{{ s.order }}" data-step-id="{{ s.id }}"
                              draggable="true">
                             <div class="drag-handle" title="Drag to reorder"><i data-lucide="grip-vertical"></i></div>
                             <div class="step-num">{{ forloop.counter }}</div>
                             <div class="step-info">
-                                <div class="step-name">{{ s.get_game_key_display }}</div>
+                                <div class="step-name">{{ s.get_game_key_display }}{% if s.title %} · <span class="step-title-label">{{ s.title }}</span>{% endif %}</div>
                                 {% if s.game_status == 'completed' %}
                                     <div class="step-status-hint">
                                         <i data-lucide="check-circle" style="width:11px;height:11px;"></i>
@@ -91,7 +94,7 @@
                                 {% else %}
                                     <div class="step-status-hint">
                                         <i data-lucide="clock" style="width:11px;height:11px;"></i>
-                                        Not yet started
+                                        Not started yet
                                     </div>
                                 {% endif %}
                             </div>
@@ -101,10 +104,11 @@
                             <div class="step-action gap-1">
                                 {% if s.room_code %}
                                 <a href="{{ request.scheme }}://{{ ip }}:8000{% url 'admin_dashboard:home' %}"
-                                   class="btn btn-sm btn-primary launch-btn"
+                                   class="btn btn-sm btn-primary launch-btn{% if not session.started_at %} disabled{% endif %}"
                                    data-game-key="{{ s.game_key }}" data-room-code="{{ s.room_code }}"
-                                   data-session="{{ session.code }}">
-                                    <i data-lucide="play" class="me-1"></i> Start
+                                   data-session="{{ session.code }}"
+                                   {% if not session.started_at %}aria-disabled="true" tabindex="-1"{% endif %}>
+                                    <i data-lucide="play" class="me-1"></i> Spiel öffnen
                                 </a>
                                 {% endif %}
                                 <button class="btn btn-sm btn-outline-danger delete-step-btn"
@@ -221,7 +225,7 @@
 
 .step-header {
     display: grid;
-    grid-template-columns: 28px 36px 1fr 80px 120px;
+    grid-template-columns: 28px 36px 1fr 80px 160px;
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem 1.25rem;
@@ -238,7 +242,7 @@
 
 .step-row {
     display: grid;
-    grid-template-columns: 28px 36px 1fr 80px 120px;
+    grid-template-columns: 28px 36px 1fr 80px 160px;
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1.25rem;
@@ -248,7 +252,7 @@
 .step-row:last-child { border-bottom: none; }
 .step-row:hover { background: var(--bg-secondary); }
 .step-row.active { background: var(--primary-50); border-left: 3px solid var(--color-primary); }
-.step-row.completed { opacity: 0.6; }
+.step-row.completed { background: rgba(25, 135, 84, 0.44); }
 
 .step-num {
     width: 28px;
@@ -272,12 +276,14 @@
 
 .step-info { min-width: 0; }
 .step-name { font-weight: 600; font-size: 0.9rem; }
+.step-title-label { font-weight: 400; color: #6c757d; }
 .step-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .step-votes { display: flex; align-items: center; justify-content: center; }
 .step-action { display: flex; align-items: center; justify-content: flex-end; }
 
 .launch-btn { flex-shrink: 0; }
+.launch-btn.disabled { pointer-events: none; opacity: 0.45; }
 
 .drag-handle {
     cursor: grab;
@@ -307,7 +313,7 @@
     display: none;
 }
 .vote-badge.has-votes { display: inline-block; }
-.vote-badge.top-vote { background: #fef9c3; color: #92400e; }
+.vote-badge.top-vote { background: #dcfce7; color: #166534; }
 
 .quiz-pick-list {
     max-height: 220px;
@@ -377,6 +383,7 @@
 
 <script>
 const SESSION_CODE = '{{ session.code }}';
+let sessionStarted = {{ session.started_at|yesno:"true,false" }};
 
 // Game monitor routes
 const MONITOR_ROUTES = {
@@ -398,9 +405,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function navigateToGame(gameKey, roomCode) {
         const route = MONITOR_ROUTES[gameKey];
         if (!route || !roomCode) return;
-        try {
-            ws.send(JSON.stringify({ type: 'navigate_direct', game_key: gameKey, room_code: roomCode }));
-        } catch (_) {}
         window.location.href = route(roomCode) + `?hub_session=${SESSION_CODE}`;
     }
 
@@ -418,6 +422,7 @@ document.addEventListener('DOMContentLoaded', function () {
         row.addEventListener('click', function (e) {
             // Ignore clicks on buttons, links, or the drag handle
             if (e.target.closest('button, a, .drag-handle')) return;
+            if (!sessionStarted) return;
             const gameKey  = this.dataset.gameKey;
             const roomCode = this.dataset.roomCode;
             navigateToGame(gameKey, roomCode);
@@ -487,7 +492,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 applyScoreboardState(data.scoreboard_visible);
             }
         } else if (data.type === 'session_started') {
+            sessionStarted = true;
             if (startSessionBtn) startSessionBtn.remove();
+            document.querySelectorAll('.launch-btn').forEach(btn => {
+                btn.classList.remove('disabled');
+                btn.removeAttribute('aria-disabled');
+                btn.removeAttribute('tabindex');
+            });
         } else if (data.type === 'session_ended') {
             manualEnd = true;
             window.location.href = '{% url "admin_dashboard:sessions_overview" %}';
@@ -672,16 +683,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="drag-handle" title="Drag to reorder"><i data-lucide="grip-vertical"></i></div>
                     <div class="step-num">${stepNum}</div>
                     <div class="step-info">
-                        <div class="step-name">${step.title || step.game_key_display}</div>
+                        <div class="step-name">${step.game_key_display}${step.title ? ` · <span class="step-title-label">${step.title}</span>` : ''}</div>
                     </div>
                     <div class="step-votes">
                         <span class="vote-badge" data-order="${step.order}" title="Votes for this game"></span>
                     </div>
                     <div class="step-action gap-1">
-                        <a href="#" class="btn btn-sm btn-primary launch-btn"
+                        <a href="#" class="btn btn-sm btn-primary launch-btn${sessionStarted ? '' : ' disabled'}"
                            data-game-key="${step.game_key}" data-room-code="${step.room_code}"
-                           data-session="{{ session.code }}">
-                            <i data-lucide="play" class="me-1"></i> Start
+                           data-session="{{ session.code }}"
+                           ${sessionStarted ? '' : 'aria-disabled="true" tabindex="-1"'}>
+                            <i data-lucide="play" class="me-1"></i> Spiel öffnen
                         </a>
                         <button class="btn btn-sm btn-outline-danger delete-step-btn"
                                 data-step-id="${step.id}"
@@ -696,13 +708,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     e.preventDefault();
                     const route = MONITOR_ROUTES[this.dataset.gameKey];
                     if (!route) return;
-                    try {
-                        ws.send(JSON.stringify({
-                            type: 'navigate_direct',
-                            game_key: this.dataset.gameKey,
-                            room_code: this.dataset.roomCode,
-                        }));
-                    } catch (_) {}
                     window.location.href = route(this.dataset.roomCode) + `?hub_session=${SESSION_CODE}`;
                 });
             });
@@ -822,6 +827,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ── End session ──
+    document.getElementById('recallLobbyBtn').addEventListener('click', () => {
+        ws.send(JSON.stringify({ type: 'recall_to_lobby' }));
+    });
+
     let manualEnd = false;
     document.getElementById('endSessionBtn').addEventListener('click', () => {
         if (!confirm('End this session? All game instances will be marked as inactive.')) return;
