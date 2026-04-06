@@ -123,11 +123,6 @@
                                                 </div>
                                             </div>
 
-                                            <div class="matched-panel d-none" id="matchedPanel">
-                                                <h4>Gewählte Zuordnungen</h4>
-                                                <div class="matched-list" id="matchedList"></div>
-                                            </div>
-
                                             <div class="drop-zones" id="dropZones">
                                                 <h4>Lege hier ab</h4>
                                                 <div class="zones-list" id="zonesList">
@@ -143,6 +138,12 @@
                                         <p class="mt-2 mb-0 fw-semibold">Antwort gespeichert!</p>
                                         <p class="text-muted small">Warte auf nächste Runde...</p>
                                     </div>
+
+                                    <!-- Zurücksetzen Button (nach Drop sichtbar) -->
+                                    <button class="btn btn-outline-secondary w-100 mb-2 d-none" id="resetRoundBtn">
+                                        <i data-lucide="rotate-ccw"></i>
+                                        Zurücksetzen
+                                    </button>
 
                                     <!-- Submit Button -->
                                     <button class="btn btn-primary btn-lg w-100 submit-answer" id="submitAnswerBtn" disabled>
@@ -184,6 +185,17 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Eliminated State (falsche Zuordnung) -->
+                        <div id="eliminatedState" class="game-state d-none">
+                            <div class="waiting-card">
+                                <div class="waiting-animation">
+                                    <i data-lucide="x-circle" style="width:48px;height:48px;color:var(--danger-500,#ef4444);"></i>
+                                </div>
+                                <h2>Leider ausgeschieden!</h2>
+                                <p>Die vorherige Zuweisung war falsch. Du bist leider ausgeschieden.</p>
                             </div>
                         </div>
 
@@ -589,6 +601,28 @@
             cursor: default;
         }
 
+        /* Abgeschlossene Runde links: nur ausgegraut, keine Zuordnungsanzeige */
+        .draggable-item.matched-done {
+            background: var(--success-50);
+            border-color: var(--success-200);
+            color: var(--success-700);
+            cursor: default;
+            opacity: 0.75;
+        }
+
+        /* Abgeschlossene Zuordnung rechts: gesperrt, zeigt gematchtes linkes Item */
+        .drop-zone.completed-round {
+            cursor: default;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        /* Noch nicht dran: ausgegraut */
+        .draggable-item.upcoming {
+            opacity: 0.4;
+            cursor: default;
+        }
+
         /* Drop Zones */
         .drop-zone {
             padding: 1rem;
@@ -968,6 +1002,8 @@
                     this.roundBased = false;
                     this.currentRoundIndex = 0;
                     this.totalRounds = 0;
+                    this.dropLocked = false;  // nach einem Drop gesperrt, bis Reset
+                    this.eliminated = false;  // nach falscher Zuordnung ausgeschieden
                     this.accumulatedMatches = {};  // gesammelte Matches über alle Runden
                     this.usedRightIndices = new Set();  // bereits verwendete rechte Items
                     this.currentQuestion = null;  // vollständige Frage-Daten
@@ -1051,6 +1087,10 @@
                         case 'answer_submitted':
                             break;
 
+                        case 'round_checked':
+                            this.onRoundChecked(data);
+                            break;
+
                         default:
                             console.log('Unknown message type:', data.type);
                     }
@@ -1061,6 +1101,10 @@
                     document.getElementById('submitAnswerBtn').addEventListener('click', () => {
                         this.submitAnswer();
                     });
+                    // Zurücksetzen button
+                    document.getElementById('resetRoundBtn')?.addEventListener('click', () => {
+                        this.resetRoundDrop();
+                    });
                 }
 
                 onQuizStarted() {
@@ -1069,6 +1113,9 @@
 
                 onQuestionStarted(question) {
                     this.hasAnswered = false;
+                    this.eliminated = false;
+                    this.lastRoundCorrect = null;
+                    this._pendingHistoryEntry = null;
                     this.userMatches = {};
                     this.questionStartTime = Date.now();
                     this.currentQuestion = question;
@@ -1101,15 +1148,43 @@
 
                     // Reset für neue Runde
                     this.userMatches = {};
+                    this.roundSubmitted = false;
 
-                    // Timer neu starten
                     clearInterval(this.questionTimer);
-                    const timeLimit = data.time_limit || (this.currentQuestion ? this.currentQuestion.time_limit : 60);
-                    this.startQuestionTimer(timeLimit);
+
+                    // Auswertung der vorherigen Runde
+                    if (this.lastRoundCorrect === false) {
+                        // Falsche Antwort → ausgeschieden
+                        this.eliminated = true;
+                        this._pendingHistoryEntry = null;
+                        this.showState('eliminatedState');
+                        try { lucide.createIcons(); } catch(_) {}
+                        return;
+                    }
+
+                    // Richtige Antwort: History übernehmen
+                    if (this._pendingHistoryEntry) {
+                        if (!this.roundHistory) this.roundHistory = [];
+                        this.roundHistory.push(this._pendingHistoryEntry);
+                        this._pendingHistoryEntry = null;
+                    }
+                    this.lastRoundCorrect = null;
 
                     // Nächste Runde laden
+                    const timeLimit = data.time_limit || (this.currentQuestion ? this.currentQuestion.time_limit : 60);
+                    this.startQuestionTimer(timeLimit);
                     this.loadRound(data.round_index, data.current_left_item, data.right_items);
                     this.showState('questionState');
+                }
+
+                onRoundChecked(data) {
+                    // Ergebnis merken – Auswertung erfolgt erst bei round_advanced
+                    this.lastRoundCorrect = data.is_correct;
+
+                    // History-Eintrag immer vormerken (bei richtiger Antwort später übernehmen)
+                    // Warte-Message sofort anzeigen (Teilnehmer wartet auf Host-Klick)
+                    const waitMsg = document.getElementById('roundSubmittedMessage');
+                    if (waitMsg) { waitMsg.classList.remove('d-none'); try { lucide.createIcons(); } catch(_) {} }
                 }
 
                 onQuestionEnded() {
@@ -1202,6 +1277,7 @@
                 loadRound(roundIndex, currentLeftItem, allRightItems) {
                     this.currentRoundIndex = roundIndex;
                     this.roundSubmitted = false;
+                    this.dropLocked = false;
 
                     // Fragetext setzen
                     if (this.currentQuestion) {
@@ -1214,6 +1290,10 @@
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<i data-lucide="check-circle"></i> Antwort bestätigen';
                     try { lucide.createIcons(); } catch(_) {}
+
+                    // Reset-Button ausblenden (neue Runde = kein Drop vorhanden)
+                    const resetBtn = document.getElementById('resetRoundBtn');
+                    if (resetBtn) resetBtn.classList.add('d-none');
 
                     // Warte-Nachricht ausblenden
                     const waitMsg = document.getElementById('roundSubmittedMessage');
@@ -1259,30 +1339,6 @@
                     }
                 }
 
-                renderMatchedPanel() {
-                    const panel = document.getElementById('matchedPanel');
-                    const list = document.getElementById('matchedList');
-                    const container = document.querySelector('.drag-drop-container');
-                    if (!panel || !list) return;
-
-                    if (!this.roundHistory || this.roundHistory.length === 0) {
-                        panel.classList.add('d-none');
-                        if (container) container.classList.remove('three-col');
-                        return;
-                    }
-
-                    list.innerHTML = '';
-                    this.roundHistory.forEach(({ leftText, rightText }) => {
-                        const row = document.createElement('div');
-                        row.className = 'matched-row';
-                        row.innerHTML = `<span>${leftText}</span><span class="arrow">→</span><span>${rightText}</span>`;
-                        list.appendChild(row);
-                    });
-
-                    panel.classList.remove('d-none');
-                    if (container) container.classList.add('three-col');
-                }
-
                 setupRoundDragDrop(roundIndex, currentLeftText, allRightItems) {
                     const leftItemsList = document.getElementById('leftItemsList');
                     const zonesList = document.getElementById('zonesList');
@@ -1290,34 +1346,59 @@
                     leftItemsList.innerHTML = '';
                     zonesList.innerHTML = '';
 
-                    // Mittleres Panel aktualisieren
-                    this.renderMatchedPanel();
-
                     // Normalisierung der rechten Items – originalIndex = item.id (Position im vollen Array)
                     const normRight = (allRightItems || []).map((it, i) => ({
                         text: typeof it === 'string' ? it : (it.text || String(it)),
                         originalIndex: (typeof it === 'object' && it !== null && it.id !== undefined) ? it.id : i
                     }));
 
-                    // Aktuelles linkes Item
-                    const draggableDiv = document.createElement('div');
-                    draggableDiv.className = 'draggable-item';
-                    draggableDiv.draggable = true;
-                    draggableDiv.textContent = currentLeftText;
-                    draggableDiv.dataset.leftIndex = roundIndex;
+                    // Alle linken Items anzeigen: abgeschlossene Runden mit Zuordnung,
+                    // aktuelle Runde draggable, zukünftige ausgegraut
+                    const allLeft = this.currentQuestion
+                        ? this.currentQuestion.left_items.map(it => typeof it === 'string' ? it : (it.text || String(it)))
+                        : [currentLeftText];
 
-                    draggableDiv.addEventListener('dragstart', (e) => {
-                        e.dataTransfer.setData('text/plain', String(roundIndex));
-                        draggableDiv.classList.add('dragging');
-                    });
-                    draggableDiv.addEventListener('dragend', () => {
-                        draggableDiv.classList.remove('dragging');
-                    });
-                    leftItemsList.appendChild(draggableDiv);
+                    allLeft.forEach((leftText, idx) => {
+                        // Bereits abgeschlossene Runden: nicht mehr anzeigen
+                        if (idx < roundIndex) return;
 
-                    // Rechte Items als Drop-Zones anzeigen
+                        const div = document.createElement('div');
+
+                        if (idx === roundIndex) {
+                            // Aktuelle Runde – draggable
+                            div.className = 'draggable-item';
+                            div.draggable = true;
+                            div.textContent = leftText;
+                            div.dataset.leftIndex = roundIndex;
+                            div.addEventListener('dragstart', (e) => {
+                                e.dataTransfer.setData('text/plain', String(roundIndex));
+                                div.classList.add('dragging');
+                            });
+                            div.addEventListener('dragend', () => {
+                                div.classList.remove('dragging');
+                            });
+                        } else {
+                            // Noch nicht dran – ausgegraut
+                            div.className = 'draggable-item upcoming';
+                            div.draggable = false;
+                            div.textContent = leftText;
+                        }
+
+                        leftItemsList.appendChild(div);
+                    });
+
+                    // Rechte Seite: zuerst abgeschlossene Zuordnungen aus Vorrunden anzeigen
+                    (this.roundHistory || []).forEach(({ leftText, rightText }) => {
+                        const completedZone = document.createElement('div');
+                        completedZone.className = 'drop-zone occupied completed-round';
+                        completedZone.innerHTML =
+                            `<div class="drop-zone-label">${rightText}</div>`
+                            + `<div class="dropped-item">${leftText}</div>`;
+                        zonesList.appendChild(completedZone);
+                    });
+
+                    // Danach aktive Drop-Zones für die aktuelle Runde
                     normRight.forEach((item) => {
-
                         const dropZone = document.createElement('div');
                         dropZone.className = 'drop-zone';
                         dropZone.dataset.rightIndex = item.originalIndex;
@@ -1328,6 +1409,7 @@
                         dropZone.appendChild(label);
 
                         dropZone.addEventListener('dragover', (e) => {
+                            if (this.dropLocked) return;
                             e.preventDefault();
                             dropZone.classList.add('drag-over');
                         });
@@ -1335,6 +1417,7 @@
                             dropZone.classList.remove('drag-over');
                         });
                         dropZone.addEventListener('drop', (e) => {
+                            if (this.dropLocked) return;
                             e.preventDefault();
                             dropZone.classList.remove('drag-over');
                             const leftIndex = parseInt(e.dataTransfer.getData('text/plain'));
@@ -1346,37 +1429,61 @@
                 }
 
                 handleRoundDrop(leftIndex, rightIndex, dropZone, itemText) {
-                    // Vorherigen Match dieser Runde entfernen
-                    document.querySelectorAll('.drop-zone').forEach(zone => {
+                    // Vorherigen Match dieser Runde entfernen (nur aktive Zones, nicht abgeschlossene)
+                    document.querySelectorAll('.drop-zone:not(.completed-round)').forEach(zone => {
                         const prev = zone.querySelector('.dropped-item');
                         if (prev) { prev.remove(); zone.classList.remove('occupied'); }
                     });
                     const draggableItem = document.querySelector('.draggable-item');
                     if (draggableItem) { draggableItem.classList.remove('matched'); draggableItem.draggable = true; }
 
-                    // Neues dropped-item erstellen
+                    // Neues dropped-item erstellen (kein Click-to-undo — nur Reset-Button)
                     const droppedItem = document.createElement('div');
                     droppedItem.className = 'dropped-item';
                     droppedItem.textContent = itemText;
                     droppedItem.dataset.leftIndex = leftIndex;
 
-                    droppedItem.addEventListener('click', () => {
-                        droppedItem.remove();
-                        dropZone.classList.remove('occupied');
-                        if (draggableItem) { draggableItem.classList.remove('matched'); draggableItem.draggable = true; }
-                        this.userMatches = {};
-                    });
-
                     dropZone.appendChild(droppedItem);
                     dropZone.classList.add('occupied');
 
-                    if (draggableItem) { draggableItem.classList.add('matched'); draggableItem.draggable = false; }
+                    // Draggable-Item sperren
+                    if (draggableItem) {
+                        draggableItem.classList.add('matched');
+                        draggableItem.draggable = false;
+                    }
+
+                    // Drop sperren: alle weiteren Drops in dieser Runde verhindern
+                    this.dropLocked = true;
 
                     this.userMatches = { [leftIndex]: rightIndex };
 
-                    // Submit-Button aktivieren
+                    // Submit-Button aktivieren, Reset-Button einblenden
                     const submitBtn = document.getElementById('submitAnswerBtn');
                     if (submitBtn) submitBtn.disabled = false;
+                    const resetBtn = document.getElementById('resetRoundBtn');
+                    if (resetBtn) resetBtn.classList.remove('d-none');
+                }
+
+                resetRoundDrop() {
+                    this.dropLocked = false;
+                    // Nur aktive Drop-Zone der aktuellen Runde zurücksetzen (abgeschlossene bleiben)
+                    document.querySelectorAll('.drop-zone:not(.completed-round)').forEach(zone => {
+                        const prev = zone.querySelector('.dropped-item');
+                        if (prev) prev.remove();
+                        zone.classList.remove('occupied');
+                    });
+                    // Draggable-Item wieder freigeben
+                    const draggableItem = document.querySelector('.draggable-item');
+                    if (draggableItem) {
+                        draggableItem.classList.remove('matched');
+                        draggableItem.draggable = true;
+                    }
+                    // Submit sperren, Reset ausblenden
+                    const submitBtn = document.getElementById('submitAnswerBtn');
+                    if (submitBtn) submitBtn.disabled = true;
+                    const resetBtn = document.getElementById('resetRoundBtn');
+                    if (resetBtn) resetBtn.classList.add('d-none');
+                    this.userMatches = {};
                 }
 
                 setupDragDrop(leftItems, rightItems) {
@@ -1569,26 +1676,33 @@
                     if (Object.keys(this.userMatches).length === 0) return;
 
                     if (this.roundBased) {
-                        // Rundenmodus: Match akkumulieren, auf nächste Runde warten
+                        // Rundenmodus: Match akkumulieren, Prüfung beim Server anfragen
                         if (this.roundSubmitted) return;
                         const leftIdx = parseInt(Object.keys(this.userMatches)[0]);
                         const rightIdx = this.userMatches[leftIdx];
                         this.accumulatedMatches[leftIdx] = rightIdx;
                         this.roundSubmitted = true;
 
-                        // Texte für History merken
-                        const leftText = document.querySelector('.draggable-item:not([style*="opacity"])')?.textContent?.trim() || '';
-                        const occupiedZone = document.querySelector('.drop-zone.occupied');
+                        // Texte für History merken (wird bei richtiger Antwort genutzt)
+                        const leftText = document.querySelector('.draggable-item:not(.upcoming):not(.matched-done)')?.textContent?.trim() || '';
+                        const occupiedZone = document.querySelector('.drop-zone.occupied:not(.completed-round)');
                         const rightText = occupiedZone?.querySelector('.drop-zone-label')?.textContent?.trim() || '';
-                        if (!this.roundHistory) this.roundHistory = [];
-                        this.roundHistory.push({ leftText, rightText });
+                        this._pendingHistoryEntry = { leftText, rightText };
 
                         // UI sperren
                         document.querySelectorAll('.draggable-item').forEach(el => { el.draggable = false; el.style.cursor = 'default'; });
-                        document.querySelectorAll('.drop-zone').forEach(el => { el.style.pointerEvents = 'none'; });
                         document.getElementById('submitAnswerBtn').style.display = 'none';
-                        const waitMsg = document.getElementById('roundSubmittedMessage');
-                        if (waitMsg) { waitMsg.classList.remove('d-none'); try { lucide.createIcons(); } catch(_) {} }
+                        const resetBtn = document.getElementById('resetRoundBtn');
+                        if (resetBtn) resetBtn.classList.add('d-none');
+
+                        // Prüfung beim Server anfragen
+                        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                            this.websocket.send(JSON.stringify({
+                                type: 'participant_check_round',
+                                round_index: leftIdx,
+                                user_match: { [leftIdx]: rightIdx },
+                            }));
+                        }
                         return;
                     }
 

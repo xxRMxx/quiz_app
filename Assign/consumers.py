@@ -49,6 +49,8 @@ class AssignConsumer(AsyncWebsocketConsumer):
                 await self.handle_admin_end_quiz(text_data_json)
             elif message_type == 'admin_next_round':
                 await self.handle_admin_next_round(text_data_json)
+            elif message_type == 'participant_check_round':
+                await self.handle_participant_check_round(text_data_json)
             elif message_type == 'participant_submit_answer':
                 await self.handle_participant_submit_answer(text_data_json)
             elif message_type == 'participant_join':
@@ -245,6 +247,22 @@ class AssignConsumer(AsyncWebsocketConsumer):
                 'message': 'Quiz has ended. Thank you for participating!',
                 'final_scores': final_scores
             })
+
+    async def handle_participant_check_round(self, data):
+        """Prüft die Zuordnung für eine einzelne Runde und gibt is_correct zurück (ohne DB-Speicherung)."""
+        round_index = data.get('round_index', 0)
+        user_match = data.get('user_match', {})  # {str(left_idx): shuffled_right_pos}
+
+        quiz = await self.get_quiz()
+        if not quiz or not quiz.current_question:
+            return
+
+        is_correct = await self.check_round_answer(quiz.current_question, round_index, user_match)
+        await self.send(text_data=json.dumps({
+            'type': 'round_checked',
+            'is_correct': is_correct,
+            'round_index': round_index,
+        }))
 
     async def handle_participant_submit_answer(self, data):
         """Handle participant submitting their drag-drop answer"""
@@ -506,37 +524,45 @@ class AssignConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_round_right_items(self, question, round_index):
-        """Return (N_left + 1) right items for a round: correct item + N_left random wrong items."""
-        import random
+        """Verbleibende rechte Items für diese Runde: alle Items minus die in Vorrunden korrekt genutzten."""
         randomized = question.get_randomized_items(room_code=self.room_code)
         all_right = randomized['right_items']            # [{'id': shuffled_pos, 'text': ...}]
         position_to_original = randomized['position_to_original']
-        n_left = len(randomized['left_items'])
-        n_options = n_left + 1
+
+        # Original-Indizes der in Vorrunden (0..round_index-1) korrekt gematchten rechten Items
+        used_original_indices = set()
+        for prev_round in range(round_index):
+            correct_orig = question.correct_matches.get(str(prev_round))
+            if correct_orig is not None:
+                used_original_indices.add(int(correct_orig))
+
+        # Alle rechten Items außer den bereits genutzten zurückgeben
+        remaining = [
+            item for item in all_right
+            if int(position_to_original.get(item['id'], -1)) not in used_original_indices
+        ]
+        return remaining if remaining else all_right  # fallback
+
+    @database_sync_to_async
+    def check_round_answer(self, question, round_index, user_match):
+        """Gibt True zurück, wenn die Zuordnung für round_index korrekt ist."""
+        randomized = question.get_randomized_items(room_code=self.room_code)
+        position_to_original = randomized['position_to_original']
 
         correct_original_idx = question.correct_matches.get(str(round_index))
         if correct_original_idx is None:
-            return all_right  # fallback: alle Items
+            return True  # Kein Correct-Match definiert → als korrekt werten
 
-        correct_item = None
-        wrong_items = []
-        for item in all_right:
-            orig = position_to_original.get(item['id'])
-            if orig == correct_original_idx:
-                correct_item = item
-            else:
-                wrong_items.append(item)
+        # User-Antwort: shuffled right position für diesen left index
+        shuffled_right_pos = user_match.get(str(round_index)) or user_match.get(round_index)
+        if shuffled_right_pos is None:
+            return False
 
-        if correct_item is None:
-            return all_right  # fallback
+        original_right_idx = position_to_original.get(int(shuffled_right_pos))
+        if original_right_idx is None:
+            return False
 
-        n_wrong = min(n_options - 1, len(wrong_items))
-        seed = abs(hash(f"{question.id}_{self.room_code}_{round_index}")) % (2**32)
-        rng = random.Random(seed)
-        selected_wrong = rng.sample(wrong_items, n_wrong)
-        subset = [correct_item] + selected_wrong
-        rng.shuffle(subset)
-        return subset
+        return int(original_right_idx) == int(correct_original_idx)
 
     @database_sync_to_async
     def get_question_data(self, question):
