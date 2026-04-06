@@ -3930,6 +3930,12 @@ def assign_monitor(request, room_code):
     # Get or create quiz session
     quiz_session, created = AssignSession.objects.get_or_create(quiz=quiz)
     
+    # Runden-Info für rundenbasierten Modus
+    current_round_index = quiz_session.current_round_index
+    total_rounds_current = 0
+    if quiz.round_based and quiz.current_question and quiz.current_question.left_items:
+        total_rounds_current = len(quiz.current_question.left_items)
+
     context = {
         'quiz': quiz,
         'participants': participants,
@@ -3938,6 +3944,8 @@ def assign_monitor(request, room_code):
         'quiz_session': quiz_session,
         'lobby_url': _get_lobby_url(request, room_code),
         'hub_session': hub_session or '',
+        'current_round_index': current_round_index,
+        'total_rounds_current': total_rounds_current,
     }
     return render(request, 'admin_dashboard/assign_monitor.html', context)
 
@@ -4239,6 +4247,23 @@ def end_assign_quiz_by_room_code(request, room_code):
             'success': False,
             'error': str(e)
         }, status=400)
+
+
+@admin_required
+@require_POST
+def toggle_assign_round_based(request, room_code):
+    """Rundenbasierten Modus für ein Assign-Quiz umschalten"""
+    try:
+        quiz = get_object_or_404(AssignQuiz, room_code=room_code)
+        if not request.user.is_superuser and quiz.creator != request.user:
+            return JsonResponse({'success': False, 'error': 'Nicht autorisiert.'}, status=403)
+        if quiz.status != 'waiting':
+            return JsonResponse({'success': False, 'error': 'Modus kann nur vor dem Start geändert werden.'}, status=400)
+        quiz.round_based = not quiz.round_based
+        quiz.save()
+        return JsonResponse({'success': True, 'round_based': quiz.round_based})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
 @admin_required

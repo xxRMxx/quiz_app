@@ -40,6 +40,12 @@
                         {{ quiz.get_status_display }}
                     </span>
                     {% if quiz.status == 'waiting' %}
+                        <div class="d-flex align-items-center gap-2 me-2">
+                            <div class="form-check form-switch mb-0" title="Rundenbasierter Modus: jedes linke Item wird einzeln pro Runde gezeigt">
+                                <input class="form-check-input" type="checkbox" id="roundBasedToggle" {% if quiz.round_based %}checked{% endif %}>
+                                <label class="form-check-label fw-semibold" for="roundBasedToggle" style="font-size:0.85rem;">Rundenmodus</label>
+                            </div>
+                        </div>
                         <button class="btn btn-success" id="startQuizBtn">
                             <i data-lucide="play"></i>
                             Spiel starten
@@ -138,7 +144,16 @@
                         <!-- Active Question Display -->
                         <div id="activeQuestion">
                             <div class="active-question-header">
-                                <h6>Current Question</h6>
+                                <div>
+                                    <h6 class="mb-0">Aktuelle Frage</h6>
+                                    {% if quiz.round_based %}
+                                    <div id="monitorRoundInfo" class="mt-1">
+                                        <span class="badge bg-secondary" id="monitorRoundBadge">
+                                            Runde {{ current_round_index|add:1 }} von {{ total_rounds_current }}
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                </div>
                                 <div class="question-timer">
                                     <div class="timer-circle" id="questionTimerCircle">
                                         <span id="questionTimeLeft">{{ quiz.current_question.time_limit }}</span>
@@ -167,10 +182,28 @@
                                 </div>
                                 
                                 <div class="question-actions">
+                                    {% if quiz.round_based %}
+                                        {% if current_round_index < total_rounds_current|add:"-1" %}
+                                        <button class="btn btn-primary" id="nextRoundBtn">
+                                            <i data-lucide="arrow-right"></i>
+                                            Nächste Runde (<span id="nextRoundLabel">{{ current_round_index|add:2 }}/{{ total_rounds_current }}</span>)
+                                        </button>
+                                        <button class="btn btn-outline-warning" id="endRoundEarlyBtn">
+                                            <i data-lucide="skip-forward"></i>
+                                            Runde frühzeitig beenden
+                                        </button>
+                                        {% else %}
+                                        <button class="btn btn-warning" id="endQuestionBtn">
+                                            <i data-lucide="check-square"></i>
+                                            Frage beenden
+                                        </button>
+                                        {% endif %}
+                                    {% else %}
                                     <button class="btn btn-warning" id="endQuestionBtn">
                                         <i data-lucide="skip-forward"></i>
-                                        End Question Early
+                                        Frage vorzeitig beenden
                                     </button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -812,6 +845,13 @@ document.addEventListener('DOMContentLoaded', function() {
             this.isActive = '{{ quiz.status|escapejs }}' === 'active';
             this.questionTimer = null;
             this.quizStartTime = {% if quiz.started_at %}new Date('{{ quiz.started_at|date:"c"|escapejs }}'){% else %}null{% endif %};
+
+            // Rundenbasierter Modus
+            this.roundBased = {% if quiz.round_based %}true{% else %}false{% endif %};
+            this.currentRoundIndex = {{ current_round_index }};
+            this.totalRoundsCurrentQ = {{ total_rounds_current }};
+            this.isLastRound = this.totalRoundsCurrentQ > 0 && this.currentRoundIndex >= this.totalRoundsCurrentQ - 1;
+
             this.init();
         }
 
@@ -928,15 +968,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                 case 'quiz_started':
                     console.log('Quiz started:', data.message);
-                    this.isActive = true;
-                    // Enable question send buttons if they were disabled before start
-                    document.querySelectorAll('.send-question-btn').forEach(btn => {
-                        btn.disabled = false;
-                        btn.removeAttribute('title');
-                    });
-
-                    // Re-apply sent state so already-sent questions remain blocked
-                    this.applySentStates();
+                    location.reload();
                     break;
                     
                 case 'tutorial_start':
@@ -949,12 +981,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                 case 'question_started':
                     console.log('Question started');
-                    location.reload(); // Refresh to show active question
+                    location.reload();
                     break;
-                    
+
+                case 'round_advanced':
+                    this.onRoundAdvanced(data);
+                    break;
+
                 case 'question_ended':
                     console.log('Question ended:', data.message);
-                    location.reload(); // Refresh to show ended question
+                    location.reload();
                     break;
                     
                 case 'quiz_ended':
@@ -1010,7 +1046,22 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('endQuestionBtn')?.addEventListener('click', () => {
                 this.endCurrentQuestion();
             });
-            
+
+            // Nächste Runde button
+            document.getElementById('nextRoundBtn')?.addEventListener('click', () => {
+                this.sendNextRound();
+            });
+
+            // Runde frühzeitig beenden
+            document.getElementById('endRoundEarlyBtn')?.addEventListener('click', () => {
+                this.endRoundEarly();
+            });
+
+            // Rundenmodus Toggle
+            document.getElementById('roundBasedToggle')?.addEventListener('change', (e) => {
+                this.toggleRoundBased(e.target.checked);
+            });
+
             // Share Code button
             document.getElementById('shareCodeBtn')?.addEventListener('click', () => {
                 this.shareRoomCode();
@@ -1038,8 +1089,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.websocket.send(JSON.stringify({
                     type: 'admin_start_quiz'
                 }));
-                //reload page
-                location.reload();
             }
         }
         
@@ -1122,6 +1171,94 @@ document.addEventListener('DOMContentLoaded', function() {
                     type: 'admin_end_question'
                 }));
             }
+        }
+
+        sendNextRound() {
+            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                this.websocket.send(JSON.stringify({
+                    type: 'admin_next_round'
+                }));
+            }
+        }
+
+        endRoundEarly() {
+            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                this.websocket.send(JSON.stringify({
+                    type: 'admin_next_round'
+                }));
+            }
+        }
+
+        toggleRoundBased(enabled) {
+            fetch(`/admin-dashboard/assign/${this.roomCode}/toggle-round-based/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''
+                },
+                body: JSON.stringify({})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    alert(data.error || 'Fehler beim Umschalten des Rundenmodus.');
+                    // Toggle zurücksetzen
+                    const toggle = document.getElementById('roundBasedToggle');
+                    if (toggle) toggle.checked = !enabled;
+                } else {
+                    this.roundBased = data.round_based;
+                }
+            })
+            .catch(() => {
+                alert('Netzwerkfehler beim Umschalten des Rundenmodus.');
+            });
+        }
+
+        onRoundAdvanced(data) {
+            this.currentRoundIndex = data.round_index;
+            this.totalRoundsCurrentQ = data.total_rounds;
+            this.isLastRound = (data.round_index >= data.total_rounds - 1);
+
+            // Runden-Badge aktualisieren
+            const badge = document.getElementById('monitorRoundBadge');
+            if (badge) badge.textContent = `Runde ${data.round_index + 1} von ${data.total_rounds}`;
+
+            // Buttons tauschen
+            const nextBtn = document.getElementById('nextRoundBtn');
+            const endRoundEarlyBtn = document.getElementById('endRoundEarlyBtn');
+            const endBtn = document.getElementById('endQuestionBtn');
+            if (this.isLastRound) {
+                if (nextBtn) nextBtn.style.display = 'none';
+                if (endRoundEarlyBtn) endRoundEarlyBtn.style.display = 'none';
+                if (!endBtn) {
+                    const actions = document.querySelector('.question-actions');
+                    if (actions) {
+                        const btn = document.createElement('button');
+                        btn.className = 'btn btn-warning';
+                        btn.id = 'endQuestionBtn';
+                        btn.innerHTML = '<i data-lucide="check-square"></i> Frage beenden';
+                        btn.addEventListener('click', () => this.endCurrentQuestion());
+                        actions.appendChild(btn);
+                        try { lucide.createIcons(); } catch(_) {}
+                    }
+                } else {
+                    endBtn.style.display = '';
+                }
+            } else {
+                if (nextBtn) {
+                    const label = document.getElementById('nextRoundLabel');
+                    if (label) label.textContent = `${data.round_index + 2}/${data.total_rounds}`;
+                }
+            }
+
+            // Timer neu starten
+            clearInterval(this.questionTimer);
+            // Zeit aus dem gespeicherten Override oder Standard
+            const timeEl = document.getElementById('questionTimeLeft');
+            const timeLimit = timeEl ? parseInt(timeEl.textContent) || 60 : 60;
+            // Setze Timer auf Question-Zeitlimit zurück
+            if (timeEl) timeEl.textContent = data.time_limit || 60;
+            this.startQuestionTimer();
         }
         
         startQuestionTimer() {
@@ -1284,9 +1421,12 @@ document.addEventListener('DOMContentLoaded', function() {
         onQuestionTimeout() {
             console.log('Question timed out');
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                this.websocket.send(JSON.stringify({
-                    type: 'admin_end_question'
-                }));
+                if (this.roundBased && !this.isLastRound) {
+                    // Nächste Runde automatisch starten
+                    this.websocket.send(JSON.stringify({ type: 'admin_next_round' }));
+                } else {
+                    this.websocket.send(JSON.stringify({ type: 'admin_end_question' }));
+                }
             }
         }
         

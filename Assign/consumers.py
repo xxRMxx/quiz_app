@@ -47,6 +47,8 @@ class AssignConsumer(AsyncWebsocketConsumer):
                 await self.handle_admin_end_question(text_data_json)
             elif message_type == 'admin_end_quiz':
                 await self.handle_admin_end_quiz(text_data_json)
+            elif message_type == 'admin_next_round':
+                await self.handle_admin_next_round(text_data_json)
             elif message_type == 'participant_submit_answer':
                 await self.handle_participant_submit_answer(text_data_json)
             elif message_type == 'participant_join':
@@ -111,29 +113,55 @@ class AssignConsumer(AsyncWebsocketConsumer):
 
         # Update quiz with new question
         await self.update_quiz_question(quiz, question)
-        
+
         # Get question data for drag-drop
         question_data = await self.get_question_data(question)
 
         # Determine the effective time limit for this send (do NOT persist on the question)
         effective_time_limit = custom_time_limit if custom_time_limit is not None else question.time_limit
-        
-        # Broadcast new question to all participants
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'question_started',
-                'question': {
-                    'id': question.id,
-                    'question_text': question.question_text,
-                    'time_limit': effective_time_limit,
-                    'points': question.points,
-                    'left_items': question_data['left_items'],
-                    'right_items': question_data['right_items'],
-                    'total_possible_points': question_data['total_possible_points']
+
+        # Rundenbasierter Modus: Runden-Index zurücksetzen
+        if quiz.round_based:
+            await self.reset_round_index(quiz.id)
+            total_rounds = len(question_data['left_items'])
+            current_left_item = question_data['left_items'][0] if question_data['left_items'] else None
+            round_right_items = await self.get_round_right_items(question, 0)
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'question_started',
+                    'question': {
+                        'id': question.id,
+                        'question_text': question.question_text,
+                        'time_limit': effective_time_limit,
+                        'points': question.points,
+                        'left_items': question_data['left_items'],
+                        'right_items': round_right_items,
+                        'total_possible_points': question_data['total_possible_points'],
+                        'round_based': True,
+                        'round_index': 0,
+                        'total_rounds': total_rounds,
+                        'current_left_item': current_left_item,
+                    }
                 }
-            }
-        )
+            )
+        else:
+            # Broadcast new question to all participants
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'question_started',
+                    'question': {
+                        'id': question.id,
+                        'question_text': question.question_text,
+                        'time_limit': effective_time_limit,
+                        'points': question.points,
+                        'left_items': question_data['left_items'],
+                        'right_items': question_data['right_items'],
+                        'total_possible_points': question_data['total_possible_points']
+                    }
+                }
+            )
 
     async def handle_admin_end_question(self, data):
         """Handle admin ending current question"""
@@ -146,6 +174,45 @@ class AssignConsumer(AsyncWebsocketConsumer):
                 {
                     'type': 'question_ended',
                     'message': 'Question time is up!'
+                }
+            )
+
+    async def handle_admin_next_round(self, data):
+        """Handle admin advancing to the next round in round-based mode"""
+        quiz = await self.get_quiz()
+        if not quiz or not quiz.round_based or not quiz.current_question:
+            return
+
+        question = quiz.current_question
+        question_data = await self.get_question_data(question)
+        total_rounds = len(question_data['left_items'])
+
+        # Nächsten Runden-Index ermitteln
+        new_round_index = await self.increment_round_index(quiz.id)
+
+        if new_round_index >= total_rounds:
+            # Alle Runden abgeschlossen — Frage beenden
+            await self.clear_current_question(quiz.id)
+            await self.reset_round_index(quiz.id)
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'question_ended',
+                    'message': 'Alle Runden abgeschlossen!'
+                }
+            )
+        else:
+            current_left_item = question_data['left_items'][new_round_index]
+            round_right_items = await self.get_round_right_items(question, new_round_index)
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'round_advanced',
+                    'round_index': new_round_index,
+                    'total_rounds': total_rounds,
+                    'current_left_item': current_left_item,
+                    'right_items': round_right_items,
+                    'time_limit': quiz.current_question.time_limit,
                 }
             )
 
@@ -246,6 +313,30 @@ class AssignConsumer(AsyncWebsocketConsumer):
                     'type': 'quiz_started',
                     'message': 'Quiz is already in progress'
                 }))
+                # Bei rundenbasiertem Modus: aktuelle Runde mitsenden
+                if quiz.round_based and quiz.current_question:
+                    question_data = await self.get_question_data(quiz.current_question)
+                    total_rounds = len(question_data['left_items'])
+                    round_index = await self.get_current_round_index(quiz.id)
+                    if round_index < total_rounds:
+                        current_left_item = question_data['left_items'][round_index]
+                        round_right_items = await self.get_round_right_items(quiz.current_question, round_index)
+                        await self.send(text_data=json.dumps({
+                            'type': 'question_started',
+                            'question': {
+                                'id': quiz.current_question.id,
+                                'question_text': quiz.current_question.question_text,
+                                'time_limit': quiz.current_question.time_limit,
+                                'points': quiz.current_question.points,
+                                'left_items': question_data['left_items'],
+                                'right_items': round_right_items,
+                                'total_possible_points': question_data['total_possible_points'],
+                                'round_based': True,
+                                'round_index': round_index,
+                                'total_rounds': total_rounds,
+                                'current_left_item': current_left_item,
+                            }
+                        }))
 
     async def handle_ping(self):
         """Handle ping for keeping connection alive"""
@@ -283,6 +374,17 @@ class AssignConsumer(AsyncWebsocketConsumer):
             'final_scores': event.get('final_scores', [])
         }))
 
+    async def round_advanced(self, event):
+        """Nächste Runde an alle Clients senden"""
+        await self.send(text_data=json.dumps({
+            'type': 'round_advanced',
+            'round_index': event['round_index'],
+            'total_rounds': event['total_rounds'],
+            'current_left_item': event['current_left_item'],
+            'right_items': event['right_items'],
+            'time_limit': event.get('time_limit', 60),
+        }))
+
     async def participant_answered(self, event):
         """Send participant answer to admin"""
         await self.send(text_data=json.dumps({
@@ -301,7 +403,7 @@ class AssignConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_quiz(self):
         try:
-            return AssignQuiz.objects.get(room_code=self.room_code)
+            return AssignQuiz.objects.select_related('current_question').get(room_code=self.room_code)
         except AssignQuiz.DoesNotExist:
             return None
 
@@ -403,6 +505,40 @@ class AssignConsumer(AsyncWebsocketConsumer):
             pass
 
     @database_sync_to_async
+    def get_round_right_items(self, question, round_index):
+        """Return (N_left + 1) right items for a round: correct item + N_left random wrong items."""
+        import random
+        randomized = question.get_randomized_items(room_code=self.room_code)
+        all_right = randomized['right_items']            # [{'id': shuffled_pos, 'text': ...}]
+        position_to_original = randomized['position_to_original']
+        n_left = len(randomized['left_items'])
+        n_options = n_left + 1
+
+        correct_original_idx = question.correct_matches.get(str(round_index))
+        if correct_original_idx is None:
+            return all_right  # fallback: alle Items
+
+        correct_item = None
+        wrong_items = []
+        for item in all_right:
+            orig = position_to_original.get(item['id'])
+            if orig == correct_original_idx:
+                correct_item = item
+            else:
+                wrong_items.append(item)
+
+        if correct_item is None:
+            return all_right  # fallback
+
+        n_wrong = min(n_options - 1, len(wrong_items))
+        seed = abs(hash(f"{question.id}_{self.room_code}_{round_index}")) % (2**32)
+        rng = random.Random(seed)
+        selected_wrong = rng.sample(wrong_items, n_wrong)
+        subset = [correct_item] + selected_wrong
+        rng.shuffle(subset)
+        return subset
+
+    @database_sync_to_async
     def get_question_data(self, question):
         # Get randomized items with room code for consistent shuffling
         randomized = question.get_randomized_items(room_code=self.room_code)
@@ -412,6 +548,39 @@ class AssignConsumer(AsyncWebsocketConsumer):
             'right_items': randomized['right_items'],
             'total_possible_points': question.get_total_possible_points()
         }
+
+    @database_sync_to_async
+    def get_current_round_index(self, quiz_id):
+        from .models import AssignSession
+        try:
+            quiz = AssignQuiz.objects.get(id=quiz_id)
+            session = AssignSession.objects.get(quiz=quiz)
+            return session.current_round_index
+        except Exception:
+            return 0
+
+    @database_sync_to_async
+    def reset_round_index(self, quiz_id):
+        from .models import AssignSession
+        try:
+            quiz = AssignQuiz.objects.get(id=quiz_id)
+            session, _ = AssignSession.objects.get_or_create(quiz=quiz)
+            session.current_round_index = 0
+            session.save()
+        except Exception:
+            pass
+
+    @database_sync_to_async
+    def increment_round_index(self, quiz_id):
+        from .models import AssignSession
+        try:
+            quiz = AssignQuiz.objects.get(id=quiz_id)
+            session, _ = AssignSession.objects.get_or_create(quiz=quiz)
+            session.current_round_index += 1
+            session.save()
+            return session.current_round_index
+        except Exception:
+            return 0
 
     @database_sync_to_async
     def save_participant_answer(self, participant_name, hub_session, user_matches, time_taken):

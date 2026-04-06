@@ -316,22 +316,16 @@
                         <div class="mb-3"><label class="form-label">Ortsbezeichnung *</label>
                             <input type="text" class="form-control" id="where-question" placeholder="z.B. Eiffelturm, Paris"></div>
                         <div class="row g-3 mb-3">
-                            <div class="col-md-4"><label class="form-label">Breitengrad *</label>
+                            <div class="col-md-6"><label class="form-label">Breitengrad *</label>
                                 <input type="number" step="any" class="form-control" id="where-lat" placeholder="48.8584"></div>
-                            <div class="col-md-4"><label class="form-label">Längengrad *</label>
+                            <div class="col-md-6"><label class="form-label">Längengrad *</label>
                                 <input type="number" step="any" class="form-control" id="where-lng" placeholder="2.2945"></div>
-                            <div class="col-md-4"><label class="form-label">Schwierigkeit</label>
-                                <select class="form-select" id="where-difficulty">
-                                    <option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option>
-                                </select></div>
                         </div>
                         <div class="row g-3 mb-3">
-                            <div class="col-md-3"><label class="form-label">Punkte</label>
+                            <div class="col-md-6"><label class="form-label">Punkte</label>
                                 <input type="number" class="form-control" id="where-points" value="10" min="1"></div>
-                            <div class="col-md-3"><label class="form-label">Zeit (Sek)</label>
+                            <div class="col-md-6"><label class="form-label">Zeit (Sek)</label>
                                 <input type="number" class="form-control" id="where-time" value="30" min="10"></div>
-                            <div class="col-md-6"><label class="form-label">Hinweis <small class="text-muted">(optional)</small></label>
-                                <input type="text" class="form-control" id="where-hint" placeholder="Tipp für Spieler"></div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Bild <small class="text-muted">(optional)</small></label>
@@ -675,10 +669,8 @@ function setGenericFormForEdit(type, q) {
         document.getElementById('where-question').value = q.question_text || '';
         document.getElementById('where-lat').value = q.latitude ?? '';
         document.getElementById('where-lng').value = q.longitude ?? '';
-        document.getElementById('where-difficulty').value = q.difficulty || 'medium';
         document.getElementById('where-points').value = q.points ?? 10;
         document.getElementById('where-time').value = q.time_limit ?? 30;
-        document.getElementById('where-hint').value = q.hint_text || '';
         if (q.image) {
             document.getElementById('where-image-preview').src = q.image;
             document.getElementById('where-image-preview-container').style.display = 'block';
@@ -1562,10 +1554,8 @@ function resetGenericForm() {
     document.getElementById('where-question').value = '';
     document.getElementById('where-lat').value = '';
     document.getElementById('where-lng').value = '';
-    document.getElementById('where-difficulty').value = 'medium';
     document.getElementById('where-points').value = 10;
     document.getElementById('where-time').value = 30;
-    document.getElementById('where-hint').value = '';
     document.getElementById('where-image').value = '';
     document.getElementById('where-image-preview-container').style.display = 'none';
 
@@ -1750,10 +1740,8 @@ document.getElementById('where-submit').addEventListener('click', function () {
     fd.append('question_text', question_text);
     fd.append('latitude', latitude);
     fd.append('longitude', longitude);
-    fd.append('difficulty', document.getElementById('where-difficulty').value);
     fd.append('points', document.getElementById('where-points').value);
     fd.append('time_limit', document.getElementById('where-time').value);
-    fd.append('hint_text', document.getElementById('where-hint').value.trim());
     fd.append('perfect_distance', 50);
     fd.append('good_distance', 200);
     fd.append('fair_distance', 500);
@@ -1773,7 +1761,7 @@ document.getElementById('where-submit').addEventListener('click', function () {
             if (isEdit) {
                 genericEditSuccess(this);
             } else {
-                genericAddSuccess(data.question_id, { question_text, difficulty: document.getElementById('where-difficulty').value, points: document.getElementById('where-points').value }, this);
+                genericAddSuccess(data.question_id, { question_text, points: document.getElementById('where-points').value }, this);
             }
             document.getElementById('where-image').value = '';
             document.getElementById('where-image-preview-container').style.display = 'none';

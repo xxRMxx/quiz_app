@@ -29,6 +29,8 @@ class AssignQuiz(SyncBase):
     max_participants = models.IntegerField(default=50)
     # Optional predefined set of questions for this quiz session
     selected_questions = models.ManyToManyField('AssignQuestion', blank=True, related_name='quizzes')
+    # Rundenbasierter Modus: jedes linke Item wird einzeln pro Runde gezeigt
+    round_based = models.BooleanField(default=False)
     
     class Meta:
         ordering = ['-created_at']
@@ -269,6 +271,8 @@ class AssignSession(SyncBase):
     # Session statistics
     total_responses_current_question = models.IntegerField(default=0)
     average_score_current_question = models.FloatField(default=0)
+    # Rundenbasierter Modus: aktueller Runden-Index (0-basiert)
+    current_round_index = models.IntegerField(default=0)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
