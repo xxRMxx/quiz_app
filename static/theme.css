@@ -107,7 +107,7 @@
 /* ── 2. Global Base ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { font-size: 16px; scroll-behavior: smooth; }
+html { font-size: 16px; scroll-behavior: smooth; color-scheme: dark; }
 
 body {
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
@@ -146,6 +146,7 @@ a:hover { color: #c4b5fd; }
   background-color: var(--surface);
   border-color: var(--border);
   border-radius: var(--radius);
+  transition: border-color var(--transition);
 }
 .card-header {
   background-color: var(--surface-2);
@@ -213,6 +214,9 @@ a:hover { color: #c4b5fd; }
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15);
   color: var(--text);
+}
+.form-control:focus:not(:focus-visible),
+.form-select:focus:not(:focus-visible) {
   outline: none;
 }
 .form-control.is-invalid { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(248,113,113,0.12); }
@@ -342,6 +346,28 @@ a:hover { color: #c4b5fd; }
   background-color: rgba(248, 113, 113, 0.1);
   border-color: rgba(248, 113, 113, 0.45);
   color: var(--danger);
+}
+
+.btn-warning {
+  background-color: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.35);
+  color: var(--warning);
+}
+.btn-warning:hover:not(:disabled) {
+  background-color: rgba(251, 191, 36, 0.25);
+  border-color: rgba(251, 191, 36, 0.5);
+  color: var(--warning);
+}
+
+.btn-outline-warning {
+  color: var(--warning);
+  border-color: rgba(251, 191, 36, 0.35);
+  background-color: transparent;
+}
+.btn-outline-warning:hover:not(:disabled) {
+  background-color: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.5);
+  color: var(--warning);
 }
 
 .btn-link { color: var(--accent); }
@@ -578,3 +604,10 @@ html.hc .dropdown-item:hover { background: #333 !important; }
   to   { opacity: 1; transform: translateY(0); }
 }
 .page-content > * { animation: slideIn 0.35s ease-out; }
+
+/* ── 11. Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .page-content > * { animation: none; }
+  .btn:hover:not(:disabled) { transform: none; }
+  .btn:active:not(:disabled) { transform: none; }
+}
