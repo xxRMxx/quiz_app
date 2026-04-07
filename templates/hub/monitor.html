@@ -40,6 +40,9 @@
                         <i data-lucide="play" class="me-1"></i> Start Session
                     </button>
                     {% endif %}
+                    <button id="recallLobbyBtn" class="btn btn-outline-warning">
+                        <i data-lucide="users" class="me-1"></i> Alle in Lobby zurück schicken (Debug-only)
+                    </button>
                     <button id="endSessionBtn" class="btn btn-outline-danger">
                         <i data-lucide="square" class="me-1"></i> End Session
                     </button>
@@ -71,13 +74,13 @@
                             <div class="step-header-action">Action</div>
                         </div>
                         {% for s in steps %}
-                        <div class="step-row {% if forloop.first %}step-first{% endif %}" id="step-{{ forloop.counter0 }}"
+                        <div class="step-row {% if forloop.first %}step-first{% endif %}{% if s.game_status == 'completed' %} completed{% endif %}" id="step-{{ forloop.counter0 }}"
                              data-game-key="{{ s.game_key }}" data-room-code="{{ s.room_code }}" data-order="{{ s.order }}" data-step-id="{{ s.id }}"
                              draggable="true">
                             <div class="drag-handle" title="Drag to reorder"><i data-lucide="grip-vertical"></i></div>
                             <div class="step-num">{{ forloop.counter }}</div>
                             <div class="step-info">
-                                <div class="step-name">{{ s.get_game_key_display }}</div>
+                                <div class="step-name">{{ s.get_game_key_display }}{% if s.title %} · <span class="step-title-label">{{ s.title }}</span>{% endif %}</div>
                                 {% if s.game_status == 'completed' %}
                                     <div class="step-status-hint">
                                         <i data-lucide="check-circle" style="width:11px;height:11px;"></i>
@@ -91,7 +94,7 @@
                                 {% else %}
                                     <div class="step-status-hint">
                                         <i data-lucide="clock" style="width:11px;height:11px;"></i>
-                                        Not yet started
+                                        Not started yet
                                     </div>
                                 {% endif %}
                             </div>
@@ -101,10 +104,11 @@
                             <div class="step-action gap-1">
                                 {% if s.room_code %}
                                 <a href="{{ request.scheme }}://{{ ip }}:8000{% url 'admin_dashboard:home' %}"
-                                   class="btn btn-sm btn-primary launch-btn"
+                                   class="btn btn-sm btn-primary launch-btn{% if not session.started_at %} disabled{% endif %}"
                                    data-game-key="{{ s.game_key }}" data-room-code="{{ s.room_code }}"
-                                   data-session="{{ session.code }}">
-                                    <i data-lucide="play" class="me-1"></i> Start
+                                   data-session="{{ session.code }}"
+                                   {% if not session.started_at %}aria-disabled="true" tabindex="-1"{% endif %}>
+                                    <i data-lucide="play" class="me-1"></i> Spiel öffnen
                                 </a>
                                 {% endif %}
                                 <button class="btn btn-sm btn-outline-danger delete-step-btn"
@@ -166,8 +170,9 @@
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label class="form-label fw-semibold">Game Type</label>
+          <label class="form-label fw-semibold">Spieltyp</label>
           <select class="form-select" id="addGameType">
+            <option value="" disabled selected>— Typ wählen —</option>
             <option value="quiz">Quick Quiz</option>
             <option value="estimation">Estimation</option>
             <option value="assign">Assign</option>
@@ -180,10 +185,9 @@
           </select>
         </div>
         <div class="mb-3">
-          <label class="form-label fw-semibold">Select Questions</label>
-          <div id="quizListLoading" class="text-muted small">Loading…</div>
-          <div id="quizList" class="quiz-pick-list d-none"></div>
-          <div id="quizSelectionCount" class="text-muted small mt-1 d-none"></div>
+          <label class="form-label fw-semibold">Spiel auswählen</label>
+          <div id="gameInstanceLoading" class="text-muted small d-none">Lade…</div>
+          <div id="gameInstanceList" class="d-none" style="max-height:280px;overflow-y:auto;"></div>
         </div>
         <div id="addGameError" class="text-danger small d-none mt-2"></div>
       </div>
@@ -221,7 +225,7 @@
 
 .step-header {
     display: grid;
-    grid-template-columns: 28px 36px 1fr 80px 120px;
+    grid-template-columns: 28px 36px 1fr 80px 160px;
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem 1.25rem;
@@ -238,7 +242,7 @@
 
 .step-row {
     display: grid;
-    grid-template-columns: 28px 36px 1fr 80px 120px;
+    grid-template-columns: 28px 36px 1fr 80px 160px;
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1.25rem;
@@ -248,7 +252,7 @@
 .step-row:last-child { border-bottom: none; }
 .step-row:hover { background: var(--bg-secondary); }
 .step-row.active { background: var(--primary-50); border-left: 3px solid var(--color-primary); }
-.step-row.completed { opacity: 0.6; }
+.step-row.completed { background: rgba(25, 135, 84, 0.44); }
 
 .step-num {
     width: 28px;
@@ -272,12 +276,14 @@
 
 .step-info { min-width: 0; }
 .step-name { font-weight: 600; font-size: 0.9rem; }
+.step-title-label { font-weight: 400; color: #6c757d; }
 .step-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .step-votes { display: flex; align-items: center; justify-content: center; }
 .step-action { display: flex; align-items: center; justify-content: flex-end; }
 
 .launch-btn { flex-shrink: 0; }
+.launch-btn.disabled { pointer-events: none; opacity: 0.45; }
 
 .drag-handle {
     cursor: grab;
@@ -307,7 +313,7 @@
     display: none;
 }
 .vote-badge.has-votes { display: inline-block; }
-.vote-badge.top-vote { background: #fef9c3; color: #92400e; }
+.vote-badge.top-vote { background: #dcfce7; color: #166534; }
 
 .quiz-pick-list {
     max-height: 220px;
@@ -377,6 +383,7 @@
 
 <script>
 const SESSION_CODE = '{{ session.code }}';
+let sessionStarted = {{ session.started_at|yesno:"true,false" }};
 
 // Game monitor routes
 const MONITOR_ROUTES = {
@@ -398,9 +405,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function navigateToGame(gameKey, roomCode) {
         const route = MONITOR_ROUTES[gameKey];
         if (!route || !roomCode) return;
-        try {
-            ws.send(JSON.stringify({ type: 'navigate_direct', game_key: gameKey, room_code: roomCode }));
-        } catch (_) {}
         window.location.href = route(roomCode) + `?hub_session=${SESSION_CODE}`;
     }
 
@@ -418,6 +422,7 @@ document.addEventListener('DOMContentLoaded', function () {
         row.addEventListener('click', function (e) {
             // Ignore clicks on buttons, links, or the drag handle
             if (e.target.closest('button, a, .drag-handle')) return;
+            if (!sessionStarted) return;
             const gameKey  = this.dataset.gameKey;
             const roomCode = this.dataset.roomCode;
             navigateToGame(gameKey, roomCode);
@@ -487,7 +492,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 applyScoreboardState(data.scoreboard_visible);
             }
         } else if (data.type === 'session_started') {
+            sessionStarted = true;
             if (startSessionBtn) startSessionBtn.remove();
+            document.querySelectorAll('.launch-btn').forEach(btn => {
+                btn.classList.remove('disabled');
+                btn.removeAttribute('aria-disabled');
+                btn.removeAttribute('tabindex');
+            });
         } else if (data.type === 'session_ended') {
             manualEnd = true;
             window.location.href = '{% url "admin_dashboard:sessions_overview" %}';
@@ -563,66 +574,75 @@ document.addEventListener('DOMContentLoaded', function () {
     // ── Add Game Step ──
     const addGameModal = document.getElementById('addGameModal');
 
-    function updateSelectionCount() {
-        const checked = document.querySelectorAll('#quizList input[type="checkbox"]:checked').length;
-        const countEl = document.getElementById('quizSelectionCount');
-        if (checked > 0) {
-            countEl.textContent = `${checked} question${checked !== 1 ? 's' : ''} selected`;
-            countEl.classList.remove('d-none');
-        } else {
-            countEl.classList.add('d-none');
-        }
-    }
-
-    function loadQuizList(gameKey) {
-        const loading = document.getElementById('quizListLoading');
-        const list    = document.getElementById('quizList');
-        const countEl = document.getElementById('quizSelectionCount');
+    function loadGameInstances(gameKey) {
+        const loading = document.getElementById('gameInstanceLoading');
+        const list    = document.getElementById('gameInstanceList');
         loading.classList.remove('d-none');
-        loading.textContent = 'Loading…';
         list.classList.add('d-none');
         list.innerHTML = '';
-        countEl.classList.add('d-none');
 
-        fetch(`/hub/api/games/${gameKey}/questions/`)
+        fetch(`/hub/api/games/${gameKey}/instances/`)
             .then(r => r.json())
             .then(data => {
                 loading.classList.add('d-none');
-                const questions = data.questions || [];
-                if (questions.length === 0) {
-                    list.innerHTML = '<div class="quiz-pick-item text-muted">No questions available for this game type</div>';
+                const instances = data.instances || [];
+                if (instances.length === 0) {
+                    list.innerHTML = '<div class="text-muted small p-2">Keine Spiele für diesen Typ vorhanden.</div>';
                 } else {
-                    questions.forEach(q => {
+                    instances.forEach(g => {
                         const item = document.createElement('label');
-                        item.className = 'quiz-pick-item';
+                        item.className = 'd-flex align-items-start gap-2 p-2 border rounded mb-1';
+                        item.style.cssText = 'cursor:pointer;transition:background .1s;';
                         item.innerHTML = `
-                            <input type="checkbox" value="${q.id}">
-                            <span>${q.text}</span>
-                        `;
-                        item.querySelector('input').addEventListener('change', updateSelectionCount);
+                            <input type="checkbox" name="gameInstancePick" value="${g.id}" class="mt-1 flex-shrink-0">
+                            <div>
+                                <div class="fw-semibold small">${g.title}</div>
+                                ${g.internal_description ? `<div class="text-muted" style="font-size:0.75rem;">${g.internal_description}</div>` : ''}
+                                <div class="text-muted" style="font-size:0.72rem;">${g.q_count} Frage${g.q_count !== 1 ? 'n' : ''} · Code: ${g.room_code}</div>
+                            </div>`;
+                        item.querySelector('input').addEventListener('change', function () {
+                            item.style.background = this.checked ? '#e8f4ff' : '';
+                        });
                         list.appendChild(item);
                     });
                 }
                 list.classList.remove('d-none');
+                lucide.createIcons();
             })
             .catch(() => {
-                loading.textContent = 'Failed to load questions';
+                loading.classList.add('d-none');
+                list.innerHTML = '<div class="text-danger small p-2">Fehler beim Laden.</div>';
+                list.classList.remove('d-none');
             });
     }
 
     document.getElementById('addGameType').addEventListener('change', function () {
-        loadQuizList(this.value);
+        if (this.value) loadGameInstances(this.value);
     });
 
     document.getElementById('addGameModal').addEventListener('show.bs.modal', () => {
-        loadQuizList(document.getElementById('addGameType').value);
+        const typeEl = document.getElementById('addGameType');
+        if (typeEl.value) loadGameInstances(typeEl.value);
     });
 
     document.getElementById('addGameSave').addEventListener('click', function () {
-        const gameKey     = document.getElementById('addGameType').value;
-        const questionIds = [...document.querySelectorAll('#quizList input[type="checkbox"]:checked')].map(el => parseInt(el.value));
-        const errEl       = document.getElementById('addGameError');
+        const gameKey  = document.getElementById('addGameType').value;
+        const errEl    = document.getElementById('addGameError');
         errEl.classList.add('d-none');
+
+        const picked = [...document.querySelectorAll('#gameInstanceList input[name="gameInstancePick"]:checked')];
+
+        if (!gameKey) {
+            errEl.textContent = 'Bitte einen Spieltyp auswählen.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+        if (picked.length === 0) {
+            errEl.textContent = 'Bitte mindestens ein Spiel auswählen.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
         this.disabled = true;
 
         fetch(`/hub/api/session/{{ session.code }}/add-step/`, {
@@ -631,7 +651,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': '{{ csrf_token }}',
             },
-            body: JSON.stringify({ game_key: gameKey, question_ids: questionIds }),
+            body: JSON.stringify({ game_key: gameKey, game_ids: picked.map(el => parseInt(el.value)) }),
         })
         .then(r => {
             if (!r.ok && r.headers.get('content-type')?.includes('text/html')) {
@@ -645,44 +665,52 @@ document.addEventListener('DOMContentLoaded', function () {
                 errEl.classList.remove('d-none');
                 return;
             }
-            const step = data.step;
-
-            // Append the new step row to the list
+            const steps = data.steps || [];
             const stepsList = document.getElementById('stepsList');
             const noGames = stepsList.querySelector('.text-center');
             if (noGames) noGames.remove();
 
-            const stepNum = step.order + 1;
-            const div = document.createElement('div');
-            div.className = 'step-row';
-            div.id = `step-${step.order}`;
-            div.dataset.gameKey  = step.game_key;
-            div.dataset.roomCode = step.room_code;
-            div.dataset.stepId   = step.id;
-            div.setAttribute('draggable', 'true');
-            div.innerHTML = `
-                <div class="drag-handle" title="Drag to reorder"><i data-lucide="grip-vertical"></i></div>
-                <div class="step-num">${stepNum}</div>
-                <div class="step-info">
-                    <div class="step-name">${step.game_key_display}</div>
-                </div>
-                <div class="step-votes">
-                    <span class="vote-badge" data-order="${step.order}" title="Votes for this game"></span>
-                </div>
-                <div class="step-action gap-1">
-                    <a href="#" class="btn btn-sm btn-primary launch-btn"
-                       data-game-key="${step.game_key}" data-room-code="${step.room_code}"
-                       data-session="{{ session.code }}">
-                        <i data-lucide="play" class="me-1"></i> Start
-                    </a>
-                    <button class="btn btn-sm btn-outline-danger delete-step-btn"
-                            data-step-id="${step.id}"
-                            title="Spiel entfernen">
-                        <i data-lucide="trash-2"></i>
-                    </button>
-                </div>
-            `;
-            stepsList.appendChild(div);
+            steps.forEach(step => {
+                const stepNum = step.order + 1;
+                const div = document.createElement('div');
+                div.className = 'step-row';
+                div.id = `step-${step.order}`;
+                div.dataset.gameKey  = step.game_key;
+                div.dataset.roomCode = step.room_code;
+                div.dataset.stepId   = step.id;
+                div.setAttribute('draggable', 'true');
+                div.innerHTML = `
+                    <div class="drag-handle" title="Drag to reorder"><i data-lucide="grip-vertical"></i></div>
+                    <div class="step-num">${stepNum}</div>
+                    <div class="step-info">
+                        <div class="step-name">${step.game_key_display}${step.title ? ` · <span class="step-title-label">${step.title}</span>` : ''}</div>
+                    </div>
+                    <div class="step-votes">
+                        <span class="vote-badge" data-order="${step.order}" title="Votes for this game"></span>
+                    </div>
+                    <div class="step-action gap-1">
+                        <a href="#" class="btn btn-sm btn-primary launch-btn${sessionStarted ? '' : ' disabled'}"
+                           data-game-key="${step.game_key}" data-room-code="${step.room_code}"
+                           data-session="{{ session.code }}"
+                           ${sessionStarted ? '' : 'aria-disabled="true" tabindex="-1"'}>
+                            <i data-lucide="play" class="me-1"></i> Spiel öffnen
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger delete-step-btn"
+                                data-step-id="${step.id}"
+                                title="Spiel entfernen">
+                            <i data-lucide="trash-2"></i>
+                        </button>
+                    </div>
+                `;
+                stepsList.appendChild(div);
+                initDraggable(div);
+                div.querySelector('.launch-btn').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const route = MONITOR_ROUTES[this.dataset.gameKey];
+                    if (!route) return;
+                    window.location.href = route(this.dataset.roomCode) + `?hub_session=${SESSION_CODE}`;
+                });
+            });
 
             // Update count badge
             const countBadge = document.getElementById('stepCount');
@@ -691,32 +719,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 countBadge.textContent = `${n} game${n !== 1 ? 's' : ''}`;
             }
 
-            // Make new row draggable
-            initDraggable(div);
-
-            // Bind the new Open button
-            div.querySelector('.launch-btn').addEventListener('click', function(e) {
-                e.preventDefault();
-                const route = MONITOR_ROUTES[this.dataset.gameKey];
-                if (!route) return;
-                try {
-                    ws.send(JSON.stringify({
-                        type: 'navigate_direct',
-                        game_key: this.dataset.gameKey,
-                        room_code: this.dataset.roomCode,
-                    }));
-                } catch (_) { /* WebSocket may not be connected yet – navigate admin anyway */ }
-                window.location.href = route(this.dataset.roomCode) + `?hub_session=${SESSION_CODE}`;
-            });
-
             lucide.createIcons();
             bootstrap.Modal.getInstance(addGameModal).hide();
             // Reset form
-            document.getElementById('quizList').innerHTML = '';
-            document.getElementById('quizList').classList.add('d-none');
-            document.getElementById('quizListLoading').textContent = 'Loading…';
-            document.getElementById('quizListLoading').classList.remove('d-none');
-            document.getElementById('quizSelectionCount').classList.add('d-none');
+            document.getElementById('addGameType').value = '';
+            document.getElementById('gameInstanceList').innerHTML = '';
+            document.getElementById('gameInstanceList').classList.add('d-none');
+            document.getElementById('gameInstanceLoading').classList.add('d-none');
         })
         .catch(err => {
             errEl.textContent = err?.message || 'Fehler beim Hinzufügen.';
@@ -818,6 +827,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ── End session ──
+    document.getElementById('recallLobbyBtn').addEventListener('click', () => {
+        ws.send(JSON.stringify({ type: 'recall_to_lobby' }));
+    });
+
     let manualEnd = false;
     document.getElementById('endSessionBtn').addEventListener('click', () => {
         if (!confirm('End this session? All game instances will be marked as inactive.')) return;

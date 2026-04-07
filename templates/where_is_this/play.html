@@ -113,23 +113,14 @@
                                             <img id="questionImage" src="" alt="Location hint" class="img-fluid">
                                         </div>
 
-                                        <div class="question-hint" id="questionHint" style="display: none;">
-                                            <i data-lucide="lightbulb"></i>
-                                            <span id="hintText"></span>
-                                        </div>
-
                                         <div class="question-meta">
                                             <div class="meta-item">
                                                 <i data-lucide="target"></i>
-                                                <span>Max Points: <span id="maxPoints">100</span></span>
+                                                <span>Max. Punkte: <span id="maxPoints">100</span></span>
                                             </div>
                                             <div class="meta-item">
                                                 <i data-lucide="map-pin"></i>
-                                                <span>Perfect Distance: <span id="perfectDistance">10</span>km</span>
-                                            </div>
-                                            <div class="meta-item difficulty" id="difficultyMeta">
-                                                <i data-lucide="zap"></i>
-                                                <span class="badge badge-medium">Medium</span>
+                                                <span>Perfekte Distanz: <span id="perfectDistance">10</span>km</span>
                                             </div>
                                         </div>
 
@@ -631,15 +622,18 @@
             position: relative;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
 
         .game-map {
             flex: 1;
             width: 100%;
+            min-height: 0;
             cursor: crosshair;
         }
 
         .map-controls {
+            flex-shrink: 0;
             padding: 1rem;
             background: var(--bg-primary);
             border-top: 1px solid var(--border-color);
@@ -980,16 +974,24 @@
                         zoom: 2,
                         minZoom: 2,
                         maxZoom: 15,
-                        worldCopyJump: true
                     });
-                    
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap contributors'
+
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+                        subdomains: 'abcd',
+                        maxZoom: 19
                     }).addTo(this.gameMap);
-                    
+
                     // Add click handler for map
                     this.gameMap.on('click', (e) => {
                         this.selectLocation(e.latlng.lat, e.latlng.lng);
+                    });
+
+                    // Korrekte Größe sicherstellen (doppeltes rAF wartet auf vollständiges Layout)
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            this.gameMap.invalidateSize({ animate: false });
+                        });
                     });
                 }
 
@@ -1054,6 +1056,14 @@
                             this.onAnswerSubmitted(data);
                             break;
                             
+                        case 'show_leaderboard':
+                            window.showLeaderboard(this.hubSession);
+                            break;
+
+                        case 'hide_leaderboard':
+                            document.getElementById('leaderboardSidebar')?.classList.add('d-none');
+                            break;
+
                         default:
                             console.log('Unknown message type:', data.type);
                     }
@@ -1124,7 +1134,13 @@
                     this.hasAnswered = false;
                     this.clearSelection();
                     this.questionStartTime = Date.now();
-                    
+
+                    // Click-Handler wiederherstellen (wurde beim Absenden entfernt)
+                    this.gameMap.off('click');
+                    this.gameMap.on('click', (e) => {
+                        this.selectLocation(e.latlng.lat, e.latlng.lng);
+                    });
+
                     this.loadQuestion(question);
                     this.startQuestionTimer(question.time_limit);
                     this.showState('questionState');
@@ -1189,8 +1205,6 @@
                         question_text: '{{ quiz.current_question.question_text|escapejs }}',
                         time_limit: {{ quiz.current_question.time_limit }},
                         points: {{ quiz.current_question.points }},
-                        difficulty: '{{ quiz.current_question.difficulty }}',
-                        hint_text: '{{ quiz.current_question.hint_text|escapejs }}',
                         image_url: {% if quiz.current_question.image %}'{{ quiz.current_question.image.url }}'{% else %}null{% endif %}
                     };
                     this.loadQuestion(question);
@@ -1200,13 +1214,7 @@
                 loadQuestion(question) {
                     document.getElementById('questionText').textContent = question.question_text;
                     document.getElementById('maxPoints').textContent = question.points;
-                    
-                    // Update difficulty badge
-                    const difficultyMeta = document.getElementById('difficultyMeta');
-                    const badge = difficultyMeta.querySelector('.badge');
-                    badge.className = `badge badge-${question.difficulty}`;
-                    badge.textContent = question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1);
-                    
+
                     // Show image if available
                     const imageContainer = document.getElementById('questionImageContainer');
                     const imageEl = document.getElementById('questionImage');
@@ -1215,16 +1223,6 @@
                         imageContainer.style.display = 'block';
                     } else {
                         imageContainer.style.display = 'none';
-                    }
-                    
-                    // Show hint if available
-                    const hintContainer = document.getElementById('questionHint');
-                    const hintText = document.getElementById('hintText');
-                    if (question.hint_text) {
-                        hintText.textContent = question.hint_text;
-                        hintContainer.style.display = 'flex';
-                    } else {
-                        hintContainer.style.display = 'none';
                     }
                 }
 
@@ -1394,19 +1392,22 @@
                     document.querySelectorAll('.game-state').forEach(state => {
                         state.classList.add('d-none');
                     });
-                    
+
                     // Show target state
                     const targetState = document.getElementById(stateId);
                     if (targetState) {
                         targetState.classList.remove('d-none');
                     }
-                    
-                    // Reset map interaction when showing question state
+
+                    // Karte neu berechnen sobald questionState sichtbar wird
                     if (stateId === 'questionState' && this.gameMap) {
-                        this.gameMap.on('click', (e) => {
-                            this.selectLocation(e.latlng.lat, e.latlng.lng);
-                        });
                         document.getElementById('gameMap').style.cursor = 'crosshair';
+                        // requestAnimationFrame stellt sicher dass das Layout fertig gerendert ist
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                this.gameMap.invalidateSize({ animate: false });
+                            });
+                        });
                     }
                 }
 
@@ -1554,6 +1555,7 @@
             })();
         });
     </script>
+  {% include 'includes/_leaderboard_overlay.html' %}
   {% include 'includes/accessibility_widget.html' %}
 </body>
 </html>

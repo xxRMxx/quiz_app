@@ -53,6 +53,10 @@ class QuizConsumer(AsyncWebsocketConsumer):
                 await self.handle_participant_submit_answer(text_data_json)
             elif message_type == 'participant_join':
                 await self.handle_participant_join(text_data_json)
+            elif message_type == 'admin_show_leaderboard':
+                await self.handle_admin_show_leaderboard()
+            elif message_type == 'admin_hide_leaderboard':
+                await self.handle_admin_hide_leaderboard()
             elif message_type == 'ping':
                 await self.handle_ping()
                 
@@ -231,7 +235,7 @@ class QuizConsumer(AsyncWebsocketConsumer):
     async def handle_participant_submit_answer(self, data):
         """Handle participant submitting an answer"""
         participant_name = data.get('participant_name')
-        hub_session = data.get('hub_session')
+        hub_session = data.get('hub_session') or None  # normalize '' → None
         answer_text = data.get('answer')
         time_taken = data.get('time_taken', 0)
 
@@ -246,7 +250,8 @@ class QuizConsumer(AsyncWebsocketConsumer):
                 'type': 'answer_submitted',
                 'message': 'Answer submitted successfully',
                 'is_correct': answer['is_correct'],
-                'points_earned': answer['points_earned']
+                'points_earned': answer['points_earned'],
+                'total_score': answer['total_score'],
             }))
 
             # Broadcast to admin dashboard (live answers)
@@ -256,7 +261,7 @@ class QuizConsumer(AsyncWebsocketConsumer):
                     'type': 'participant_answered',
                     'answer': {
                         'participant_name': participant_name,
-                        'answer_text': answer_text,
+                        'answer_text': answer['display_answer'],
                         'is_correct': answer['is_correct'],
                         'points_earned': answer['points_earned'],
                         'time_taken': time_taken
@@ -264,15 +269,11 @@ class QuizConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-            # Auto-end question if all active participants have answered
-            answered, total = await self.get_answer_progress(hub_session)
-            if total > 0 and answered >= total:
-                await self.handle_admin_end_question({})
 
     async def handle_participant_join(self, data):
         """Handle new participant joining"""
         participant_name = data.get('participant_name')
-        hub_session = data.get('hub_session')
+        hub_session = data.get('hub_session') or None  # normalize '' → None
         participant = await self.get_participant_by_name(participant_name, hub_session)
         
         if participant:
@@ -310,6 +311,25 @@ class QuizConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'pong'
         }))
+
+    async def handle_admin_show_leaderboard(self):
+        """Host zeigt das Leaderboard für alle Teilnehmer an."""
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'show_leaderboard'}
+        )
+
+    async def show_leaderboard(self, event):
+        await self.send(text_data=json.dumps({'type': 'show_leaderboard'}))
+
+    async def handle_admin_hide_leaderboard(self):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'hide_leaderboard'}
+        )
+
+    async def hide_leaderboard(self, event):
+        await self.send(text_data=json.dumps({'type': 'hide_leaderboard'}))
 
     # Event handlers for group messages
     async def quiz_started(self, event):
@@ -579,11 +599,15 @@ class QuizConsumer(AsyncWebsocketConsumer):
             if hub_session_code:
                 participants_qs = participants_qs.filter(hub_session_code=hub_session_code)
             total = participants_qs.count()
-            answered = QuizAnswer.objects.filter(
+            answers_qs = QuizAnswer.objects.filter(
                 quiz=quiz,
                 question=quiz.current_question,
                 participant__in=participants_qs
-            ).count()
+            )
+            # Only count answers from the current question round (handles replayed questions)
+            if quiz.question_start_time:
+                answers_qs = answers_qs.filter(submitted_at__gte=quiz.question_start_time)
+            answered = answers_qs.count()
             return answered, total
         except Quiz.DoesNotExist:
             return 0, 0
@@ -593,20 +617,24 @@ class QuizConsumer(AsyncWebsocketConsumer):
         try:
             quiz = Quiz.objects.get(room_code=self.room_code)
             participant = quiz.participants.get(name=participant_name, hub_session_code=hub_session_code)
-            
+
             if not quiz.current_question:
                 return None
-            
+
             # Check if answer already exists
             existing_answer = QuizAnswer.objects.filter(
                 quiz=quiz,
                 participant=participant,
                 question=quiz.current_question
             ).first()
-            
+
             if existing_answer:
-                return None  # Already answered
-            
+                # Allow re-answer if the question was resent after the previous answer
+                if quiz.question_start_time and existing_answer.submitted_at < quiz.question_start_time:
+                    existing_answer.delete()
+                else:
+                    return None  # Already answered in this round
+
             # Create new answer
             answer = QuizAnswer.objects.create(
                 quiz=quiz,
@@ -615,12 +643,21 @@ class QuizConsumer(AsyncWebsocketConsumer):
                 answer_text=answer_text,
                 time_taken=time_taken
             )
-            
+
+            # Resolve key → full text for multiple choice
+            display_answer = answer_text
+            if quiz.current_question.question_type == 'multiple_choice':
+                option_map = dict(quiz.current_question.get_options())
+                display_answer = option_map.get(answer_text.upper(), answer_text)
+
+            participant.refresh_from_db(fields=['total_score'])
             return {
                 'is_correct': answer.is_correct,
-                'points_earned': answer.points_earned
+                'points_earned': answer.points_earned,
+                'display_answer': display_answer,
+                'total_score': participant.total_score,
             }
-            
+
         except (Quiz.DoesNotExist, QuizParticipant.DoesNotExist):
             return None
 

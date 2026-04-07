@@ -44,16 +44,26 @@
                         {{ quiz.get_status_display }}
                     </span>
                     {% if quiz.status == 'waiting' %}
-                        <button class="btn btn-success" id="startQuizBtn">
-                            <i data-lucide="play"></i>
-                            Start Quiz
-                        </button>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="showTutorialToggle" checked>
+                                <label class="form-check-label" for="showTutorialToggle">Tutorial anzeigen</label>
+                            </div>
+                            <button class="btn btn-success" id="startQuizBtn">
+                                <i data-lucide="play"></i>
+                                Spiel starten
+                            </button>
+                        </div>
                     {% elif quiz.status == 'active' %}
                         <button class="btn btn-warning" id="endQuizBtn">
                             <i data-lucide="square"></i>
                             End Quiz
                         </button>
                     {% endif %}
+                    <button class="btn btn-outline-primary" id="showLeaderboardBtn">
+                        <i data-lucide="trophy"></i>
+                        Leaderboard einblenden
+                    </button>
                     <button class="btn btn-outline-secondary" id="backToHubBtn">
                         <i data-lucide="arrow-left"></i>
                         Back to Overview
@@ -131,11 +141,13 @@
                                             </div>
                                             <div class="question-meta">
                                                 <span class="badge badge-{{ question.difficulty }}">{{ question.get_difficulty_display }}</span>
-                                                <span class="time-badge">{{ question.time_limit }}s</span>
                                             </div>
                                         </div>
                                         <div class="d-flex align-items-center gap-2">
-                                            <input type="number" class="form-control form-control-sm question-time-input" placeholder="Time (s)" min="5" step="1" style="max-width: 120px;" value="">
+                                            <div>
+                                                <small class="text-muted d-block mb-1">Zeit in Sek.</small>
+                                                <input type="number" class="form-control form-control-sm question-time-input" placeholder="Time (s)" min="5" step="1" style="max-width: 120px;" value="{{ question.time_limit }}">
+                                            </div>
                                             <button class="btn btn-secondary send-question-btn" data-question-id="{{ question.id }}" {% if quiz.status != 'active' %}disabled title="Start the quiz to send questions"{% endif %}>
                                                 <i data-lucide="send"></i>
                                                 Send Question
@@ -1212,6 +1224,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.endCurrentQuestion();
             });
 
+            // Leaderboard ein-/ausblenden (Toggle)
+            document.getElementById('showLeaderboardBtn')?.addEventListener('click', () => {
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    const btn = document.getElementById('showLeaderboardBtn');
+                    const isVisible = btn.dataset.lbVisible === '1';
+                    if (isVisible) {
+                        this.websocket.send(JSON.stringify({ type: 'admin_hide_leaderboard' }));
+                        btn.dataset.lbVisible = '0';
+                        btn.innerHTML = '<i data-lucide="trophy"></i> Leaderboard einblenden';
+                    } else {
+                        this.websocket.send(JSON.stringify({ type: 'admin_show_leaderboard' }));
+                        btn.dataset.lbVisible = '1';
+                        btn.innerHTML = '<i data-lucide="eye-off"></i> Leaderboard ausblenden';
+                    }
+                    try { lucide.createIcons(); } catch(_) {}
+                }
+            });
+
             // Back to Hub button
             document.getElementById('backToHubBtn')?.addEventListener('click', () => {
                 this.backToHub();
@@ -1233,15 +1263,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         const hubWs = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/hub/' + hub + '/');
                         hubWs.onopen = () => {
                             hubWs.send(JSON.stringify({
-                                type: 'broadcast',
-                                event: { type: 'quiz_started', game_key: 'blackjack', room_code: '{{ quiz.room_code }}', title: '{{ quiz.title }}' }
+                                type: 'navigate_direct',
+                                game_key: 'blackjack',
+                                room_code: '{{ quiz.room_code }}'
                             }));
                             setTimeout(() => hubWs.close(), 100);
                         };
                     }
                 } catch(_) {}
+                const showTutorial = document.getElementById('showTutorialToggle')?.checked ?? true;
                 this.websocket.send(JSON.stringify({
-                    type: 'admin_start_quiz'
+                    type: 'admin_start_quiz',
+                    show_tutorial: showTutorial
                 }));
                 //reload page
                 location.reload();
@@ -1560,6 +1593,8 @@ document.addEventListener('DOMContentLoaded', function() {
             u.searchParams.set('hub_session', hubCode);
             window.location.href = u.toString();
           }
+        } else if (data.type === 'recall_to_lobby') {
+          window.location.href = new URL(`/hub/lobby/${hubCode}/`, window.location.origin).toString();
         } else if (data.type === 'session_ended') {
           const u = new URL(`/hub/lobby/${hubCode}/`, window.location.origin);
           u.searchParams.set('ended', '1');

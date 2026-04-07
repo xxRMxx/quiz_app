@@ -24,6 +24,32 @@ def gen_code(length=6):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
 
+@require_http_methods(["GET", "POST"])
+def join_session(request):
+    """Participants enter a session code + nickname to join a hub session."""
+    error = None
+    if request.method == 'POST':
+        code = (request.POST.get('code') or '').strip().upper()
+        nickname = (request.POST.get('nickname') or '').strip()
+        if not code:
+            error = 'Bitte einen Session-Code eingeben.'
+        elif not nickname:
+            error = 'Bitte einen Namen eingeben.'
+        else:
+            try:
+                session = HubSession.objects.get(code=code)
+                if session.ended_at:
+                    error = 'Diese Session ist bereits beendet.'
+                else:
+                    from urllib.parse import urlencode
+                    return redirect(
+                        f"/hub/lobby/{session.code}/?{urlencode({'nickname': nickname})}"
+                    )
+            except HubSession.DoesNotExist:
+                error = 'Session nicht gefunden. Bitte Code prüfen.'
+    return render(request, 'hub/join_session.html', {'error': error})
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def create_session(request):
@@ -80,7 +106,7 @@ def create_session(request):
                 title=title,
             )
 
-        return redirect('games_hub:monitor', session_code=code)
+        return redirect('admin_dashboard:sessions_overview')
 
     return render(request, 'hub/create_session.html', _get_game_instances())
 
@@ -288,6 +314,7 @@ def lobby(request, session_code: str):
     
     return render(request, 'hub/lobby.html', {
         'session_code': session_code,
+        'session_name': session.name or session_code,
         'participants': list(participants.values('id', 'nickname'))
     })
 
@@ -379,40 +406,87 @@ def add_step_to_session(request, session_code):
     game_key = data.get('game_key', '').strip()
     title = data.get('title', '').strip()
     question_ids = data.get('question_ids', [])
+    # Support single game_id or list of game_ids
+    _raw_ids = data.get('game_ids') or ([data['game_id']] if data.get('game_id') else [])
+    game_ids = [int(i) for i in _raw_ids if i]
 
     valid_keys = [choice[0] for choice in HubGameStep.GAME_CHOICES]
     if game_key not in valid_keys:
         return JsonResponse({'error': 'Invalid game type'}, status=400)
 
-    max_order = session.steps.aggregate(Max('order'))['order__max']
-    next_order = 0 if max_order is None else max_order + 1
-    quiz_title = title or f"{session.name or session.code} - {game_key.replace('_', ' ').title()} {next_order + 1}"
-    room_code = auto_create_game_quiz(game_key, request.user, quiz_title)
-    if not room_code:
-        return JsonResponse({'error': 'Game could not be created'}, status=500)
+    _game_model_map = {
+        'quiz': QuizGameModel, 'assign': AssignQuiz, 'estimation': EstimationQuiz,
+        'where': WhereQuiz, 'who': WhoQuiz, 'who_that': WhoThatQuiz,
+        'blackjack': BlackJackQuiz, 'sorting_ladder': SortingLadderGame, 'clue_rush': ClueRushGame,
+    }
 
-    # Assign selected questions to the newly created quiz
-    if question_ids:
-        _assign_questions_to_quiz(game_key, room_code, question_ids)
-
-    step = HubGameStep.objects.create(
-        session=session,
-        order=next_order,
-        game_key=game_key,
-        room_code=room_code,
-        title=quiz_title,
-    )
-    return JsonResponse({
-        'success': True,
-        'step': {
-            'id': step.id,
-            'order': step.order,
-            'game_key': step.game_key,
-            'game_key_display': step.get_game_key_display(),
-            'room_code': step.room_code,
-            'title': step.title,
-        }
-    })
+    if game_ids:
+        # Add one step per selected game instance
+        game_model = _game_model_map.get(game_key)
+        if not game_model:
+            return JsonResponse({'error': 'Unknown game type'}, status=400)
+        created_steps = []
+        for gid in game_ids:
+            try:
+                game_instance = game_model.objects.get(id=gid)
+            except game_model.DoesNotExist:
+                continue
+            # Reset game state so it can be played again
+            game_instance.status = 'waiting'
+            game_instance.synced = False
+            for attr in ('started_at', 'ended_at', 'question_start_time'):
+                if hasattr(game_instance, attr):
+                    setattr(game_instance, attr, None)
+            if hasattr(game_instance, 'current_question'):
+                game_instance.current_question = None
+            if hasattr(game_instance, 'current_question_number'):
+                game_instance.current_question_number = 0
+            game_instance.save()
+            max_order = session.steps.aggregate(Max('order'))['order__max']
+            next_order = 0 if max_order is None else max_order + 1
+            step = HubGameStep.objects.create(
+                session=session,
+                order=next_order,
+                game_key=game_key,
+                room_code=game_instance.room_code,
+                title=game_instance.title,
+            )
+            created_steps.append({
+                'id': step.id,
+                'order': step.order,
+                'game_key': step.game_key,
+                'game_key_display': step.get_game_key_display(),
+                'room_code': step.room_code,
+                'title': step.title,
+            })
+        return JsonResponse({'success': True, 'steps': created_steps})
+    else:
+        max_order = session.steps.aggregate(Max('order'))['order__max']
+        next_order = 0 if max_order is None else max_order + 1
+        quiz_title = title or f"{session.name or session.code} - {game_key.replace('_', ' ').title()} {next_order + 1}"
+        room_code = auto_create_game_quiz(game_key, request.user, quiz_title)
+        if not room_code:
+            return JsonResponse({'error': 'Game could not be created'}, status=500)
+        if question_ids:
+            _assign_questions_to_quiz(game_key, room_code, question_ids)
+        step = HubGameStep.objects.create(
+            session=session,
+            order=next_order,
+            game_key=game_key,
+            room_code=room_code,
+            title=quiz_title,
+        )
+        return JsonResponse({
+            'success': True,
+            'steps': [{
+                'id': step.id,
+                'order': step.order,
+                'game_key': step.game_key,
+                'game_key_display': step.get_game_key_display(),
+                'room_code': step.room_code,
+                'title': step.title,
+            }]
+        })
 
 
 def _assign_questions_to_quiz(game_key: str, room_code: str, question_ids: list):
@@ -522,6 +596,32 @@ def get_available_questions(request, game_key):
 
 
 @login_required
+def get_game_instances(request, game_key):
+    """Return existing pre-configured game instances for a given game type."""
+    model_map = {
+        'quiz': QuizGameModel, 'assign': AssignQuiz, 'estimation': EstimationQuiz,
+        'where': WhereQuiz, 'who': WhoQuiz, 'who_that': WhoThatQuiz,
+        'blackjack': BlackJackQuiz, 'sorting_ladder': SortingLadderGame, 'clue_rush': ClueRushGame,
+    }
+    model = model_map.get(game_key)
+    if not model:
+        return JsonResponse({'error': 'Unknown game type'}, status=400)
+    instances = model.objects.all().order_by('-created_at')
+    return JsonResponse({
+        'instances': [
+            {
+                'id': g.id,
+                'title': g.title,
+                'internal_description': getattr(g, 'internal_description', ''),
+                'room_code': g.room_code,
+                'q_count': g.selected_questions.count(),
+            }
+            for g in instances
+        ]
+    })
+
+
+@login_required
 @require_POST
 def reorder_steps(request, session_code):
     """Reorder game steps. Body: {order: [step_id, step_id, ...]} (list of step PKs in new order)."""
@@ -598,8 +698,8 @@ def _get_vote_counts(session):
         result.append({
             'step_order': step.order,
             'game_key': step.game_key,
-            'title': step.title or step.get_game_key_display(),
+            'title': step.title,
             'count': vote_map.get(step.id, 0),
         })
-    result.sort(key=lambda x: x['count'], reverse=True)
+    result.sort(key=lambda x: x['step_order'])
     return result

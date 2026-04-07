@@ -46,6 +46,8 @@ class HubConsumer(AsyncWebsocketConsumer):
             await self.handle_navigate_to_game(data)
         elif msg_type == 'navigate_direct':
             await self.handle_navigate_direct(data)
+        elif msg_type == 'recall_to_lobby':
+            await self.channel_layer.group_send(self.group_name, {'type': 'recall_to_lobby'})
         elif msg_type == 'end_session':
             await self.handle_end_session()
         elif msg_type == 'toggle_scoreboard':
@@ -76,7 +78,6 @@ class HubConsumer(AsyncWebsocketConsumer):
     async def handle_start_session(self):
         await self.start_session_db()
         await self.channel_layer.group_send(self.group_name, {'type': 'session_started'})
-        await self.handle_navigate_to_current()
 
     async def handle_next_step(self):
         print("Handle Next Step")
@@ -191,6 +192,9 @@ class HubConsumer(AsyncWebsocketConsumer):
             # else:
             #     print(f"Ignoring {etype} event for non-current game")
                 
+    async def recall_to_lobby(self, event):
+        await self.send_json({'type': 'recall_to_lobby', 'session_code': self.session_code})
+
     async def session_ended(self, event):
         """Handle session ended event"""
         await self.send_json({
@@ -311,10 +315,10 @@ class HubConsumer(AsyncWebsocketConsumer):
                 result.append({
                     'step_order': step.order,
                     'game_key': step.game_key,
-                    'title': step.title or step.get_game_key_display(),
+                    'title': step.title,
                     'count': vote_map.get(step.id, 0),
                 })
-            return sorted(result, key=lambda x: x['count'], reverse=True)
+            return sorted(result, key=lambda x: x['step_order'])
         except HubSession.DoesNotExist:
             return []
 

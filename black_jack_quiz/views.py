@@ -380,7 +380,6 @@ def get_quiz_status(request, room_code, participant_name):
                 'id': question.id,
                 'question_text': question.question_text,
                 'time_limit': question.time_limit,
-                'hint_text': question.hint_text,
                 'question_number': quiz.current_question_number
             }
             

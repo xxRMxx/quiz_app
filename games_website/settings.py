@@ -80,6 +80,12 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'TEST': {
+            # Dateibasierte Test-DB – erforderlich für ChannelsLiveServerTestCase
+            # (In-Memory-SQLite kann nicht zwischen ASGI-Server-Thread und
+            # Test-Thread geteilt werden)
+            'NAME': BASE_DIR / 'test_db.sqlite3',
+        },
     },
     'supabase': {
         'ENGINE': 'django.db.backends.postgresql',

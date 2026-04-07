@@ -28,10 +28,6 @@
             <div class="container">
                 <div class="header-content">
                     <div class="quiz-info">
-                        <span class="game-type-badge">
-                            <i data-lucide="help-circle"></i>
-                            Multiple Choice Quiz
-                        </span>
                         <h1 class="quiz-title">{{ quiz.title }}</h1>
                     </div>
                     <div class="participant-info">
@@ -208,8 +204,8 @@
                         </div>
                     </div>
 
-                    <!-- Leaderboard Sidebar -->
-                    <div class="col-lg-4" id="leaderboardSidebar">
+                    <!-- Leaderboard Sidebar (wird nur auf Host-Befehl eingeblendet) -->
+                    <div class="col-lg-4 d-none" id="leaderboardSidebar">
                         <div class="leaderboard-card">
                             <div class="leaderboard-header">
                                 <h6 class="leaderboard-title">
@@ -1168,20 +1164,31 @@
                             break;
                             
                         case 'answer_submitted':
-                            // Score may have changed — refresh after brief delay
-                            scheduleLeaderboardRefresh(1500);
+                            // Gesamtpunkte direkt aus der Serverantwort übernehmen
+                            if (typeof data.total_score === 'number') {
+                                const scoreEl = document.getElementById('myScoreHeader');
+                                if (scoreEl) scoreEl.textContent = data.total_score + ' pts';
+                            }
                             break;
 
                         case 'question_ended':
                             this.onQuestionEnded(data);
-                            scheduleLeaderboardRefresh(1200);
                             break;
 
                         case 'quiz_ended':
                             this.onQuizEnded(data);
-                            scheduleLeaderboardRefresh(1000);
                             break;
-                            
+
+                        case 'show_leaderboard':
+                            const sb = document.getElementById('leaderboardSidebar');
+                            if (sb) sb.classList.remove('d-none');
+                            fetchLeaderboard();
+                            break;
+
+                        case 'hide_leaderboard':
+                            document.getElementById('leaderboardSidebar')?.classList.add('d-none');
+                            break;
+
                         case 'participant_count_updated':
                             this.updateParticipantCount(data.count);
                             break;
@@ -1505,13 +1512,14 @@
 
             function renderLeaderboard(participants) {
                 const list = document.getElementById('leaderboardList');
-                const hint = document.getElementById('lbRefreshHint');
                 if (!list) return;
                 if (!participants || participants.length === 0) {
                     list.innerHTML = '<div class="lb-empty"><span>No data yet</span></div>';
                     return;
                 }
-                const rows = participants.map((p, i) => {
+                // Nach Gesamtpunkten sortieren
+                const sorted = [...participants].sort((a, b) => (b.total_score ?? 0) - (a.total_score ?? 0));
+                const rows = sorted.map((p, i) => {
                     const rank = i + 1;
                     const isMe = p.name === MY_NAME;
                     const rankClass = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
@@ -1520,18 +1528,10 @@
                         <div class="lb-rank ${rankClass}">${rankDisplay}</div>
                         <div class="lb-avatar">${p.name.charAt(0).toUpperCase()}</div>
                         <div class="lb-name">${p.name}${isMe ? ' (You)' : ''}</div>
-                        <div class="lb-score">${p.weighted_score ?? p.total_score ?? 0} pts</div>
+                        <div class="lb-score">${p.total_score ?? 0} pts</div>
                     </div>`;
                 }).join('');
                 list.innerHTML = rows;
-                if (hint) {
-                    const now = new Date();
-                    hint.textContent = `Updated: ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
-                }
-                // Update header score for current participant
-                const me = participants.find(p => p.name === MY_NAME);
-                const scoreEl = document.getElementById('myScoreHeader');
-                if (me && scoreEl) scoreEl.textContent = (me.weighted_score ?? me.total_score ?? 0) + ' pts';
                 try { lucide.createIcons(); } catch(_) {}
             }
 
@@ -1549,13 +1549,6 @@
                 lbFetchTimeout = setTimeout(fetchLeaderboard, delayMs || 0);
             }
 
-            // Initial load (slight delay to let WS connect first)
-            if (player.hubSession) {
-                scheduleLeaderboardRefresh(800);
-            } else {
-                const sb = document.getElementById('leaderboardSidebar');
-                if (sb) sb.style.display = 'none';
-            }
             // ---- End Leaderboard Logic ----
 
             // ---- Tutorial Logic ----
