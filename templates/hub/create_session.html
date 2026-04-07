@@ -148,94 +148,32 @@
 </div>
 
 <style>
-.wizard-container {
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 1.5rem 1rem;
-}
-
-.game-plan-list {
-    min-height: 60px;
-}
-
+.wizard-container { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem; }
+.game-plan-list { min-height: 60px; }
 .game-plan-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid var(--border-color);
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.8rem 1.25rem; border-bottom: 1px solid var(--border);
 }
-
-.game-plan-item:last-child {
-    border-bottom: none;
-}
-
+.game-plan-item:last-child { border-bottom: none; }
 .game-plan-order {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--color-primary, #0d6efd);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.8rem;
-    flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.75rem; flex-shrink: 0;
 }
-
 .game-plan-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: var(--color-primary-light, #e8f0fe);
-    color: var(--color-primary, #0d6efd);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 8px;
+  background: var(--primary-lite); color: var(--accent);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-
-.game-plan-info {
-    flex: 1;
-}
-
-.game-plan-title {
-    font-weight: 600;
-    font-size: 0.95rem;
-}
-
-.game-plan-meta {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-}
-
-.game-instance-row:hover td {
-    background: var(--bg-secondary);
-}
-
-.game-plan-drag-handle {
-    cursor: grab;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    padding: 0 4px;
-}
-
-.game-plan-item.dragging {
-    opacity: 0.4;
-}
-
-.game-plan-item.drag-over {
-    border-top: 2px solid var(--color-primary, #0d6efd);
-}
-
-.table-sticky-header thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--bs-light, #f8f9fa);
-}
+.game-plan-info { flex: 1; }
+.game-plan-title { font-weight: 600; font-size: 0.9rem; color: var(--text); }
+.game-plan-meta  { font-size: 0.75rem; color: var(--text-muted); }
+.game-instance-row:hover td { background: rgba(255,255,255,0.025); }
+.game-plan-drag-handle { cursor: grab; flex-shrink: 0; display: flex; align-items: center; padding: 0 4px; }
+.game-plan-item.dragging { opacity: 0.4; }
+.game-plan-item.drag-over { border-top: 2px solid var(--accent); }
+.table-sticky-header thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-2); }
 </style>
 
 <script>
