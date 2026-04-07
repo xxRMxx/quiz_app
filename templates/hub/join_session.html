@@ -4,14 +4,17 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Session beitreten</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0b0f17;
-      --panel: #0f172a;
-      --text: #e5e7eb;
+      --bg: #0a0e1a;
+      --panel: #0f1628;
+      --text: #e2e8f0;
       --muted: #94a3b8;
-      --primary: #22d3ee;
-      --danger: #ef4444;
+      --primary: #a78bfa;
+      --danger: #f87171;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     @keyframes gradientBG {
@@ -22,7 +25,7 @@
     body {
       min-height: 100vh;
       color: var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      font-family: 'DM Sans', system-ui, sans-serif;
       background: linear-gradient(-45deg, #050816, #0b1026, #1a1f4a, #2b2f77);
       background-size: 400% 400%;
       animation: gradientBG 15s ease infinite;
@@ -44,6 +47,7 @@
     h1 {
       font-size: 1.5rem;
       font-weight: 700;
+      font-family: 'Syne', sans-serif;
       text-align: center;
       margin-bottom: 0.4rem;
       letter-spacing: .3px;
@@ -90,7 +94,8 @@
       padding: .85rem;
       border: none;
       border-radius: 10px;
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      box-shadow: 0 4px 16px rgba(124,58,237,0.35);
       color: #fff;
       font-size: 1rem;
       font-weight: 600;
