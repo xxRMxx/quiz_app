@@ -698,8 +698,8 @@ def _get_vote_counts(session):
         result.append({
             'step_order': step.order,
             'game_key': step.game_key,
-            'title': step.title or step.get_game_key_display(),
+            'title': step.title,
             'count': vote_map.get(step.id, 0),
         })
-    result.sort(key=lambda x: x['count'], reverse=True)
+    result.sort(key=lambda x: x['step_order'])
     return result

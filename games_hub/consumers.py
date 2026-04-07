@@ -315,10 +315,10 @@ class HubConsumer(AsyncWebsocketConsumer):
                 result.append({
                     'step_order': step.order,
                     'game_key': step.game_key,
-                    'title': step.title or step.get_game_key_display(),
+                    'title': step.title,
                     'count': vote_map.get(step.id, 0),
                 })
-            return sorted(result, key=lambda x: x['count'], reverse=True)
+            return sorted(result, key=lambda x: x['step_order'])
         except HubSession.DoesNotExist:
             return []
 

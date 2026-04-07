@@ -111,14 +111,6 @@
                                             <span class="answer-option answer-correct"><strong>Antwort:</strong> {{ question.correct_answer }}</span>
                                         </div>
                                         {% endif %}
-                                        <div class="question-details">
-                                            <div class="detail-grid">
-                                                <div class="detail-item">
-                                                    <i data-lucide="clock"></i>
-                                                    <span>{{ question.time_limit }}s</span>
-                                                </div>
-                                            </div>
-                                        </div>
                                         <div class="question-meta">
                                             <span class="badge badge-{{ question.get_difficulty_display_color }}">{{ question.get_difficulty_display }}</span>
                                             {% if question.hint_text %}
@@ -136,7 +128,10 @@
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
-                                        <input type="number" class="form-control form-control-sm question-time-input" placeholder="Time (s)" min="5" step="1" style="max-width: 120px;" value="">
+                                        <div>
+                                            <small class="text-muted d-block mb-1">Zeit in Sek.</small>
+                                            <input type="number" class="form-control form-control-sm question-time-input" placeholder="Time (s)" min="5" step="1" style="max-width: 120px;" value="{{ question.time_limit }}">
+                                        </div>
                                         <button class="btn btn-secondary send-question-btn" data-question-id="{{ question.id }}" {% if quiz.status != 'active' %}disabled title="Start the quiz to send questions"{% endif %}>
                                             <i data-lucide="send"></i>
                                             Send Question

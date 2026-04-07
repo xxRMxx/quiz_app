@@ -609,7 +609,8 @@
         votes.forEach(v => {
           const pct = Math.round((v.count / maxCount) * 100);
           const isVoted = myVotedOrder === v.step_order;
-          const displayName = gameNames[v.game_key] || v.title;
+          const typeLabel = gameNames[v.game_key] || v.game_key;
+          const displayName = v.title ? `${v.title} (${typeLabel})` : typeLabel;
           const card = document.createElement('div');
           card.className = 'vote-card' + (isVoted ? ' voted' : '');
           card.dataset.order = v.step_order;

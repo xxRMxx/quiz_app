@@ -40,10 +40,16 @@
                         {{ quiz.get_status_display }}
                     </span>
                     {% if quiz.status == 'waiting' %}
-                        <button class="btn btn-success" id="startQuizBtn">
-                            <i data-lucide="play"></i>
-                            Spiel starten
-                        </button>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="showTutorialToggle" checked>
+                                <label class="form-check-label" for="showTutorialToggle">Tutorial anzeigen</label>
+                            </div>
+                            <button class="btn btn-success" id="startQuizBtn">
+                                <i data-lucide="play"></i>
+                                Spiel starten
+                            </button>
+                        </div>
                     {% elif quiz.status == 'active' %}
                         <button class="btn btn-warning" id="endQuizBtn">
                             <i data-lucide="square"></i>
@@ -105,10 +111,6 @@
                                                 <span class="coordinates">{{ question.correct_latitude|floatformat:4 }}°, {{ question.correct_longitude|floatformat:4 }}°</span>
                                             </div>
                                             <div class="meta-row">
-                                                <span class="meta-label">Time Limit:</span>
-                                                <span class="time">{{ question.time_limit }}s</span>
-                                            </div>
-                                            <div class="meta-row">
                                                 <span class="meta-label">Perfect Distance:</span>
                                                 <span class="distance">{{ question.perfect_distance }}km</span>
                                             </div>
@@ -121,7 +123,10 @@
                                         {% endif %}
                                     </div>
                                     <div class="question-actions">
-                                        <input type="number" class="form-control form-control-sm question-time-input" placeholder="Time (s)" min="5" step="1" style="max-width: 120px;" value="">
+                                        <div>
+                                            <small class="text-muted d-block mb-1">Zeit in Sek.</small>
+                                            <input type="number" class="form-control form-control-sm question-time-input" placeholder="Time (s)" min="5" step="1" style="max-width: 120px;" value="{{ question.time_limit }}">
+                                        </div>
                                         <button class="btn btn-secondary send-question-btn" data-question-id="{{ question.id }}" {% if quiz.status != 'active' %}disabled title="Start the quiz to send questions"{% endif %}>
                                             <i data-lucide="send"></i>
                                             Send Question
@@ -1148,8 +1153,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         };
                     }
                 } catch(_) {}
+                const showTutorial = document.getElementById('showTutorialToggle')?.checked ?? true;
                 this.websocket.send(JSON.stringify({
-                    type: 'admin_start_quiz'
+                    type: 'admin_start_quiz',
+                    show_tutorial: showTutorial
                 }));
                 //reload page
                 location.reload();

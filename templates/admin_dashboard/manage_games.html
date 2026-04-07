@@ -1460,6 +1460,13 @@ function addAsgnLeft() {
     row.innerHTML = `<input type="text" class="form-control form-control-sm asgn-left" placeholder="Links…">
         <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('div').remove()">×</button>`;
     c.appendChild(row);
+    row.querySelector('.asgn-left').addEventListener('keydown', function(e) {
+        if (e.key === 'Tab' && !e.shiftKey && this.value.trim() !== '') {
+            e.preventDefault();
+            addAsgnLeft();
+            c.lastElementChild.querySelector('.asgn-left').focus();
+        }
+    });
 }
 function addAsgnRight() {
     const c = document.getElementById('asgn-right-container');
@@ -1468,6 +1475,13 @@ function addAsgnRight() {
     row.innerHTML = `<input type="text" class="form-control form-control-sm asgn-right" placeholder="Rechts…">
         <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('div').remove()">×</button>`;
     c.appendChild(row);
+    row.querySelector('.asgn-right').addEventListener('keydown', function(e) {
+        if (e.key === 'Tab' && !e.shiftKey && this.value.trim() !== '') {
+            e.preventDefault();
+            addAsgnRight();
+            c.lastElementChild.querySelector('.asgn-right').focus();
+        }
+    });
 }
 document.getElementById('asgn-add-left').addEventListener('click', addAsgnLeft);
 document.getElementById('asgn-add-right').addEventListener('click', addAsgnRight);
@@ -1483,6 +1497,13 @@ function addWhoPerson() {
         </div>
         <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="this.closest('.who-person-row').remove()">×</button>`;
     c.appendChild(row);
+    row.querySelector('.who-person-name').addEventListener('keydown', function(e) {
+        if (e.key === 'Tab' && !e.shiftKey && this.value.trim() !== '') {
+            e.preventDefault();
+            addWhoPerson();
+            c.lastElementChild.querySelector('.who-person-name').focus();
+        }
+    });
 }
 document.getElementById('who-add-person').addEventListener('click', addWhoPerson);
 
@@ -1494,6 +1515,15 @@ function addCrClue() {
         <input type="number" class="form-control form-control-sm cr-clue-dur" placeholder="s" value="10" min="3" style="width:80px;">
         <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.cr-clue-row').remove()">×</button>`;
     c.appendChild(row);
+    const textInput = row.querySelector('.cr-clue-text');
+    textInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab' && !e.shiftKey && this.value.trim() !== '') {
+            e.preventDefault();
+            addCrClue();
+            c.lastElementChild.querySelector('.cr-clue-text').focus();
+        }
+    });
+    return row;
 }
 document.getElementById('cr-add-clue').addEventListener('click', addCrClue);
 
@@ -1521,7 +1551,15 @@ function addSlItem() {
     row.innerHTML = `<span class="badge bg-secondary sl-item-idx" style="min-width:24px;">${idx}</span>
         <input type="text" class="form-control form-control-sm sl-item-text" placeholder="Item…">
         <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.sl-item-row').remove(); reindexSlItems();">×</button>`;
-    row.querySelector('.sl-item-text').addEventListener('input', refreshSlStartingDropdown);
+    const textInput = row.querySelector('.sl-item-text');
+    textInput.addEventListener('input', refreshSlStartingDropdown);
+    textInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab' && !e.shiftKey && this.value.trim() !== '') {
+            e.preventDefault();
+            addSlItem();
+            c.lastElementChild.querySelector('.sl-item-text').focus();
+        }
+    });
     c.appendChild(row);
     refreshSlStartingDropdown();
 }
