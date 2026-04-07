@@ -36,7 +36,7 @@
 
         <!-- Active Hub Sessions -->
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 py-3 d-flex align-items-center gap-2">
+            <div class="card-header border-0 py-3 d-flex align-items-center gap-2">
                 <span class="badge bg-success rounded-pill" style="font-size:0.7rem;">LIVE</span>
                 <h5 class="mb-0">Active Sessions</h5>
                 <span class="badge bg-secondary ms-1">{{ active_hub_sessions|length }}</span>
@@ -96,7 +96,7 @@
 
         <!-- Planned Hub Sessions -->
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 py-3 d-flex align-items-center gap-2">
+            <div class="card-header border-0 py-3 d-flex align-items-center gap-2">
                 <span class="badge bg-warning text-dark rounded-pill" style="font-size:0.7rem;">PLANNED</span>
                 <h5 class="mb-0">Planned Sessions</h5>
                 <span class="badge bg-secondary ms-1">{{ planned_hub_sessions|length }}</span>
@@ -151,7 +151,7 @@
         <!-- Active Games -->
         {% if active_games %}
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 py-3 d-flex align-items-center gap-2">
+            <div class="card-header border-0 py-3 d-flex align-items-center gap-2">
                 <span class="badge bg-success rounded-pill" style="font-size:0.7rem;">LIVE</span>
                 <h5 class="mb-0">Active Games</h5>
                 <span class="badge bg-secondary ms-1">{{ active_games|length }}</span>
@@ -214,7 +214,7 @@
 
         <!-- Recent Sessions -->
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+            <div class="card-header border-0 py-3 d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-2">
                     <span class="badge bg-secondary rounded-pill" style="font-size:0.7rem;">ENDED</span>
                     <h5 class="mb-0">Recent Sessions</h5>
@@ -271,91 +271,6 @@
 
     </div>
 </div>
-
-<style>
-.dashboard-content {
-    min-height: calc(100vh - 180px);
-    padding: 2rem 0;
-    background-color: #f8f9fa;
-}
-
-.card {
-    border-radius: 0.75rem;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.05) !important;
-}
-
-.bg-opacity-10 {
-    opacity: 0.9;
-}
-
-.table th {
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.5px;
-    color: #6c757d;
-}
-
-.badge {
-    font-weight: 500;
-    padding: 0.35em 0.65em;
-    font-size: 0.75em;
-}
-
-.btn-primary {
-    padding: 0.5rem 1.5rem;
-    font-weight: 500;
-}
-
-.btn-outline-primary {
-    padding: 0.35rem 0.75rem;
-    font-size: 0.85rem;
-}
-
-.text-uppercase {
-    letter-spacing: 0.5px;
-}
-
-.table > :not(:first-child) {
-    border-top: none;
-}
-
-.table > :not(caption) > * > * {
-    padding: 1rem 1.25rem;
-}
-
-.rounded-circle {
-    width: 50px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.fa-2x {
-    font-size: 1.5rem;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .dashboard-content {
-        padding: 1rem 0;
-    }
-    
-    .card-body {
-        padding: 1.25rem;
-    }
-    
-    .table > :not(caption) > * > * {
-        padding: 0.75rem;
-    }
-}
-</style>
 
 <!-- Start Session Modal -->
 <div class="modal fade" id="startSessionModal" tabindex="-1" aria-labelledby="startSessionModalLabel" aria-hidden="true">
