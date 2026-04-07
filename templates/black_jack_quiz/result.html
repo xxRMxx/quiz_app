@@ -226,10 +226,6 @@
                                                         <i data-lucide="clock"></i>
                                                         {% if answer.time_taken %}{{ answer.time_taken|floatformat:1 }}s{% else %}-{% endif %}
                                                     </span>
-                                                    <span class="difficulty-info">
-                                                        <i data-lucide="layers"></i>
-                                                        {{ answer.question.get_difficulty_display }}
-                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -860,13 +856,13 @@
             font-size: 0.875rem;
         }
 
-        .time-taken, .difficulty-info {
+        .time-taken {
             display: flex;
             align-items: center;
             gap: 0.25rem;
         }
 
-        .time-taken i, .difficulty-info i {
+        .time-taken i {
             width: 14px;
             height: 14px;
         }

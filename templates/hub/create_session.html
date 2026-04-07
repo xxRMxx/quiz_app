@@ -50,8 +50,19 @@
         <!-- Available Game Instances -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-1">Verfügbare Spiele</h5>
-                <p class="text-muted small mb-0">Klicke auf ein Spiel um es zum Game Plan hinzuzufügen</p>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h5 class="mb-1">Verfügbare Spiele</h5>
+                        <p class="text-muted small mb-0">Klicke auf ein Spiel um es zum Game Plan hinzuzufügen</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <select id="typeFilterSelect" class="form-select form-select-sm" style="min-width:160px;">
+                            <option value="">Alle Spieltypen</option>
+                        </select>
+                        <input type="text" id="gameSearchInput" class="form-control form-control-sm"
+                               placeholder="Nach Name suchen…" style="min-width:180px;max-width:240px;">
+                    </div>
+                </div>
             </div>
             <div class="card-body p-0">
                 {% if all_game_instances %}
@@ -101,7 +112,7 @@
         <input type="hidden" name="games_order" id="gamesOrder" value="[]">
 
         <div class="d-flex justify-content-between align-items-center">
-            <a href="{% url 'admin_dashboard:sessions_overview' %}" class="btn btn-outline-secondary btn-lg">
+            <a href="{% url 'admin_dashboard:sessions_overview' %}" class="btn btn-outline-secondary btn-lg" id="cancelBtn">
                 <i data-lucide="arrow-left" class="me-1"></i> Abbrechen
             </a>
             <button type="submit" class="btn btn-success btn-lg" id="submitBtn" disabled>
@@ -111,95 +122,58 @@
     </form>
 </div>
 
+<!-- Ungespeicherte Änderungen Modal -->
+<div class="modal fade" id="unsavedModal" tabindex="-1" aria-labelledby="unsavedModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title" id="unsavedModalLabel">
+                    <i data-lucide="alert-triangle" style="width:20px;height:20px;color:var(--bs-warning);vertical-align:text-bottom;" class="me-2"></i>
+                    Ungespeicherte Änderungen
+                </h5>
+            </div>
+            <div class="modal-body pt-2">
+                Möchtest du die Session speichern oder die Änderungen verwerfen?
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-danger" id="discardBtn">
+                    <i data-lucide="trash-2" class="me-1" style="width:15px;height:15px;"></i> Verwerfen
+                </button>
+                <button type="button" class="btn btn-success" id="saveFromModalBtn">
+                    <i data-lucide="check" class="me-1" style="width:15px;height:15px;"></i> Session erstellen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
-.wizard-container {
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 1.5rem 1rem;
-}
-
-.game-plan-list {
-    min-height: 60px;
-}
-
+.wizard-container { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem; }
+.game-plan-list { min-height: 60px; }
 .game-plan-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid var(--border-color);
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.8rem 1.25rem; border-bottom: 1px solid var(--border);
 }
-
-.game-plan-item:last-child {
-    border-bottom: none;
-}
-
+.game-plan-item:last-child { border-bottom: none; }
 .game-plan-order {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--color-primary, #0d6efd);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.8rem;
-    flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.75rem; flex-shrink: 0;
 }
-
 .game-plan-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: var(--color-primary-light, #e8f0fe);
-    color: var(--color-primary, #0d6efd);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 8px;
+  background: var(--primary-lite); color: var(--accent);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-
-.game-plan-info {
-    flex: 1;
-}
-
-.game-plan-title {
-    font-weight: 600;
-    font-size: 0.95rem;
-}
-
-.game-plan-meta {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-}
-
-.game-instance-row:hover td {
-    background: var(--bg-secondary);
-}
-
-.game-plan-drag-handle {
-    cursor: grab;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    padding: 0 4px;
-}
-
-.game-plan-item.dragging {
-    opacity: 0.4;
-}
-
-.game-plan-item.drag-over {
-    border-top: 2px solid var(--color-primary, #0d6efd);
-}
-
-.table-sticky-header thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--bs-light, #f8f9fa);
-}
+.game-plan-info { flex: 1; }
+.game-plan-title { font-weight: 600; font-size: 0.9rem; color: var(--text); }
+.game-plan-meta  { font-size: 0.75rem; color: var(--text-muted); }
+.game-instance-row:hover td { background: rgba(255,255,255,0.025); }
+.game-plan-drag-handle { cursor: grab; flex-shrink: 0; display: flex; align-items: center; padding: 0 4px; }
+.game-plan-item.dragging { opacity: 0.4; }
+.game-plan-item.drag-over { border-top: 2px solid var(--accent); }
+.table-sticky-header thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-2); }
 </style>
 
 <script>
@@ -321,7 +295,93 @@ document.addEventListener('DOMContentLoaded', function() {
         const name = document.getElementById('sessionName').value.trim();
         if (!name) { e.preventDefault(); alert('Bitte einen Session-Namen eingeben.'); return; }
         if (!gamePlan.length) { e.preventDefault(); alert('Bitte mindestens ein Spiel hinzufügen.'); return; }
+        isDirty = false;  // Form wird abgeschickt – kein beforeunload nötig
     });
+
+    // --- Ungespeicherte Änderungen ---
+    let isDirty = false;
+    let pendingNavUrl = null;
+
+    function markDirty() { isDirty = true; }
+
+    document.getElementById('sessionName').addEventListener('input', markDirty);
+    document.querySelector('input[name="code"]').addEventListener('input', markDirty);
+
+    // gamePlan-Mutationen tracken (renderPlan wird nach jeder Änderung aufgerufen)
+    const _origRenderPlan = renderPlan;
+    // Hinweis: renderPlan ist als function-Deklaration im gleichen Scope definiert,
+    // deshalb wird hier ein Wrapper-Aufruf nach jedem gamePlan-Push/-Splice gemacht.
+    // Einfachste Lösung: auf gamePlan.length prüfen statt renderPlan zu wrappen.
+    document.getElementById('gamePlan').addEventListener('click', markDirty);
+    document.querySelectorAll('.game-instance-row').forEach(row => {
+        row.addEventListener('click', markDirty);
+    });
+
+    // beforeunload für Browser-Zurück / Tab schließen
+    window.addEventListener('beforeunload', e => {
+        if (!isDirty) return;
+        e.preventDefault();
+        e.returnValue = '';
+    });
+
+    // Alle Navigations-Links abfangen
+    const unsavedModal = new bootstrap.Modal(document.getElementById('unsavedModal'));
+
+    document.addEventListener('click', e => {
+        if (!isDirty) return;
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+        const href = link.getAttribute('href');
+        if (!href || href === '#' || href.startsWith('javascript:')) return;
+        e.preventDefault();
+        pendingNavUrl = href;
+        lucide.createIcons();
+        unsavedModal.show();
+    });
+
+    document.getElementById('discardBtn').addEventListener('click', () => {
+        isDirty = false;
+        unsavedModal.hide();
+        window.location.href = pendingNavUrl;
+    });
+
+    document.getElementById('saveFromModalBtn').addEventListener('click', () => {
+        unsavedModal.hide();
+        document.getElementById('createSessionForm').requestSubmit();
+    });
+
+    // --- Filter & Suche ---
+    let activeTypeFilter = '';
+
+    function applyFilters() {
+        const search = (document.getElementById('gameSearchInput')?.value || '').toLowerCase().trim();
+        document.querySelectorAll('.game-instance-row').forEach(row => {
+            const matchesType = !activeTypeFilter || row.dataset.gameKey === activeTypeFilter;
+            const matchesSearch = !search || row.dataset.title.toLowerCase().includes(search);
+            row.style.display = (matchesType && matchesSearch) ? '' : 'none';
+        });
+    }
+
+    // Dropdown-Optionen dynamisch aus den vorhandenen Zeilen aufbauen
+    const typesMap = new Map();
+    document.querySelectorAll('.game-instance-row').forEach(r => {
+        if (!typesMap.has(r.dataset.gameKey)) typesMap.set(r.dataset.gameKey, r.dataset.label);
+    });
+
+    const typeSelect = document.getElementById('typeFilterSelect');
+    typesMap.forEach((label, key) => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = label;
+        typeSelect.appendChild(opt);
+    });
+
+    typeSelect.addEventListener('change', () => {
+        activeTypeFilter = typeSelect.value;
+        applyFilters();
+    });
+
+    document.getElementById('gameSearchInput')?.addEventListener('input', applyFilters);
 });
 </script>
 {% endblock %}

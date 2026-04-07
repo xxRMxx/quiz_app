@@ -3,11 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Lobby {{ session.code }}</title>
+    <title>Lobby · {{ session_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-      body { 
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; 
-        margin: 2rem; 
+      body {
+        font-family: 'DM Sans', system-ui, sans-serif;
+        margin: 2rem;
       }
       .card { 
         max-width: 720px; 
@@ -88,15 +91,15 @@
       }
       /* --- Modern lobby additions --- */
       :root {
-        --bg: #0b0f17;
-        --panel: #0f172a;
+        --bg: #0a0e1a;
+        --panel: #0f1628;
         --panel-2: #111827;
-        --text: #e5e7eb;
+        --text: #e2e8f0;
         --muted: #94a3b8;
-        --primary: #22d3ee;
-        --primary-2: #a78bfa;
-        --accent: #10b981;
-        --danger: #ef4444;
+        --primary: #a78bfa;
+        --primary-2: #7c3aed;
+        --accent: #34d399;
+        --danger: #f87171;
       }
       @keyframes gradientBG {
         0% { background-position: 0% 50%; }
@@ -115,7 +118,7 @@
       }
       .container { padding: 2rem 1rem 3rem; max-width: 1200px; margin: 0 auto; }
       .header { text-align:center; margin-bottom:1.25rem; }
-      .title { font-weight:700; font-size: clamp(1.25rem, 1.5vw + 1rem, 1.75rem); letter-spacing:.5px; }
+      .title { font-family: 'Syne', sans-serif; font-weight:700; font-size: clamp(1.25rem, 1.5vw + 1rem, 1.75rem); letter-spacing:.5px; }
       .share { font-size:.9rem; color: var(--muted); }
       code { background: rgba(15, 23, 42, .8); color: var(--text); padding:.25rem .5rem; border-radius:6px; border:1px solid rgba(148,163,184,.25); }
       .card { background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(15,23,42,.85)); border:2px solid rgba(255, 255, 255, 0.5); border-radius:14px; box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px rgba(255,255,255,.03); padding:1rem; backdrop-filter: blur(6px); }
@@ -141,7 +144,7 @@
 
       /* Leaderboard */
       .leaderboard-section { margin-top: 1.5rem; }
-      .section-title { font-size: .85rem; color: var(--muted); border: 1px solid rgba(148,163,184,.25); background: rgba(15,23,42,.5); padding: .35rem .6rem; border-radius: 999px; display: inline-block; margin-bottom: .9rem; }
+      .section-title { font-family: 'Syne', sans-serif; font-size: .85rem; color: var(--muted); border: 1px solid rgba(148,163,184,.25); background: rgba(15,23,42,.5); padding: .35rem .6rem; border-radius: 999px; display: inline-block; margin-bottom: .9rem; }
       .lb-table { width: 100%; border-collapse: collapse; }
       .lb-table th { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding: .4rem .75rem; text-align: left; border-bottom: 1px solid rgba(148,163,184,.15); }
       .lb-table td { padding: .55rem .75rem; border-bottom: 1px solid rgba(148,163,184,.07); font-size: .9rem; }
@@ -158,7 +161,7 @@
   <body>
     <div class="container">
       <div class="header">
-        <div class="title">Lobby · Session {{ session_code }}</div>
+        <div class="title" id="lobbyTitle">{{ session_name }}</div>
       </div>
 
       <div id="joinCard" class="card join-card">
@@ -363,6 +366,8 @@
           joinBtn.disabled = true;
           joinBtn.textContent = 'Joined';
           currentNickname = nicknameInput.value.trim();
+          const titleEl = document.getElementById('lobbyTitle');
+          if (titleEl) titleEl.textContent = '{{ session_name }} (' + currentNickname + ')';
         }
 
         if (data.type === 'join_error') {
@@ -508,6 +513,11 @@
         const alreadyIn = nick && takenNicknames.has(nick.toLowerCase());
         if (cameFromGame() || alreadyIn) {
           joinCard.style.display = 'none';
+          if (nick) {
+            currentNickname = nick;
+            const titleEl = document.getElementById('lobbyTitle');
+            if (titleEl) titleEl.textContent = '{{ session_name }} (' + nick + ')';
+          }
         }
       }
       function updateNicknameStatus() {
@@ -602,7 +612,8 @@
         votes.forEach(v => {
           const pct = Math.round((v.count / maxCount) * 100);
           const isVoted = myVotedOrder === v.step_order;
-          const displayName = gameNames[v.game_key] || v.title;
+          const typeLabel = gameNames[v.game_key] || v.game_key;
+          const displayName = v.title ? `${v.title} (${typeLabel})` : typeLabel;
           const card = document.createElement('div');
           card.className = 'vote-card' + (isVoted ? ' voted' : '');
           card.dataset.order = v.step_order;

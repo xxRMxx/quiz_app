@@ -43,6 +43,7 @@ class HubGameStep(SyncBase):
         ('who_that', 'Who Is That'),
         ('blackjack', 'Black Jack Quiz'),
         ('sorting_ladder', 'Sorting Ladder'),
+        ('clue_rush', 'Clue Rush'),
     ]
     session = models.ForeignKey(HubSession, related_name='steps', on_delete=models.CASCADE)
     order = models.PositiveIntegerField()

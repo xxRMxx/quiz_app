@@ -6,28 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Where is this?: {{ quiz.room_code }} - QuizMaster</title>
     
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    
-    <!-- Leaflet CSS and JS -->
+    {% include 'includes/player_head.html' %}
+    <!-- Leaflet CSS and JS (required for map) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Custom Theme CSS -->
-    <link rel="stylesheet" href="{% static 'theme.css' %}">
-    
-    <!-- Inter Font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="where-play-page">
+<body class="player-bg play-page">
     <div class="play-container">
         <!-- Header -->
-        <header class="quiz-header">
+        <header class="play-header">
             <div class="container">
                 <div class="header-content">
                     <div class="quiz-info">
@@ -38,9 +25,7 @@
                         <h1 class="quiz-title">{{ quiz.title }}</h1>
                     </div>
                     <div class="participant-info">
-                        <div class="participant-avatar">
-                            {{ participant.name|first|upper }}
-                        </div>
+                        <div class="p-avatar" aria-label="Spieler {{ participant.name }}">{{ participant.name|first|upper }}</div>
                         <div class="participant-details">
                             <span class="participant-name">{{ participant.name }}</span>
                             <!-- <span class="participant-score">{{ participant.total_score }} pts</span> -->
@@ -113,23 +98,14 @@
                                             <img id="questionImage" src="" alt="Location hint" class="img-fluid">
                                         </div>
 
-                                        <div class="question-hint" id="questionHint" style="display: none;">
-                                            <i data-lucide="lightbulb"></i>
-                                            <span id="hintText"></span>
-                                        </div>
-
                                         <div class="question-meta">
                                             <div class="meta-item">
                                                 <i data-lucide="target"></i>
-                                                <span>Max Points: <span id="maxPoints">100</span></span>
+                                                <span>Max. Punkte: <span id="maxPoints">100</span></span>
                                             </div>
                                             <div class="meta-item">
                                                 <i data-lucide="map-pin"></i>
-                                                <span>Perfect Distance: <span id="perfectDistance">10</span>km</span>
-                                            </div>
-                                            <div class="meta-item difficulty" id="difficultyMeta">
-                                                <i data-lucide="zap"></i>
-                                                <span class="badge badge-medium">Medium</span>
+                                                <span>Perfekte Distanz: <span id="perfectDistance">10</span>km</span>
                                             </div>
                                         </div>
 
@@ -242,701 +218,7 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-    <style>
-        /* Where Play Page Styles */
-        .where-play-page {
-            min-height: 100vh;
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--primary-50) 100%);
-        }
 
-        .play-container {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Header - Same as Assign */
-        .quiz-header {
-            background: var(--bg-primary);
-            border-bottom: 1px solid var(--border-color);
-            box-shadow: var(--shadow-sm);
-            padding: 1rem 0;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .quiz-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .room-code {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background-color: var(--primary-100);
-            color: var(--primary-700);
-            padding: 0.5rem 1rem;
-            border-radius: var(--border-radius-xl);
-            font-family: var(--font-family-mono);
-            font-weight: 700;
-            font-size: 0.875rem;
-        }
-
-        .room-code i {
-            width: 16px;
-            height: 16px;
-        }
-
-        .quiz-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin: 0;
-        }
-
-        .participant-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .participant-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
-            color: var(--text-white);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1.25rem;
-        }
-
-        .participant-details {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .participant-name {
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .participant-score {
-            color: var(--color-success);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        /* Main Content */
-        .quiz-main {
-            flex: 1;
-            padding: 0;
-        }
-
-        .game-state {
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Waiting State - Same as Assign */
-        .waiting-card {
-            text-align: center;
-            padding: 3rem 2rem;
-            background: var(--bg-primary);
-            border-radius: var(--border-radius-xl);
-            box-shadow: var(--shadow-lg);
-            margin: 2rem;
-        }
-
-        .waiting-animation {
-            position: relative;
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .pulse-ring {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border: 2px solid var(--color-primary);
-            border-radius: 50%;
-            animation: pulse 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
-            opacity: 0;
-        }
-
-        .delay-1 { animation-delay: 0.5s; }
-        .delay-2 { animation-delay: 1s; }
-
-        @keyframes pulse {
-            0% { transform: scale(0.8); opacity: 1; }
-            100% { transform: scale(1.4); opacity: 0; }
-        }
-
-        .waiting-animation i {
-            width: 48px;
-            height: 48px;
-            color: var(--color-primary);
-            z-index: 2;
-        }
-
-        .waiting-card h2 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 1rem;
-        }
-
-        .waiting-card p {
-            color: var(--text-secondary);
-            font-size: 1.125rem;
-            margin-bottom: 2rem;
-        }
-
-        .participants-count {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background-color: var(--bg-secondary);
-            padding: 0.75rem 1.5rem;
-            border-radius: var(--border-radius-xl);
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-
-        .participants-count i {
-            width: 20px;
-            height: 20px;
-            color: var(--color-primary);
-        }
-
-        /* Question Layout */
-        .question-layout {
-            display: grid;
-            grid-template-columns: 400px 1fr;
-            height: calc(100vh - 80px); /* Subtract header height */
-        }
-
-        .question-panel {
-            background: var(--bg-primary);
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-
-        .question-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            background: linear-gradient(135deg, var(--primary-50) 0%, var(--secondary-50) 100%);
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .question-number {
-            font-size: 1.125rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .timer-circle {
-            width: 60px;
-            height: 60px;
-            border: 4px solid var(--success-300);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            color: var(--success-600);
-            background: var(--bg-primary);
-            position: relative;
-        }
-
-        .timer-circle.warning {
-            border-color: var(--warning-300);
-            color: var(--warning-600);
-        }
-
-        .timer-circle.danger {
-            border-color: var(--error-300);
-            color: var(--error-600);
-            animation: shake 0.5s infinite;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-2px); }
-            75% { transform: translateX(2px); }
-        }
-
-        .question-content {
-            flex: 1;
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .question-text {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            line-height: 1.6;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-
-        .question-image {
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-
-        .question-image img {
-            max-width: 100%;
-            max-height: 200px;
-            border-radius: var(--border-radius-lg);
-            box-shadow: var(--shadow-md);
-        }
-
-        .question-hint {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem;
-            background: var(--primary-50);
-            border-radius: var(--border-radius);
-            margin-bottom: 1.5rem;
-            color: var(--primary-700);
-        }
-
-        .question-hint i {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
-
-        .question-meta {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
-            padding: 1rem;
-            background: var(--bg-secondary);
-            border-radius: var(--border-radius);
-        }
-
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-        }
-
-        .meta-item i {
-            width: 16px;
-            height: 16px;
-            color: var(--color-primary);
-        }
-
-        .badge {
-            padding: 0.25rem 0.5rem;
-            border-radius: var(--border-radius-sm);
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-
-        .badge-easy { background: var(--success-100); color: var(--success-700); }
-        .badge-medium { background: var(--warning-100); color: var(--warning-700); }
-        .badge-hard { background: var(--error-100); color: var(--error-700); }
-
-        .map-instructions {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-            padding: 0.75rem;
-            background: var(--secondary-50);
-            border-radius: var(--border-radius);
-            color: var(--secondary-700);
-            font-weight: 500;
-        }
-
-        .map-instructions i {
-            width: 20px;
-            height: 20px;
-        }
-
-        .submit-answer {
-            height: 60px;
-            font-size: 1.125rem;
-            font-weight: 600;
-            transition: all var(--transition-fast);
-            margin-top: auto;
-        }
-
-        .submit-answer:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .submit-answer.loading {
-            position: relative;
-            color: transparent !important;
-        }
-
-        .submit-answer.loading::after {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            top: 50%;
-            left: 50%;
-            margin-left: -10px;
-            margin-top: -10px;
-            border: 2px solid transparent;
-            border-top-color: currentColor;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Map Panel */
-        .map-panel {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .game-map {
-            flex: 1;
-            width: 100%;
-            cursor: crosshair;
-        }
-
-        .map-controls {
-            padding: 1rem;
-            background: var(--bg-primary);
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .selection-info {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--text-primary);
-            font-weight: 500;
-            font-size: 0.875rem;
-        }
-
-        .selection-info i {
-            width: 16px;
-            height: 16px;
-            color: var(--color-primary);
-        }
-
-        /* Answer Submitted State */
-        .submitted-card {
-            text-align: center;
-            padding: 2rem;
-            background: var(--bg-primary);
-            border-radius: var(--border-radius-xl);
-            box-shadow: var(--shadow-lg);
-            margin: 2rem;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-            position: relative;
-        }
-
-        .submitted-timer {
-            position: absolute;
-            top: 1.5rem;
-            right: 1.5rem;
-        }
-
-        .submitted-animation {
-            margin-bottom: 2rem;
-        }
-
-        .check-animation {
-            width: 120px;
-            height: 120px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .check-icon {
-            width: 64px;
-            height: 64px;
-            color: var(--color-success);
-            animation: checkPop 0.6s ease-out;
-        }
-
-        @keyframes checkPop {
-            0% { transform: scale(0); }
-            50% { transform: scale(1.2); }
-            100% { transform: scale(1); }
-        }
-
-        .submitted-details {
-            margin-top: 2rem;
-        }
-
-        .result-summary {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .distance-info, .score-info, .accuracy-info {
-            padding: 1rem;
-            background: var(--bg-secondary);
-            border-radius: var(--border-radius);
-            text-align: center;
-        }
-
-        .distance-value, .score-value, .accuracy-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 0.25rem;
-        }
-
-        .distance-value {
-            color: var(--color-primary);
-        }
-
-        .score-value {
-            color: var(--color-success);
-        }
-
-        .accuracy-value {
-            color: var(--color-secondary);
-        }
-
-        .distance-label, .score-label, .accuracy-label {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .result-map-container {
-            height: 300px;
-            border-radius: var(--border-radius-lg);
-            overflow: hidden;
-            border: 1px solid var(--border-color);
-        }
-
-        .result-map {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Quiz Ended State */
-        .ended-card {
-            text-align: center;
-            padding: 3rem 2rem;
-            background: var(--bg-primary);
-            border-radius: var(--border-radius-xl);
-            box-shadow: var(--shadow-lg);
-            margin: 2rem;
-        }
-
-        .ended-animation {
-            margin-bottom: 2rem;
-        }
-
-        .globe-icon {
-            width: 80px;
-            height: 80px;
-            color: var(--color-primary);
-            animation: globe 1s ease-out;
-        }
-
-        @keyframes globe {
-            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
-            50% { transform: scale(1.1) rotate(-10deg); opacity: 1; }
-            100% { transform: scale(1) rotate(0deg); opacity: 1; }
-        }
-
-        .final-score {
-            margin: 2rem 0;
-        }
-
-        .score-circle {
-            width: 120px;
-            height: 120px;
-            margin: 0 auto;
-            border: 4px solid var(--color-success);
-            border-radius: 50%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, var(--success-50) 0%, var(--success-100) 100%);
-        }
-
-        .score-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--success-700);
-        }
-
-        .score-label {
-            font-size: 0.875rem;
-            color: var(--success-600);
-            font-weight: 500;
-        }
-
-        .quiz-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            max-width: 300px;
-            margin: 0 auto;
-        }
-
-        /* Connection Status */
-        .connection-status {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            z-index: 1000;
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background-color: var(--error-500);
-            color: var(--text-white);
-            padding: 0.75rem 1rem;
-            border-radius: var(--border-radius-xl);
-            box-shadow: var(--shadow-lg);
-            font-weight: 500;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        .status-indicator i {
-            width: 20px;
-            height: 20px;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 1200px) {
-            .question-layout {
-                grid-template-columns: 350px 1fr;
-            }
-        }
-
-        @media (max-width: 992px) {
-            .question-layout {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto 1fr;
-                height: calc(100vh - 80px);
-            }
-
-            .question-panel {
-                border-right: none;
-                border-bottom: 1px solid var(--border-color);
-                max-height: 40vh;
-            }
-
-            .game-map {
-                height: 60vh;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                text-align: center;
-                gap: 1rem;
-            }
-
-            .quiz-title {
-                font-size: 1.25rem;
-            }
-
-            .question-header {
-                padding: 1rem;
-            }
-
-            .question-content {
-                padding: 1.5rem;
-            }
-
-            .question-text {
-                font-size: 1.125rem;
-            }
-
-            .result-summary {
-                grid-template-columns: 1fr;
-            }
-
-            .quiz-actions {
-                max-width: 100%;
-            }
-
-            .waiting-card,
-            .submitted-card,
-            .ended-card {
-                padding: 2rem 1.5rem;
-                margin: 1rem;
-            }
-
-            .question-layout {
-                height: calc(100vh - 120px);
-            }
-        }
-
-        @media (max-width: 576px) {
-            .quiz-main {
-                padding: 0;
-            }
-
-            .question-content {
-                padding: 1rem;
-            }
-
-            .timer-circle {
-                width: 50px;
-                height: 50px;
-                font-size: 0.875rem;
-            }
-        }
-    </style>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -980,16 +262,24 @@
                         zoom: 2,
                         minZoom: 2,
                         maxZoom: 15,
-                        worldCopyJump: true
                     });
-                    
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap contributors'
+
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+                        subdomains: 'abcd',
+                        maxZoom: 19
                     }).addTo(this.gameMap);
-                    
+
                     // Add click handler for map
                     this.gameMap.on('click', (e) => {
                         this.selectLocation(e.latlng.lat, e.latlng.lng);
+                    });
+
+                    // Korrekte Größe sicherstellen (doppeltes rAF wartet auf vollständiges Layout)
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            this.gameMap.invalidateSize({ animate: false });
+                        });
                     });
                 }
 
@@ -1054,6 +344,14 @@
                             this.onAnswerSubmitted(data);
                             break;
                             
+                        case 'show_leaderboard':
+                            window.showLeaderboard(this.hubSession);
+                            break;
+
+                        case 'hide_leaderboard':
+                            document.getElementById('leaderboardSidebar')?.classList.add('d-none');
+                            break;
+
                         default:
                             console.log('Unknown message type:', data.type);
                     }
@@ -1124,7 +422,13 @@
                     this.hasAnswered = false;
                     this.clearSelection();
                     this.questionStartTime = Date.now();
-                    
+
+                    // Click-Handler wiederherstellen (wurde beim Absenden entfernt)
+                    this.gameMap.off('click');
+                    this.gameMap.on('click', (e) => {
+                        this.selectLocation(e.latlng.lat, e.latlng.lng);
+                    });
+
                     this.loadQuestion(question);
                     this.startQuestionTimer(question.time_limit);
                     this.showState('questionState');
@@ -1189,8 +493,6 @@
                         question_text: '{{ quiz.current_question.question_text|escapejs }}',
                         time_limit: {{ quiz.current_question.time_limit }},
                         points: {{ quiz.current_question.points }},
-                        difficulty: '{{ quiz.current_question.difficulty }}',
-                        hint_text: '{{ quiz.current_question.hint_text|escapejs }}',
                         image_url: {% if quiz.current_question.image %}'{{ quiz.current_question.image.url }}'{% else %}null{% endif %}
                     };
                     this.loadQuestion(question);
@@ -1200,13 +502,7 @@
                 loadQuestion(question) {
                     document.getElementById('questionText').textContent = question.question_text;
                     document.getElementById('maxPoints').textContent = question.points;
-                    
-                    // Update difficulty badge
-                    const difficultyMeta = document.getElementById('difficultyMeta');
-                    const badge = difficultyMeta.querySelector('.badge');
-                    badge.className = `badge badge-${question.difficulty}`;
-                    badge.textContent = question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1);
-                    
+
                     // Show image if available
                     const imageContainer = document.getElementById('questionImageContainer');
                     const imageEl = document.getElementById('questionImage');
@@ -1215,16 +511,6 @@
                         imageContainer.style.display = 'block';
                     } else {
                         imageContainer.style.display = 'none';
-                    }
-                    
-                    // Show hint if available
-                    const hintContainer = document.getElementById('questionHint');
-                    const hintText = document.getElementById('hintText');
-                    if (question.hint_text) {
-                        hintText.textContent = question.hint_text;
-                        hintContainer.style.display = 'flex';
-                    } else {
-                        hintContainer.style.display = 'none';
                     }
                 }
 
@@ -1394,19 +680,22 @@
                     document.querySelectorAll('.game-state').forEach(state => {
                         state.classList.add('d-none');
                     });
-                    
+
                     // Show target state
                     const targetState = document.getElementById(stateId);
                     if (targetState) {
                         targetState.classList.remove('d-none');
                     }
-                    
-                    // Reset map interaction when showing question state
+
+                    // Karte neu berechnen sobald questionState sichtbar wird
                     if (stateId === 'questionState' && this.gameMap) {
-                        this.gameMap.on('click', (e) => {
-                            this.selectLocation(e.latlng.lat, e.latlng.lng);
-                        });
                         document.getElementById('gameMap').style.cursor = 'crosshair';
+                        // requestAnimationFrame stellt sicher dass das Layout fertig gerendert ist
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                this.gameMap.invalidateSize({ animate: false });
+                            });
+                        });
                     }
                 }
 
@@ -1554,6 +843,7 @@
             })();
         });
     </script>
+  {% include 'includes/_leaderboard_overlay.html' %}
   {% include 'includes/accessibility_widget.html' %}
 </body>
 </html>

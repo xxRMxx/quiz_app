@@ -47,7 +47,7 @@
                             </div>
                             <button class="btn btn-success" id="startQuizBtn">
                                 <i data-lucide="play"></i>
-                                Start Quiz
+                                Spiel starten
                             </button>
                         </div>
                     {% elif quiz.status == 'active' %}
@@ -56,6 +56,10 @@
                             End Quiz
                         </button>
                     {% endif %}
+                    <button class="btn btn-outline-primary" id="showLeaderboardBtn">
+                        <i data-lucide="trophy"></i>
+                        Leaderboard einblenden
+                    </button>
                     <button class="btn btn-outline-secondary" id="backToHubBtn">
                         <i data-lucide="arrow-left"></i>
                         Back to Overview
@@ -107,14 +111,6 @@
                                             <span class="answer-option answer-correct"><strong>Antwort:</strong> {{ question.correct_answer }}</span>
                                         </div>
                                         {% endif %}
-                                        <div class="question-details">
-                                            <div class="detail-grid">
-                                                <div class="detail-item">
-                                                    <i data-lucide="clock"></i>
-                                                    <span>{{ question.time_limit }}s</span>
-                                                </div>
-                                            </div>
-                                        </div>
                                         <div class="question-meta">
                                             <span class="badge badge-{{ question.get_difficulty_display_color }}">{{ question.get_difficulty_display }}</span>
                                             {% if question.hint_text %}
@@ -132,7 +128,10 @@
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
-                                        <input type="number" class="form-control form-control-sm question-time-input" placeholder="Time (s)" min="5" step="1" style="max-width: 120px;" value="">
+                                        <div>
+                                            <small class="text-muted d-block mb-1">Zeit in Sek.</small>
+                                            <input type="number" class="form-control form-control-sm question-time-input" placeholder="Time (s)" min="5" step="1" style="max-width: 120px;" value="{{ question.time_limit }}">
+                                        </div>
                                         <button class="btn btn-secondary send-question-btn" data-question-id="{{ question.id }}" {% if quiz.status != 'active' %}disabled title="Start the quiz to send questions"{% endif %}>
                                             <i data-lucide="send"></i>
                                             Send Question
@@ -181,7 +180,7 @@
             </div>
 
             <!-- Live Responses -->
-            <div class="card mt-4">
+            <div class="card mt-4" id="liveResponsesCard" style="{% if not quiz.current_question %}display:none;{% endif %}">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i data-lucide="activity"></i>
@@ -214,23 +213,16 @@
                     <div class="participants-list" id="participantsList">
                         {% for participant in participants %}
                         <div class="participant-item" data-participant-name="{{ participant.name }}" data-participant-id="{{ participant.id }}">
-                            <div class="participant-avatar">
-                                <i data-lucide="user"></i>
-                            </div>
-                            <div class="participant-info">
-                                <div class="participant-name">{{ participant.name }}</div>
-                                <div class="participant-score" id="score-{{ participant.id }}">{{ participant.total_score }} pts</div>
-                            </div>
-                            <div class="participant-stats">
-                                <div class="accuracy-badge">{{ participant.get_accuracy_percentage }}%</div>
-                                <button class="btn btn-link btn-sm p-0 ms-1 edit-score-btn" title="Set points manually"
+                            <div class="participant-name">{{ participant.name }}</div>
+                            <div class="d-flex align-items-center gap-2 ms-auto">
+                                <span class="participant-score" id="score-{{ participant.id }}">{{ participant.total_score }} pts</span>
+                                <button class="btn btn-link btn-sm p-0 edit-score-btn" title="Punkte bearbeiten"
                                     data-participant-id="{{ participant.id }}"
                                     data-participant-name="{{ participant.name }}"
                                     data-current-score="{{ participant.total_score }}"
                                     data-bs-toggle="modal" data-bs-target="#editScoreModal">
                                     <i data-lucide="pencil" style="width:14px;height:14px;color:#6c757d;"></i>
                                 </button>
-                                <div class="status-dot {% if participant.is_active %}online{% else %}offline{% endif %}"></div>
                             </div>
                         </div>
                         {% empty %}
@@ -666,62 +658,15 @@
     border-bottom: none;
 }
 
-.participant-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background-color: var(--color-secondary);
-    color: var(--text-white);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.participant-info {
-    flex: 1;
-}
-
 .participant-name {
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 0.125rem;
 }
 
 .participant-score {
     color: var(--color-success);
     font-size: 0.875rem;
     font-weight: 500;
-}
-
-.participant-stats {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.accuracy-badge {
-    background: var(--primary-100);
-    color: var(--primary-700);
-    padding: 0.25rem 0.5rem;
-    border-radius: var(--border-radius-sm);
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-}
-
-.status-dot.online {
-    background-color: var(--color-success);
-    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
-}
-
-.status-dot.offline {
-    background-color: var(--text-muted);
 }
 
 /* Stats Grid */
@@ -922,10 +867,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         init() {
+            this.responsesPollInterval = null;
             this.connectWebSocket();
             this.bindEvents();
             this.startQuizTimer();
             this.applySentStates();
+            this.startResponsesPolling();
+        }
+
+        startResponsesPolling() {
+            this.fetchResponses();
+            this.responsesPollInterval = setInterval(() => this.fetchResponses(), 2000);
+        }
+
+        stopResponsesPolling() {
+            if (this.responsesPollInterval) {
+                clearInterval(this.responsesPollInterval);
+                this.responsesPollInterval = null;
+            }
+        }
+
+        fetchResponses() {
+            fetch(`/admin-dashboard/api/quiz/{{ quiz.room_code }}/responses/`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.responses) {
+                    [...data.responses].reverse().forEach(r => this.addLiveResponse(r));
+                }
+            })
+            .catch(() => {});
         }
         
         connectWebSocket() {
@@ -998,7 +968,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                 case 'question_ended':
                     console.log('Question ended:', data.message);
-                    location.reload();
+                    this.stopResponsesPolling();
+                    setTimeout(() => location.reload(), 3000);
                     break;
                     
                 case 'quiz_ended':
@@ -1049,6 +1020,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.backToHub();
             });
 
+            // Leaderboard ein-/ausblenden (Toggle)
+            document.getElementById('showLeaderboardBtn')?.addEventListener('click', () => {
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    const btn = document.getElementById('showLeaderboardBtn');
+                    const isVisible = btn.dataset.lbVisible === '1';
+                    if (isVisible) {
+                        this.websocket.send(JSON.stringify({ type: 'admin_hide_leaderboard' }));
+                        btn.dataset.lbVisible = '0';
+                        btn.innerHTML = '<i data-lucide="trophy"></i> Leaderboard einblenden';
+                    } else {
+                        this.websocket.send(JSON.stringify({ type: 'admin_show_leaderboard' }));
+                        btn.dataset.lbVisible = '1';
+                        btn.innerHTML = '<i data-lucide="eye-off"></i> Leaderboard ausblenden';
+                    }
+                    try { lucide.createIcons(); } catch(_) {}
+                }
+            });
+
             // End quiz from warning modal → end quiz, then navigate
             document.getElementById('endQuizFromWarningBtn')?.addEventListener('click', () => {
                 bootstrap.Modal.getInstance(document.getElementById('quizActiveWarningModal'))?.hide();
@@ -1095,8 +1084,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         const hubWs = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/hub/' + hub + '/');
                         hubWs.onopen = () => {
                             hubWs.send(JSON.stringify({
-                                type: 'broadcast',
-                                event: { type: 'quiz_started', game_key: 'quiz', room_code: '{{ quiz.room_code }}', title: '{{ quiz.title }}' }
+                                type: 'navigate_direct',
+                                game_key: 'quiz',
+                                room_code: '{{ quiz.room_code }}'
                             }));
                             setTimeout(() => hubWs.close(), 100);
                         };
@@ -1279,23 +1269,16 @@ document.addEventListener('DOMContentLoaded', function() {
             participantEl.className = 'participant-item';
             participantEl.dataset.participantName = participant.name;
             participantEl.innerHTML = `
-                <div class="participant-avatar">
-                    <i data-lucide="user"></i>
-                </div>
-                <div class="participant-info">
-                    <div class="participant-name">${participant.name}</div>
-                    <div class="participant-score" id="score-${participant.id}">${participant.total_score || 0} pts</div>
-                </div>
-                <div class="participant-stats">
-                    <div class="accuracy-badge">0%</div>
-                    <button class="btn btn-link btn-sm p-0 ms-1 edit-score-btn" title="Set points manually"
+                <div class="participant-name">${participant.name}</div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <span class="participant-score" id="score-${participant.id}">${participant.total_score || 0} pts</span>
+                    <button class="btn btn-link btn-sm p-0 edit-score-btn" title="Punkte bearbeiten"
                         data-participant-id="${participant.id}"
                         data-participant-name="${participant.name}"
                         data-current-score="${participant.total_score || 0}"
                         data-bs-toggle="modal" data-bs-target="#editScoreModal">
                         <i data-lucide="pencil" style="width:14px;height:14px;color:#6c757d;"></i>
                     </button>
-                    <div class="status-dot online"></div>
                 </div>
             `;
             
@@ -1304,20 +1287,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         addLiveResponse(response) {
-            console.log("Response: ", response);
             const responsesContainer = document.getElementById('liveResponses');
             if (!responsesContainer) return;
-            
+
+            // If this participant already has an entry, replace it (e.g. updated answer)
+            const existing = [...responsesContainer.querySelectorAll('.response-item')]
+                .find(el => el.dataset.participant === response.participant_name);
+            if (existing) existing.remove();
+
             const noResponses = responsesContainer.querySelector('.no-responses');
             if (noResponses) noResponses.remove();
-            
-            let quality = 'poor';
-            if (response.accuracy_rating === 'Excellent') quality = 'excellent';
-            else if (response.accuracy_rating === 'Very Good' || response.accuracy_rating === 'Good') quality = 'good';
-            else if (response.accuracy_rating === 'Fair') quality = 'fair';
-            
+
+            const quality = response.is_correct ? 'excellent' : 'poor';
+            const timeTaken = (typeof response.time_taken === 'number' && response.time_taken > 0)
+                ? response.time_taken.toFixed(1) + 's'
+                : '-';
+
             const responseEl = document.createElement('div');
             responseEl.className = 'response-item';
+            responseEl.dataset.participant = response.participant_name;
             responseEl.innerHTML = `
                 <div class="response-avatar ${quality}">
                     ${response.participant_name.charAt(0).toUpperCase()}
@@ -1325,17 +1313,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="response-content">
                     <div class="response-name">${response.participant_name}</div>
                     <div class="response-details">
-                        Sent Answer: ${response.answer_text} • +${response.points_earned} pts
+                        ${response.answer_text}
+                        ${response.is_correct
+                            ? '<span class="badge bg-success ms-1" style="font-size:0.7rem;">Correct</span>'
+                            : '<span class="badge bg-danger ms-1" style="font-size:0.7rem;">Wrong</span>'}
+                        &nbsp;+${response.points_earned} pts
                     </div>
                 </div>
-                <div class="response-time">${response.time_taken ? response.time_taken.toFixed(1) + 's' : '-'}</div>
+                <div class="response-time">${timeTaken}</div>
             `;
-            
+
             responsesContainer.insertBefore(responseEl, responsesContainer.firstChild);
-            
-            const count = document.querySelectorAll('.response-item').length;
+
+            const answered = responsesContainer.querySelectorAll('.response-item').length;
+            const total = document.querySelectorAll('.participant-item').length;
             const responseCount = document.getElementById('responseCount');
-            if (responseCount) responseCount.textContent = count;
+            if (responseCount) responseCount.textContent = total > 0 ? `${answered}/${total}` : answered;
         }
         
         updateParticipantCount() {
@@ -1449,6 +1442,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn("[HubScript] Unknown game_key:", step.game_key);
           }
 
+        } else if (data.type === 'recall_to_lobby') {
+          window.location.href = new URL(`/hub/lobby/${hubCode}/`, window.location.origin).toString();
         } else if (data.type === 'session_ended') {
           console.log("[HubScript] Session ended message received.");
           const u = new URL(`/hub/lobby/${hubCode}/`, window.location.origin);

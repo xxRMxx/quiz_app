@@ -53,7 +53,11 @@ class BlackJackConsumer(AsyncWebsocketConsumer):
                 await self.handle_participant_join(text_data_json)
             elif message_type == 'ping':
                 await self.handle_ping()
-                
+            elif message_type == 'admin_show_leaderboard':
+                await self.handle_admin_show_leaderboard()
+            elif message_type == 'admin_hide_leaderboard':
+                await self.handle_admin_hide_leaderboard()
+
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({
                 'type': 'error',
@@ -113,9 +117,6 @@ class BlackJackConsumer(AsyncWebsocketConsumer):
         # Update quiz with new question
         await self.update_quiz_question(quiz, question)
         
-        # Get question data
-        question_data = await self.get_question_data(question)
-
         # Determine the effective time limit for this send (do NOT persist on the question)
         effective_time_limit = custom_time_limit if custom_time_limit is not None else question.time_limit
         
@@ -128,7 +129,6 @@ class BlackJackConsumer(AsyncWebsocketConsumer):
                     'id': question.id,
                     'question_text': question.question_text,
                     'time_limit': effective_time_limit,
-                    'hint_text': question.hint_text,
                     'question_number': quiz['current_question_number']
                 }
             }
@@ -260,6 +260,24 @@ class BlackJackConsumer(AsyncWebsocketConsumer):
                     'type': 'quiz_started',
                     'message': 'Quiz is already in progress'
                 }))
+
+    async def handle_admin_show_leaderboard(self):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'show_leaderboard'}
+        )
+
+    async def show_leaderboard(self, event):
+        await self.send(text_data=json.dumps({'type': 'show_leaderboard'}))
+
+    async def handle_admin_hide_leaderboard(self):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'hide_leaderboard'}
+        )
+
+    async def hide_leaderboard(self, event):
+        await self.send(text_data=json.dumps({'type': 'hide_leaderboard'}))
 
     async def handle_ping(self):
         """Handle ping for keeping connection alive"""
@@ -429,13 +447,6 @@ class BlackJackConsumer(AsyncWebsocketConsumer):
         except BlackJackQuiz.DoesNotExist:
             pass
         return None
-
-    @database_sync_to_async
-    def get_question_data(self, question):
-        return {
-            'time_limit': question.time_limit,
-            'difficulty': question.difficulty
-        }
 
     @database_sync_to_async
     def save_participant_answer(self, participant_name, hub_session_code, user_answer, time_taken):

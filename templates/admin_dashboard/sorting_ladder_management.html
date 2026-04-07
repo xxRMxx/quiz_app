@@ -75,7 +75,7 @@
                         <td>{{ bundle.questions.count }} Themen</td>
                         <td class="text-muted small">{{ bundle.created_at|date:"d.m.Y" }}</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger delete-bundle-btn" data-bundle-id="{{ bundle.id }}" data-bundle-name="{{ bundle.name }}">
+                            <button class="btn btn-sm btn-outline-danger delete-bundle-btn" aria-label="Bundle löschen" data-bundle-id="{{ bundle.id }}" data-bundle-name="{{ bundle.name }}">
                                 <i data-lucide="trash-2"></i>
                             </button>
                         </td>
@@ -224,6 +224,12 @@
                         <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="addItemBtn">
                             <i data-lucide="plus" style="width:14px;height:14px;"></i> Add Item
                         </button>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="startingItemSelect">Starting Item <span class="text-muted small">(shown first on participant's left side)</span></label>
+                        <select class="form-select" id="startingItemSelect" name="starting_item_order">
+                            <option value="">— Random —</option>
+                        </select>
                     </div>
                     <input type="hidden" id="itemsPayload" name="items_payload">
                 </form>
@@ -455,6 +461,25 @@
                 const orderInput = row.querySelector('.item-order');
                 if (orderInput) orderInput.value = idx + 1;
             });
+            refreshStartingItemDropdown();
+        }
+
+        function refreshStartingItemDropdown(selectedOrder) {
+            const select = document.getElementById('startingItemSelect');
+            if (!select) return;
+            const previousValue = selectedOrder !== undefined ? selectedOrder : select.value;
+            select.innerHTML = '<option value="">— Random —</option>';
+            document.querySelectorAll('#itemsContainer .item-row').forEach(row => {
+                const text = row.querySelector('.item-text')?.value.trim();
+                const order = row.querySelector('.item-order')?.value;
+                if (text && order) {
+                    const opt = document.createElement('option');
+                    opt.value = order;
+                    opt.textContent = text;
+                    if (String(previousValue) === String(order)) opt.selected = true;
+                    select.appendChild(opt);
+                }
+            });
         }
 
         function addItemRow(item = { text: '', order: '' }) {
@@ -484,6 +509,7 @@
                 removeBtn.addEventListener('click', () => { row.remove(); renumberItems(); });
             }
             const textEl = row.querySelector('.item-text');
+            textEl.addEventListener('input', () => refreshStartingItemDropdown());
             textEl.addEventListener('keydown', (e) => {
                 if (e.shiftKey || (e.key !== 'Tab' && e.key !== 'Enter')) return;
                 const rows = itemsContainer.querySelectorAll('.item-row');
@@ -612,6 +638,7 @@
                     } else {
                         addItemRow();
                     }
+                    refreshStartingItemDropdown(topic.starting_item_order != null ? topic.starting_item_order : '');
                 }
                 setFormMode('edit');
                 new bootstrap.Modal(document.getElementById('editTopicModal')).show();
@@ -913,7 +940,7 @@
                     if (emptyRow) emptyRow.remove();
                     const tr = document.createElement('tr');
                     tr.id = `bundle-row-${data.bundle.id}`;
-                    tr.innerHTML = `<td class="fw-semibold">${data.bundle.name}</td><td>${data.bundle.question_count} Themen</td><td class="text-muted small">Heute</td><td><button class="btn btn-sm btn-outline-danger delete-bundle-btn" data-bundle-id="${data.bundle.id}" data-bundle-name="${data.bundle.name}"><i data-lucide="trash-2"></i></button></td>`;
+                    tr.innerHTML = `<td class="fw-semibold">${data.bundle.name}</td><td>${data.bundle.question_count} Themen</td><td class="text-muted small">Heute</td><td><button class="btn btn-sm btn-outline-danger delete-bundle-btn" aria-label="Bundle löschen" data-bundle-id="${data.bundle.id}" data-bundle-name="${data.bundle.name}"><i data-lucide="trash-2"></i></button></td>`;
                     tbody.appendChild(tr);
                     document.getElementById('bundleCountBadge').textContent = parseInt(document.getElementById('bundleCountBadge').textContent) + 1;
                     lucide.createIcons();
