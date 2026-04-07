@@ -7,6 +7,41 @@
     <title>BlackJack Quiz: {{ quiz.room_code }} - QuizMaster</title>
     
     {% include 'includes/player_head.html' %}
+
+    <style>
+    /* Blackjack game-state styles */
+    .p-avatar.busted {
+      background: var(--danger, #f87171);
+      opacity: 0.7;
+    }
+    .p-avatar.blackjack {
+      background: #fbbf24;
+      color: #000;
+    }
+    .status-badge {
+      font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.55rem;
+      border-radius: 999px; font-family: 'Syne', sans-serif;
+    }
+    .status-badge.blackjack {
+      background: rgba(251,191,36,0.2); color: #fbbf24;
+      border: 1px solid rgba(251,191,36,0.35);
+    }
+    .bust-warning {
+      display: none; padding: 0.5rem 0.75rem; border-radius: 8px;
+      background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3);
+      color: #fca5a5; font-size: 0.85rem; font-weight: 500;
+    }
+    .bust-warning.show { display: block; }
+    .distance-label {
+      font-size: 0.72rem; color: var(--p-muted, #94a3b8);
+    }
+    .busted-card {
+      background: rgba(248,113,113,0.06); border: 1px solid rgba(248,113,113,0.2);
+      border-radius: 14px; padding: 2rem 1.5rem; text-align: center;
+    }
+    .result-icon { width: 48px; height: 48px; margin-bottom: 1rem; }
+    .result-icon.busted { color: #f87171; }
+    </style>
 </head>
 <body class="player-bg play-page">
     <div class="play-container">
