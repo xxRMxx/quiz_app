@@ -53,7 +53,11 @@ class BlackJackConsumer(AsyncWebsocketConsumer):
                 await self.handle_participant_join(text_data_json)
             elif message_type == 'ping':
                 await self.handle_ping()
-                
+            elif message_type == 'admin_show_leaderboard':
+                await self.handle_admin_show_leaderboard()
+            elif message_type == 'admin_hide_leaderboard':
+                await self.handle_admin_hide_leaderboard()
+
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({
                 'type': 'error',
@@ -256,6 +260,24 @@ class BlackJackConsumer(AsyncWebsocketConsumer):
                     'type': 'quiz_started',
                     'message': 'Quiz is already in progress'
                 }))
+
+    async def handle_admin_show_leaderboard(self):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'show_leaderboard'}
+        )
+
+    async def show_leaderboard(self, event):
+        await self.send(text_data=json.dumps({'type': 'show_leaderboard'}))
+
+    async def handle_admin_hide_leaderboard(self):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'hide_leaderboard'}
+        )
+
+    async def hide_leaderboard(self, event):
+        await self.send(text_data=json.dumps({'type': 'hide_leaderboard'}))
 
     async def handle_ping(self):
         """Handle ping for keeping connection alive"""

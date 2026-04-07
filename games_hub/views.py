@@ -24,6 +24,32 @@ def gen_code(length=6):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
 
+@require_http_methods(["GET", "POST"])
+def join_session(request):
+    """Participants enter a session code + nickname to join a hub session."""
+    error = None
+    if request.method == 'POST':
+        code = (request.POST.get('code') or '').strip().upper()
+        nickname = (request.POST.get('nickname') or '').strip()
+        if not code:
+            error = 'Bitte einen Session-Code eingeben.'
+        elif not nickname:
+            error = 'Bitte einen Namen eingeben.'
+        else:
+            try:
+                session = HubSession.objects.get(code=code)
+                if session.ended_at:
+                    error = 'Diese Session ist bereits beendet.'
+                else:
+                    from urllib.parse import urlencode
+                    return redirect(
+                        f"/hub/lobby/{session.code}/?{urlencode({'nickname': nickname})}"
+                    )
+            except HubSession.DoesNotExist:
+                error = 'Session nicht gefunden. Bitte Code prüfen.'
+    return render(request, 'hub/join_session.html', {'error': error})
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def create_session(request):
@@ -80,7 +106,7 @@ def create_session(request):
                 title=title,
             )
 
-        return redirect('games_hub:monitor', session_code=code)
+        return redirect('admin_dashboard:sessions_overview')
 
     return render(request, 'hub/create_session.html', _get_game_instances())
 

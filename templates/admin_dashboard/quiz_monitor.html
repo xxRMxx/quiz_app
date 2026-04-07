@@ -56,6 +56,10 @@
                             End Quiz
                         </button>
                     {% endif %}
+                    <button class="btn btn-outline-primary" id="showLeaderboardBtn">
+                        <i data-lucide="trophy"></i>
+                        Leaderboard einblenden
+                    </button>
                     <button class="btn btn-outline-secondary" id="backToHubBtn">
                         <i data-lucide="arrow-left"></i>
                         Back to Overview
@@ -214,23 +218,16 @@
                     <div class="participants-list" id="participantsList">
                         {% for participant in participants %}
                         <div class="participant-item" data-participant-name="{{ participant.name }}" data-participant-id="{{ participant.id }}">
-                            <div class="participant-avatar">
-                                <i data-lucide="user"></i>
-                            </div>
-                            <div class="participant-info">
-                                <div class="participant-name">{{ participant.name }}</div>
-                                <div class="participant-score" id="score-{{ participant.id }}">{{ participant.total_score }} pts</div>
-                            </div>
-                            <div class="participant-stats">
-                                <div class="accuracy-badge">{{ participant.get_accuracy_percentage }}%</div>
-                                <button class="btn btn-link btn-sm p-0 ms-1 edit-score-btn" title="Set points manually"
+                            <div class="participant-name">{{ participant.name }}</div>
+                            <div class="d-flex align-items-center gap-2 ms-auto">
+                                <span class="participant-score" id="score-{{ participant.id }}">{{ participant.total_score }} pts</span>
+                                <button class="btn btn-link btn-sm p-0 edit-score-btn" title="Punkte bearbeiten"
                                     data-participant-id="{{ participant.id }}"
                                     data-participant-name="{{ participant.name }}"
                                     data-current-score="{{ participant.total_score }}"
                                     data-bs-toggle="modal" data-bs-target="#editScoreModal">
                                     <i data-lucide="pencil" style="width:14px;height:14px;color:#6c757d;"></i>
                                 </button>
-                                <div class="status-dot {% if participant.is_active %}online{% else %}offline{% endif %}"></div>
                             </div>
                         </div>
                         {% empty %}
@@ -666,62 +663,15 @@
     border-bottom: none;
 }
 
-.participant-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background-color: var(--color-secondary);
-    color: var(--text-white);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.participant-info {
-    flex: 1;
-}
-
 .participant-name {
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 0.125rem;
 }
 
 .participant-score {
     color: var(--color-success);
     font-size: 0.875rem;
     font-weight: 500;
-}
-
-.participant-stats {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.accuracy-badge {
-    background: var(--primary-100);
-    color: var(--primary-700);
-    padding: 0.25rem 0.5rem;
-    border-radius: var(--border-radius-sm);
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-}
-
-.status-dot.online {
-    background-color: var(--color-success);
-    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
-}
-
-.status-dot.offline {
-    background-color: var(--text-muted);
 }
 
 /* Stats Grid */
@@ -1075,6 +1025,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.backToHub();
             });
 
+            // Leaderboard ein-/ausblenden (Toggle)
+            document.getElementById('showLeaderboardBtn')?.addEventListener('click', () => {
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    const btn = document.getElementById('showLeaderboardBtn');
+                    const isVisible = btn.dataset.lbVisible === '1';
+                    if (isVisible) {
+                        this.websocket.send(JSON.stringify({ type: 'admin_hide_leaderboard' }));
+                        btn.dataset.lbVisible = '0';
+                        btn.innerHTML = '<i data-lucide="trophy"></i> Leaderboard einblenden';
+                    } else {
+                        this.websocket.send(JSON.stringify({ type: 'admin_show_leaderboard' }));
+                        btn.dataset.lbVisible = '1';
+                        btn.innerHTML = '<i data-lucide="eye-off"></i> Leaderboard ausblenden';
+                    }
+                    try { lucide.createIcons(); } catch(_) {}
+                }
+            });
+
             // End quiz from warning modal → end quiz, then navigate
             document.getElementById('endQuizFromWarningBtn')?.addEventListener('click', () => {
                 bootstrap.Modal.getInstance(document.getElementById('quizActiveWarningModal'))?.hide();
@@ -1306,23 +1274,16 @@ document.addEventListener('DOMContentLoaded', function() {
             participantEl.className = 'participant-item';
             participantEl.dataset.participantName = participant.name;
             participantEl.innerHTML = `
-                <div class="participant-avatar">
-                    <i data-lucide="user"></i>
-                </div>
-                <div class="participant-info">
-                    <div class="participant-name">${participant.name}</div>
-                    <div class="participant-score" id="score-${participant.id}">${participant.total_score || 0} pts</div>
-                </div>
-                <div class="participant-stats">
-                    <div class="accuracy-badge">0%</div>
-                    <button class="btn btn-link btn-sm p-0 ms-1 edit-score-btn" title="Set points manually"
+                <div class="participant-name">${participant.name}</div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <span class="participant-score" id="score-${participant.id}">${participant.total_score || 0} pts</span>
+                    <button class="btn btn-link btn-sm p-0 edit-score-btn" title="Punkte bearbeiten"
                         data-participant-id="${participant.id}"
                         data-participant-name="${participant.name}"
                         data-current-score="${participant.total_score || 0}"
                         data-bs-toggle="modal" data-bs-target="#editScoreModal">
                         <i data-lucide="pencil" style="width:14px;height:14px;color:#6c757d;"></i>
                     </button>
-                    <div class="status-dot online"></div>
                 </div>
             `;
             

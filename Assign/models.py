@@ -29,8 +29,6 @@ class AssignQuiz(SyncBase):
     max_participants = models.IntegerField(default=50)
     # Optional predefined set of questions for this quiz session
     selected_questions = models.ManyToManyField('AssignQuestion', blank=True, related_name='quizzes')
-    # Rundenbasierter Modus: jedes linke Item wird einzeln pro Runde gezeigt
-    round_based = models.BooleanField(default=True)
     
     class Meta:
         ordering = ['-created_at']

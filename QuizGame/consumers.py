@@ -53,6 +53,10 @@ class QuizConsumer(AsyncWebsocketConsumer):
                 await self.handle_participant_submit_answer(text_data_json)
             elif message_type == 'participant_join':
                 await self.handle_participant_join(text_data_json)
+            elif message_type == 'admin_show_leaderboard':
+                await self.handle_admin_show_leaderboard()
+            elif message_type == 'admin_hide_leaderboard':
+                await self.handle_admin_hide_leaderboard()
             elif message_type == 'ping':
                 await self.handle_ping()
                 
@@ -246,7 +250,8 @@ class QuizConsumer(AsyncWebsocketConsumer):
                 'type': 'answer_submitted',
                 'message': 'Answer submitted successfully',
                 'is_correct': answer['is_correct'],
-                'points_earned': answer['points_earned']
+                'points_earned': answer['points_earned'],
+                'total_score': answer['total_score'],
             }))
 
             # Broadcast to admin dashboard (live answers)
@@ -306,6 +311,25 @@ class QuizConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'pong'
         }))
+
+    async def handle_admin_show_leaderboard(self):
+        """Host zeigt das Leaderboard für alle Teilnehmer an."""
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'show_leaderboard'}
+        )
+
+    async def show_leaderboard(self, event):
+        await self.send(text_data=json.dumps({'type': 'show_leaderboard'}))
+
+    async def handle_admin_hide_leaderboard(self):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'hide_leaderboard'}
+        )
+
+    async def hide_leaderboard(self, event):
+        await self.send(text_data=json.dumps({'type': 'hide_leaderboard'}))
 
     # Event handlers for group messages
     async def quiz_started(self, event):
@@ -626,10 +650,12 @@ class QuizConsumer(AsyncWebsocketConsumer):
                 option_map = dict(quiz.current_question.get_options())
                 display_answer = option_map.get(answer_text.upper(), answer_text)
 
+            participant.refresh_from_db(fields=['total_score'])
             return {
                 'is_correct': answer.is_correct,
                 'points_earned': answer.points_earned,
                 'display_answer': display_answer,
+                'total_score': participant.total_score,
             }
 
         except (Quiz.DoesNotExist, QuizParticipant.DoesNotExist):

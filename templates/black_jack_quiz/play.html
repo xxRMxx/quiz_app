@@ -1377,6 +1377,14 @@
                             this.onAnswerSubmitted(data);
                             break;
                             
+                        case 'show_leaderboard':
+                            window.showLeaderboard(this.hubSession);
+                            break;
+
+                        case 'hide_leaderboard':
+                            document.getElementById('leaderboardSidebar')?.classList.add('d-none');
+                            break;
+
                         default:
                             console.log('Unknown message type:', data.type);
                     }
@@ -1817,6 +1825,7 @@
             })();
         });
     </script>
+  {% include 'includes/_leaderboard_overlay.html' %}
   {% include 'includes/accessibility_widget.html' %}
 </body>
 </html>

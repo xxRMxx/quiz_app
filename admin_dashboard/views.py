@@ -29,6 +29,10 @@ def is_admin(user):
 
 def _get_lobby_url(request, room_code):
     """Return the full participant lobby URL for a game room_code, or None."""
+    # Prefer hub_session from the URL parameter (set when navigating from the hub monitor)
+    hub_session = request.GET.get('hub_session')
+    if hub_session:
+        return f"{request.scheme}://{request.get_host()}/hub/lobby/{hub_session}/"
     step = HubGameStep.objects.filter(room_code=room_code).select_related('session').first()
     if step:
         return f"{request.scheme}://{request.get_host()}/hub/lobby/{step.session.code}/"
@@ -3930,11 +3934,8 @@ def assign_monitor(request, room_code):
     # Get or create quiz session
     quiz_session, created = AssignSession.objects.get_or_create(quiz=quiz)
     
-    # Runden-Info für rundenbasierten Modus
     current_round_index = quiz_session.current_round_index
-    total_rounds_current = 0
-    if quiz.round_based and quiz.current_question and quiz.current_question.left_items:
-        total_rounds_current = len(quiz.current_question.left_items)
+    total_rounds_current = len(quiz.current_question.left_items) if quiz.current_question and quiz.current_question.left_items else 0
 
     context = {
         'quiz': quiz,
@@ -4247,23 +4248,6 @@ def end_assign_quiz_by_room_code(request, room_code):
             'success': False,
             'error': str(e)
         }, status=400)
-
-
-@admin_required
-@require_POST
-def toggle_assign_round_based(request, room_code):
-    """Rundenbasierten Modus für ein Assign-Quiz umschalten"""
-    try:
-        quiz = get_object_or_404(AssignQuiz, room_code=room_code)
-        if not request.user.is_superuser and quiz.creator != request.user:
-            return JsonResponse({'success': False, 'error': 'Nicht autorisiert.'}, status=403)
-        if quiz.status != 'waiting':
-            return JsonResponse({'success': False, 'error': 'Modus kann nur vor dem Start geändert werden.'}, status=400)
-        quiz.round_based = not quiz.round_based
-        quiz.save()
-        return JsonResponse({'success': True, 'round_based': quiz.round_based})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
 @admin_required

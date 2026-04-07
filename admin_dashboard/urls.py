@@ -160,7 +160,6 @@ urlpatterns = [
     path('assign/<str:room_code>/monitor/', views.assign_monitor, name='assign_monitor'),
     path('assign/<str:room_code>/start/', views.start_assign_quiz, name='start_assign_quiz'),
     path('assign/<str:room_code>/end/', views.end_assign_quiz_by_room_code, name='end_assign_quiz_by_room_code'),
-    path('assign/<str:room_code>/toggle-round-based/', views.toggle_assign_round_based, name='toggle_assign_round_based'),
     path('assign/<str:room_code>/send-question/', views.send_assign_question, name='send_assign_question'),
     path('assign/<str:room_code>/end-question/', views.end_assign_question, name='end_assign_question'),
     path('assign/<int:quiz_id>/selected-questions/', views.get_assign_selected_questions, name='get_assign_selected_questions'),

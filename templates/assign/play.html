@@ -623,6 +623,11 @@
             cursor: default;
         }
 
+        .draggable-item.inactive-item {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
         /* Drop Zones */
         .drop-zone {
             padding: 1rem;
@@ -997,15 +1002,10 @@
                     this.questionStartTime = null;
                     this.userMatches = {};  // aktuell gematchte Items (aktuelle Runde)
                     this.hasAnswered = false;
-
-                    // Rundenbasierter Modus
-                    this.roundBased = false;
                     this.currentRoundIndex = 0;
                     this.totalRounds = 0;
                     this.dropLocked = false;  // nach einem Drop gesperrt, bis Reset
-                    this.eliminated = false;  // nach falscher Zuordnung ausgeschieden
                     this.accumulatedMatches = {};  // gesammelte Matches über alle Runden
-                    this.usedRightIndices = new Set();  // bereits verwendete rechte Items
                     this.currentQuestion = null;  // vollständige Frage-Daten
 
                     this.init();
@@ -1015,11 +1015,7 @@
                     this.connectWebSocket();
                     this.bindEvents();
                     
-                    // Start timer if there's an active question
-                    {% if quiz.current_question %}
-                        this.startQuestionTimer({{ quiz.current_question.time_limit }});
-                        this.loadCurrentQuestion();
-                    {% endif %}
+                    // Die aktuelle Runde wird via WebSocket in handle_participant_join geliefert
                 }
 
                 connectWebSocket() {
@@ -1084,11 +1080,16 @@
                             this.updateParticipantCount(data.count);
                             break;
 
-                        case 'answer_submitted':
-                            break;
-
                         case 'round_checked':
                             this.onRoundChecked(data);
+                            break;
+
+                        case 'show_leaderboard':
+                            window.showLeaderboard(this.hubSession);
+                            break;
+
+                        case 'hide_leaderboard':
+                            document.getElementById('leaderboardSidebar')?.classList.add('d-none');
                             break;
 
                         default:
@@ -1120,33 +1121,29 @@
                     this.questionStartTime = Date.now();
                     this.currentQuestion = question;
 
-                    if (question.round_based) {
-                        this.roundBased = true;
-                        this.totalRounds = question.total_rounds;
-                        this.accumulatedMatches = {};
-                        this.roundSubmitted = false;
-                        this.roundHistory = [];  // [{leftText, rightText}]
-                        this.loadRound(question.round_index, question.current_left_item, question.right_items);
-                        this.showRoundProgress(true);
-                    } else {
-                        this.roundBased = false;
-                        this.showRoundProgress(false);
-                        this.loadQuestion(question);
-                    }
+                    this.totalRounds = question.total_rounds;
+                    this.accumulatedMatches = {};
+                    this.roundSubmitted = false;
+                    this.roundHistory = [];  // [{leftText, rightText}]
+                    this.loadRound(question.round_index, question.current_left_item, question.right_items);
+                    this.showRoundProgress(true);
 
                     this.startQuestionTimer(question.time_limit);
                     this.showState('questionState');
                 }
 
                 onRoundAdvanced(data) {
-                    // Nur sammeln wenn Teilnehmer diese Runde noch NICHT manuell bestätigt hat
+                    // Wenn ein Drop vorliegt, der noch nicht bestätigt wurde → jetzt auto-submit
+                    // und round_advanced puffern bis round_checked zurückkommt
                     if (!this.roundSubmitted && this.userMatches && Object.keys(this.userMatches).length > 0) {
-                        const leftIdx = parseInt(Object.keys(this.userMatches)[0]);
-                        const rightIdx = this.userMatches[leftIdx];
-                        this.accumulatedMatches[leftIdx] = rightIdx;
+                        this._bufferedRoundAdvanced = data;
+                        this.submitAnswer();
+                        return;
                     }
+                    this._applyRoundAdvanced(data);
+                }
 
-                    // Reset für neue Runde
+                _applyRoundAdvanced(data) {
                     this.userMatches = {};
                     this.roundSubmitted = false;
 
@@ -1178,50 +1175,44 @@
                 }
 
                 onRoundChecked(data) {
-                    // Ergebnis merken – Auswertung erfolgt erst bei round_advanced
                     this.lastRoundCorrect = data.is_correct;
 
-                    // History-Eintrag immer vormerken (bei richtiger Antwort später übernehmen)
-                    // Warte-Message sofort anzeigen (Teilnehmer wartet auf Host-Klick)
                     const waitMsg = document.getElementById('roundSubmittedMessage');
                     if (waitMsg) { waitMsg.classList.remove('d-none'); try { lucide.createIcons(); } catch(_) {} }
+
+                    // Falls round_advanced gepuffert wurde (auto-submit ausgelöst) → jetzt verarbeiten
+                    if (this._bufferedRoundAdvanced) {
+                        const buffered = this._bufferedRoundAdvanced;
+                        this._bufferedRoundAdvanced = null;
+                        this._applyRoundAdvanced(buffered);
+                    }
                 }
 
                 onQuestionEnded() {
                     clearInterval(this.questionTimer);
 
-                    if (this.roundBased) {
-                        // Letzten Runden-Match einsammeln (wenn noch nicht manuell bestätigt)
-                        if (!this.roundSubmitted && this.userMatches && Object.keys(this.userMatches).length > 0) {
-                            const leftIdx = parseInt(Object.keys(this.userMatches)[0]);
-                            const rightIdx = this.userMatches[leftIdx];
-                            this.accumulatedMatches[leftIdx] = rightIdx;
-                        }
-
-                        // Alle gesammelten Matches absenden
-                        if (Object.keys(this.accumulatedMatches).length > 0 && !this.hasAnswered) {
-                            const timeTaken = (Date.now() - this.questionStartTime) / 1000;
-                            this.websocket.send(JSON.stringify({
-                                type: 'participant_submit_answer',
-                                participant_name: this.participantName,
-                                hub_session: this.hubSession,
-                                user_matches: this.accumulatedMatches,
-                                time_taken: timeTaken
-                            }));
-                            this.hasAnswered = true;
-                        }
-
-                        this.showRoundProgress(false);
-                        this.showWaitingForNextQuestion();
-                    } else {
-                        if (Object.keys(this.userMatches).length > 0) {
-                            setTimeout(() => {
-                                this.showWaitingForNextQuestion();
-                            }, 1000);
-                        } else {
-                            this.showWaitingForNextQuestion();
-                        }
+                    // Letzten Runden-Match einsammeln (wenn noch nicht manuell bestätigt)
+                    if (!this.roundSubmitted && this.userMatches && Object.keys(this.userMatches).length > 0) {
+                        const leftIdx = parseInt(Object.keys(this.userMatches)[0]);
+                        const rightIdx = this.userMatches[leftIdx];
+                        this.accumulatedMatches[leftIdx] = rightIdx;
                     }
+
+                    // Alle gesammelten Matches absenden
+                    if (Object.keys(this.accumulatedMatches).length > 0 && !this.hasAnswered) {
+                        const timeTaken = (Date.now() - this.questionStartTime) / 1000;
+                        this.websocket.send(JSON.stringify({
+                            type: 'participant_submit_answer',
+                            participant_name: this.participantName,
+                            hub_session: this.hubSession,
+                            user_matches: this.accumulatedMatches,
+                            time_taken: timeTaken
+                        }));
+                        this.hasAnswered = true;
+                    }
+
+                    this.showRoundProgress(false);
+                    this.showWaitingForNextQuestion();
                 }
 
                 onQuizEnded(data) {
@@ -1251,27 +1242,6 @@
                             window.location.href = url.toString();
                         }
                     }, 2000);
-                }
-
-                loadCurrentQuestion() {
-                    {% if quiz.current_question %}
-                    const question = {
-                        id: {{ quiz.current_question.id }},
-                        question_text: '{{ quiz.current_question.question_text|escapejs }}',
-                        time_limit: {{ quiz.current_question.time_limit }},
-                        left_items: {{ quiz.current_question.left_items|safe }},
-                        right_items: {{ quiz.current_question.right_items|safe }},
-                        total_possible_points: {{ quiz.current_question.get_total_possible_points }}
-                    };
-                    this.currentQuestion = question;
-                    this.loadQuestion(question);
-                    {% endif %}
-                }
-
-                loadQuestion(question) {
-                    document.getElementById('questionText').textContent = question.question_text;
-                    document.getElementById('submitAnswerBtn').style.display = '';
-                    this.setupDragDrop(question.left_items, question.right_items);
                 }
 
                 loadRound(roundIndex, currentLeftItem, allRightItems) {
@@ -1351,39 +1321,35 @@
                         text: typeof it === 'string' ? it : (it.text || String(it)),
                         originalIndex: (typeof it === 'object' && it !== null && it.id !== undefined) ? it.id : i
                     }));
+                    // Alphabetisch sortieren (originalIndex bleibt korrekt)
+                    normRight.sort((a, b) => a.text.localeCompare(b.text));
 
-                    // Alle linken Items anzeigen: abgeschlossene Runden mit Zuordnung,
-                    // aktuelle Runde draggable, zukünftige ausgegraut
-                    const allLeft = this.currentQuestion
-                        ? this.currentQuestion.left_items.map(it => typeof it === 'string' ? it : (it.text || String(it)))
-                        : [currentLeftText];
+                    // Alle linken Items anzeigen: bereits abgeschlossene ausblenden,
+                    // alle verbleibenden frei wählbar – alphabetisch sortiert
+                    const completedIndices = new Set(Object.keys(this.accumulatedMatches || {}).map(Number));
+                    const allLeftRaw = this.currentQuestion
+                        ? this.currentQuestion.left_items.map((it, idx) => ({
+                            text: typeof it === 'string' ? it : (it.text || String(it)),
+                            roundIdx: idx
+                          }))
+                        : [{ text: currentLeftText, roundIdx: roundIndex }];
+                    const allLeft = [...allLeftRaw].sort((a, b) => a.text.localeCompare(b.text));
 
-                    allLeft.forEach((leftText, idx) => {
-                        // Bereits abgeschlossene Runden: nicht mehr anzeigen
-                        if (idx < roundIndex) return;
+                    allLeft.forEach(({ text: leftText, roundIdx: idx }) => {
+                        if (completedIndices.has(idx)) return;  // bereits zugeordnet
 
                         const div = document.createElement('div');
-
-                        if (idx === roundIndex) {
-                            // Aktuelle Runde – draggable
-                            div.className = 'draggable-item';
-                            div.draggable = true;
-                            div.textContent = leftText;
-                            div.dataset.leftIndex = roundIndex;
-                            div.addEventListener('dragstart', (e) => {
-                                e.dataTransfer.setData('text/plain', String(roundIndex));
-                                div.classList.add('dragging');
-                            });
-                            div.addEventListener('dragend', () => {
-                                div.classList.remove('dragging');
-                            });
-                        } else {
-                            // Noch nicht dran – ausgegraut
-                            div.className = 'draggable-item upcoming';
-                            div.draggable = false;
-                            div.textContent = leftText;
-                        }
-
+                        div.className = 'draggable-item';
+                        div.draggable = true;
+                        div.textContent = leftText;
+                        div.dataset.leftIndex = idx;
+                        div.addEventListener('dragstart', (e) => {
+                            e.dataTransfer.setData('text/plain', String(idx));
+                            div.classList.add('dragging');
+                        });
+                        div.addEventListener('dragend', () => {
+                            div.classList.remove('dragging');
+                        });
                         leftItemsList.appendChild(div);
                     });
 
@@ -1421,7 +1387,9 @@
                             e.preventDefault();
                             dropZone.classList.remove('drag-over');
                             const leftIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                            this.handleRoundDrop(leftIndex, item.originalIndex, dropZone, currentLeftText);
+                            const draggedEl = document.querySelector(`.draggable-item[data-left-index="${leftIndex}"]`);
+                            const draggedText = draggedEl?.textContent?.trim() || '';
+                            this.handleRoundDrop(leftIndex, item.originalIndex, dropZone, draggedText);
                         });
 
                         zonesList.appendChild(dropZone);
@@ -1434,8 +1402,9 @@
                         const prev = zone.querySelector('.dropped-item');
                         if (prev) { prev.remove(); zone.classList.remove('occupied'); }
                     });
-                    const draggableItem = document.querySelector('.draggable-item');
-                    if (draggableItem) { draggableItem.classList.remove('matched'); draggableItem.draggable = true; }
+                    // Vorheriges matched-Item wieder freigeben (falls Nutzer Item wechselt)
+                    const prevMatched = document.querySelector('.draggable-item.matched');
+                    if (prevMatched) { prevMatched.classList.remove('matched'); prevMatched.draggable = true; }
 
                     // Neues dropped-item erstellen (kein Click-to-undo — nur Reset-Button)
                     const droppedItem = document.createElement('div');
@@ -1446,8 +1415,14 @@
                     dropZone.appendChild(droppedItem);
                     dropZone.classList.add('occupied');
 
-                    // Draggable-Item sperren
+                    // Das konkret gezogene Item sperren, alle anderen ausgrauen
+                    document.querySelectorAll('.draggable-item:not(.matched)').forEach(el => {
+                        el.classList.add('inactive-item');
+                        el.draggable = false;
+                    });
+                    const draggableItem = document.querySelector(`.draggable-item[data-left-index="${leftIndex}"]`);
                     if (draggableItem) {
+                        draggableItem.classList.remove('inactive-item');
                         draggableItem.classList.add('matched');
                         draggableItem.draggable = false;
                     }
@@ -1472,163 +1447,22 @@
                         if (prev) prev.remove();
                         zone.classList.remove('occupied');
                     });
-                    // Draggable-Item wieder freigeben
-                    const draggableItem = document.querySelector('.draggable-item');
+                    // Das gematchte Item wieder freigeben, ausgegra ute Items reaktivieren
+                    const draggableItem = document.querySelector('.draggable-item.matched');
                     if (draggableItem) {
                         draggableItem.classList.remove('matched');
                         draggableItem.draggable = true;
                     }
+                    document.querySelectorAll('.draggable-item.inactive-item').forEach(el => {
+                        el.classList.remove('inactive-item');
+                        el.draggable = true;
+                    });
                     // Submit sperren, Reset ausblenden
                     const submitBtn = document.getElementById('submitAnswerBtn');
                     if (submitBtn) submitBtn.disabled = true;
                     const resetBtn = document.getElementById('resetRoundBtn');
                     if (resetBtn) resetBtn.classList.add('d-none');
                     this.userMatches = {};
-                }
-
-                setupDragDrop(leftItems, rightItems) {
-                    const leftItemsList = document.getElementById('leftItemsList');
-                    const zonesList = document.getElementById('zonesList');
-                    
-                    // Clear previous content
-                    leftItemsList.innerHTML = '';
-                    zonesList.innerHTML = '';
-                    // Normalize arrays: allow strings or objects
-                    const normLeft = (leftItems || []).map((it, i) => (typeof it === 'string' ? { id: i, text: it } : it));
-                    const normRight = (rightItems || []).map((it, i) => (typeof it === 'string' ? { id: i, text: it } : it));
-
-                    // Create draggable items (from left)
-                    normLeft.forEach((item, index) => {
-                        const draggableDiv = document.createElement('div');
-                        draggableDiv.className = 'draggable-item';
-                        draggableDiv.draggable = true;
-                        draggableDiv.textContent = item.text;
-                        draggableDiv.dataset.leftIndex = index;
-                        
-                        // Add drag event listeners
-                        draggableDiv.addEventListener('dragstart', (e) => {
-                            e.dataTransfer.setData('text/plain', index);
-                            draggableDiv.classList.add('dragging');
-                        });
-                        
-                        draggableDiv.addEventListener('dragend', () => {
-                            draggableDiv.classList.remove('dragging');
-                        });
-                        
-                        leftItemsList.appendChild(draggableDiv);
-                    });
-                    
-                    // Create drop zones for each left item (label from right if available)
-                    //const zoneCount = Math.max(normLeft.length, normRight.length);
-                    const zoneCount = normRight.length
-                    for (let index = 0; index < zoneCount; index++) {
-                        const item = normRight[index] || { text: '' };
-                        const dropZone = document.createElement('div');
-                        dropZone.className = 'drop-zone';
-                        dropZone.dataset.rightIndex = index;
-                        
-                        const label = document.createElement('div');
-                        label.className = 'drop-zone-label';
-                        label.textContent = item.text;
-                        dropZone.appendChild(label);
-                        
-                        // Add drop event listeners
-                        dropZone.addEventListener('dragover', (e) => {
-                            e.preventDefault();
-                            dropZone.classList.add('drag-over');
-                        });
-                        
-                        dropZone.addEventListener('dragleave', () => {
-                            dropZone.classList.remove('drag-over');
-                        });
-                        
-                        dropZone.addEventListener('drop', (e) => {
-                            e.preventDefault();
-                            dropZone.classList.remove('drag-over');
-                            
-                            const leftIndex = e.dataTransfer.getData('text/plain');
-                            this.handleDrop(leftIndex, index, dropZone, normLeft[leftIndex].text);
-                        });
-                        
-                        zonesList.appendChild(dropZone);
-                    }
-                    
-                    document.getElementById('submitAnswerBtn').disabled = true;
-                }
-
-                handleDrop(leftIndex, rightIndex, dropZone, itemText) {
-                    // Remove any existing item in this drop zone
-                    const existingItem = dropZone.querySelector('.dropped-item');
-                    if (existingItem) {
-                        // Return previous item to draggable state
-                        const prevLeftIndex = existingItem.dataset.leftIndex;
-                        const prevDraggable = document.querySelector(`[data-left-index="${prevLeftIndex}"]`);
-                        if (prevDraggable) {
-                            prevDraggable.classList.remove('matched');
-                            prevDraggable.draggable = true;
-                        }
-                        existingItem.remove();
-                    }
-                    
-                    // Remove this item from any other drop zone
-                    document.querySelectorAll('.dropped-item').forEach(item => {
-                        if (item.dataset.leftIndex === leftIndex) {
-                            const oldDropZone = item.parentElement;
-                            oldDropZone.classList.remove('occupied');
-                            item.remove();
-                        }
-                    });
-                    
-                    // Create dropped item
-                    const droppedItem = document.createElement('div');
-                    droppedItem.className = 'dropped-item';
-                    droppedItem.textContent = itemText;
-                    droppedItem.dataset.leftIndex = leftIndex;
-                    
-                    // Add click to remove functionality
-                    droppedItem.addEventListener('click', () => {
-                        this.removeMatch(leftIndex, rightIndex, dropZone);
-                    });
-                    
-                    dropZone.appendChild(droppedItem);
-                    dropZone.classList.add('occupied');
-                    
-                    // Mark original item as matched
-                    const draggableItem = document.querySelector(`[data-left-index="${leftIndex}"]`);
-                    if (draggableItem) {
-                        draggableItem.classList.add('matched');
-                        draggableItem.draggable = false;
-                    }
-                    
-                    // Update user matches
-                    this.userMatches[leftIndex] = rightIndex;
-                    
-                    // Enable submit button if at least one match is made
-                    document.getElementById('submitAnswerBtn').disabled = Object.keys(this.userMatches).length === 0;
-                }
-
-                removeMatch(leftIndex, rightIndex, dropZone) {
-                    // Remove from user matches
-                    delete this.userMatches[leftIndex];
-                    
-                    // Remove dropped item
-                    const droppedItem = dropZone.querySelector('.dropped-item');
-                    if (droppedItem) {
-                        droppedItem.remove();
-                    }
-                    
-                    // Remove occupied state
-                    dropZone.classList.remove('occupied');
-                    
-                    // Restore draggable item
-                    const draggableItem = document.querySelector(`[data-left-index="${leftIndex}"]`);
-                    if (draggableItem) {
-                        draggableItem.classList.remove('matched');
-                        draggableItem.draggable = true;
-                    }
-                    
-                    // Update submit button state
-                    document.getElementById('submitAnswerBtn').disabled = Object.keys(this.userMatches).length === 0;
                 }
 
                 startQuestionTimer(timeLimit) {
@@ -1673,84 +1507,40 @@
                 }
 
                 submitAnswer() {
-                    if (Object.keys(this.userMatches).length === 0) return;
+                    if (Object.keys(this.userMatches).length === 0 || this.roundSubmitted) return;
 
-                    if (this.roundBased) {
-                        // Rundenmodus: Match akkumulieren, Prüfung beim Server anfragen
-                        if (this.roundSubmitted) return;
-                        const leftIdx = parseInt(Object.keys(this.userMatches)[0]);
-                        const rightIdx = this.userMatches[leftIdx];
-                        this.accumulatedMatches[leftIdx] = rightIdx;
-                        this.roundSubmitted = true;
+                    const leftIdx = parseInt(Object.keys(this.userMatches)[0]);
+                    const rightIdx = this.userMatches[leftIdx];
+                    this.accumulatedMatches[leftIdx] = rightIdx;
+                    this.roundSubmitted = true;
 
-                        // Texte für History merken (wird bei richtiger Antwort genutzt)
-                        const leftText = document.querySelector('.draggable-item:not(.upcoming):not(.matched-done)')?.textContent?.trim() || '';
-                        const occupiedZone = document.querySelector('.drop-zone.occupied:not(.completed-round)');
-                        const rightText = occupiedZone?.querySelector('.drop-zone-label')?.textContent?.trim() || '';
-                        this._pendingHistoryEntry = { leftText, rightText };
+                    // Texte für History merken – das konkret submittete Item per Index ansprechen
+                    const leftText = document.querySelector(`.draggable-item[data-left-index="${leftIdx}"]`)?.textContent?.trim() || '';
+                    const occupiedZone = document.querySelector('.drop-zone.occupied:not(.completed-round)');
+                    const rightText = occupiedZone?.querySelector('.drop-zone-label')?.textContent?.trim() || '';
+                    this._pendingHistoryEntry = { leftText, rightText };
 
-                        // UI sperren
-                        document.querySelectorAll('.draggable-item').forEach(el => { el.draggable = false; el.style.cursor = 'default'; });
-                        document.getElementById('submitAnswerBtn').style.display = 'none';
-                        const resetBtn = document.getElementById('resetRoundBtn');
-                        if (resetBtn) resetBtn.classList.add('d-none');
+                    // UI sperren
+                    document.querySelectorAll('.draggable-item').forEach(el => { el.draggable = false; el.style.cursor = 'default'; });
+                    document.getElementById('submitAnswerBtn').style.display = 'none';
+                    const resetBtn = document.getElementById('resetRoundBtn');
+                    if (resetBtn) resetBtn.classList.add('d-none');
 
-                        // Prüfung beim Server anfragen
-                        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                            this.websocket.send(JSON.stringify({
-                                type: 'participant_check_round',
-                                round_index: leftIdx,
-                                user_match: { [leftIdx]: rightIdx },
-                            }));
-                        }
-                        return;
+                    // Prüfung beim Server anfragen
+                    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                        this.websocket.send(JSON.stringify({
+                            type: 'participant_check_round',
+                            round_index: leftIdx,
+                            user_match: { [leftIdx]: rightIdx },
+                        }));
                     }
-
-                    if (this.hasAnswered) return;
-
-                    const timeTaken = (Date.now() - this.questionStartTime) / 1000;
-
-                    // Disable drag-drop interface
-                    document.querySelectorAll('.draggable-item').forEach(item => {
-                        item.draggable = false;
-                        item.style.cursor = 'default';
-                    });
-
-                    document.querySelectorAll('.drop-zone').forEach(zone => {
-                        zone.style.pointerEvents = 'none';
-                    });
-
-                    // Send answer via WebSocket
-                    this.websocket.send(JSON.stringify({
-                        type: 'participant_submit_answer',
-                        participant_name: this.participantName,
-                        hub_session: this.hubSession,
-                        user_matches: this.userMatches,
-                        time_taken: timeTaken
-                    }));
-
-                    this.hasAnswered = true;
-
-                    // Show submitted state after a brief delay
-                    setTimeout(() => {
-                        this.showState('answerSubmittedState');
-                    }, 500);
                 }
 
                 onTimeUp() {
                     if (this.hasAnswered) return;
-
-                    if (this.roundBased) {
-                        // Im Rundenmodus: einfach warten bis der Host die nächste Runde startet
-                        // (aktueller Match wird bei round_advanced eingesammelt)
-                        return;
-                    }
-
-                    // Auto-submit if any matches are made, otherwise show waiting
-                    if (Object.keys(this.userMatches).length > 0) {
+                    // Wenn noch ein Drop vorliegt, der nicht bestätigt wurde → auto-submit
+                    if (!this.roundSubmitted && this.userMatches && Object.keys(this.userMatches).length > 0) {
                         this.submitAnswer();
-                    } else {
-                        this.showWaitingForNextQuestion();
                     }
                 }
 
@@ -1955,6 +1745,7 @@
 
         });
     </script>
+  {% include 'includes/_leaderboard_overlay.html' %}
   {% include 'includes/accessibility_widget.html' %}
 </body>
 </html>
