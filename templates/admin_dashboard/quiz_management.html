@@ -81,7 +81,7 @@
                         <td>{{ bundle.questions.count }} Fragen</td>
                         <td class="text-muted small">{{ bundle.created_at|date:"d.m.Y" }}</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger delete-bundle-btn" data-bundle-id="{{ bundle.id }}" data-bundle-name="{{ bundle.name }}">
+                            <button class="btn btn-sm btn-outline-danger delete-bundle-btn" aria-label="Bundle löschen" data-bundle-id="{{ bundle.id }}" data-bundle-name="{{ bundle.name }}">
                                 <i data-lucide="trash-2"></i>
                             </button>
                         </td>
@@ -923,7 +923,7 @@
                         <td>${b.question_count} Fragen</td>
                         <td class="text-muted small">Heute</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger delete-bundle-btn" data-bundle-id="${b.id}" data-bundle-name="${b.name}">
+                            <button class="btn btn-sm btn-outline-danger delete-bundle-btn" aria-label="Bundle löschen" data-bundle-id="${b.id}" data-bundle-name="${b.name}">
                                 <i data-lucide="trash-2"></i>
                             </button>
                         </td>

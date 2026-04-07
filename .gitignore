@@ -55,3 +55,6 @@ quiz_project/settings.py
 # Channels stuff
 # if you use local file based channel layers (less common)
 # channel_layer_storage/
+
+# Superpowers brainstorming/planning cache
+.superpowers/

@@ -75,7 +75,7 @@
                         <td>{{ bundle.questions.count }} Themen</td>
                         <td class="text-muted small">{{ bundle.created_at|date:"d.m.Y" }}</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger delete-bundle-btn" data-bundle-id="{{ bundle.id }}" data-bundle-name="{{ bundle.name }}">
+                            <button class="btn btn-sm btn-outline-danger delete-bundle-btn" aria-label="Bundle löschen" data-bundle-id="{{ bundle.id }}" data-bundle-name="{{ bundle.name }}">
                                 <i data-lucide="trash-2"></i>
                             </button>
                         </td>
@@ -940,7 +940,7 @@
                     if (emptyRow) emptyRow.remove();
                     const tr = document.createElement('tr');
                     tr.id = `bundle-row-${data.bundle.id}`;
-                    tr.innerHTML = `<td class="fw-semibold">${data.bundle.name}</td><td>${data.bundle.question_count} Themen</td><td class="text-muted small">Heute</td><td><button class="btn btn-sm btn-outline-danger delete-bundle-btn" data-bundle-id="${data.bundle.id}" data-bundle-name="${data.bundle.name}"><i data-lucide="trash-2"></i></button></td>`;
+                    tr.innerHTML = `<td class="fw-semibold">${data.bundle.name}</td><td>${data.bundle.question_count} Themen</td><td class="text-muted small">Heute</td><td><button class="btn btn-sm btn-outline-danger delete-bundle-btn" aria-label="Bundle löschen" data-bundle-id="${data.bundle.id}" data-bundle-name="${data.bundle.name}"><i data-lucide="trash-2"></i></button></td>`;
                     tbody.appendChild(tr);
                     document.getElementById('bundleCountBadge').textContent = parseInt(document.getElementById('bundleCountBadge').textContent) + 1;
                     lucide.createIcons();
