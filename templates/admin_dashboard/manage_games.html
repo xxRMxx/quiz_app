@@ -289,14 +289,14 @@
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Links (vorgegeben)</label>
+                                <label class="form-label fw-semibold">Links (Diese Items müssen..)</label>
                                 <div id="asgn-left-container" class="mb-2"></div>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="asgn-add-left">
                                     <i data-lucide="plus" style="width:14px;height:14px;"></i> Links hinzufügen
                                 </button>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Rechts (zuzuordnen)</label>
+                                <label class="form-label fw-semibold">Rechts (..diesen Items zugeorndet werden)</label>
                                 <div id="asgn-right-container" class="mb-2"></div>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="asgn-add-right">
                                     <i data-lucide="plus" style="width:14px;height:14px;"></i> Rechts hinzufügen
@@ -1734,12 +1734,12 @@ document.getElementById('asgn-submit').addEventListener('click', function () {
     const left_items = Array.from(document.querySelectorAll('#asgn-left-container .asgn-left')).map(i => i.value.trim()).filter(Boolean);
     const right_items = Array.from(document.querySelectorAll('#asgn-right-container .asgn-right')).map(i => i.value.trim()).filter(Boolean);
     if (!left_items.length) { alert('Mindestens ein linkes Item erforderlich.'); return; }
-    if (right_items.length < left_items.length) {
-        alert(`Die rechte Seite muss mindestens so viele Items enthalten wie die linke (${left_items.length} benötigt, ${right_items.length} vorhanden).`);
+    if (left_items.length <= right_items.length) {
+        alert(`Die linke Seite muss mindestens ein Item mehr haben als die rechte (links: ${left_items.length}, rechts: ${right_items.length}).`);
         return;
     }
     const correct_matches = {};
-    left_items.forEach((_, i) => { correct_matches[i] = i; });
+    left_items.forEach((_, i) => { if (i < right_items.length) correct_matches[i] = i; });
     const asgnId = parseInt(document.getElementById('asgn-id').value);
     const payload = {
         question_text,

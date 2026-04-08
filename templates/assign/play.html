@@ -199,6 +199,37 @@
                             </div>
                         </div>
 
+                        <!-- Warte auf Auflösung State -->
+                        <div id="waitingSolutionState" class="game-state d-none">
+                            <div class="waiting-card">
+                                <div class="waiting-animation">
+                                    <div class="pulse-ring"></div>
+                                    <div class="pulse-ring delay-1"></div>
+                                    <div class="pulse-ring delay-2"></div>
+                                    <i data-lucide="loader"></i>
+                                </div>
+                                <h2>Auswertung läuft...</h2>
+                                <p>Bitte warte, der Host wertet die Ergebnisse aus.</p>
+                            </div>
+                        </div>
+
+                        <!-- Auflösung State -->
+                        <div id="solutionState" class="game-state d-none">
+                            <div class="waiting-card">
+                                <h2>Auflösung</h2>
+                                <div class="row g-3 mt-1">
+                                    <div class="col-6">
+                                        <h6 class="fw-bold text-success text-center mb-2">Richtige Zuordnung</h6>
+                                        <div id="correctSolutionList"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6 class="fw-bold text-center mb-2">Deine Zuordnung</h6>
+                                        <div id="userSolutionList"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Quiz Ended State -->
                         <div id="quizEndedState" class="game-state d-none">
                             <div class="ended-card">
@@ -1084,6 +1115,14 @@
                             this.onRoundChecked(data);
                             break;
 
+                        case 'question_rounds_complete':
+                            this.onQuestionRoundsComplete();
+                            break;
+
+                        case 'show_solution':
+                            this.onShowSolution(data);
+                            break;
+
                         case 'show_leaderboard':
                             window.showLeaderboard(this.hubSession);
                             break;
@@ -1117,6 +1156,8 @@
                     this.eliminated = false;
                     this.lastRoundCorrect = null;
                     this._pendingHistoryEntry = null;
+                    this._wrongEntry = null;
+                    this._bufferedRoundsComplete = false;
                     this.userMatches = {};
                     this.questionStartTime = Date.now();
                     this.currentQuestion = question;
@@ -1133,6 +1174,8 @@
                 }
 
                 onRoundAdvanced(data) {
+                    if (this.eliminated) return;
+
                     // Wenn ein Drop vorliegt, der noch nicht bestätigt wurde → jetzt auto-submit
                     // und round_advanced puffern bis round_checked zurückkommt
                     if (!this.roundSubmitted && this.userMatches && Object.keys(this.userMatches).length > 0) {
@@ -1140,6 +1183,14 @@
                         this.submitAnswer();
                         return;
                     }
+
+                    // Race-Condition: Teilnehmer hat bereits submitted (z.B. via onTimeUp),
+                    // aber round_checked ist noch nicht angekommen → puffern und warten
+                    if (this.roundSubmitted && this.lastRoundCorrect === null) {
+                        this._bufferedRoundAdvanced = data;
+                        return;
+                    }
+
                     this._applyRoundAdvanced(data);
                 }
 
@@ -1150,10 +1201,12 @@
                     clearInterval(this.questionTimer);
 
                     // Auswertung der vorherigen Runde
-                    if (this.lastRoundCorrect === false) {
-                        // Falsche Antwort → ausgeschieden
-                        this.eliminated = true;
+                    if (this.lastRoundCorrect === false ||
+                        (this.lastRoundCorrect === null && !this.roundSubmitted)) {
+                        // Falsche Antwort oder keine Antwort gegeben → ausgeschieden
+                        this._wrongEntry = this._pendingHistoryEntry;
                         this._pendingHistoryEntry = null;
+                        this.eliminated = true;
                         this.showState('eliminatedState');
                         try { lucide.createIcons(); } catch(_) {}
                         return;
@@ -1177,8 +1230,28 @@
                 onRoundChecked(data) {
                     this.lastRoundCorrect = data.is_correct;
 
+                    if (!data.is_correct) {
+                        // Falschen Eintrag retten bevor _pendingHistoryEntry genullt wird
+                        this._wrongEntry = this._pendingHistoryEntry;
+                        this._pendingHistoryEntry = null;
+                        // Sofort ausscheiden – nicht auf round_advanced warten
+                        this.eliminated = true;
+                        this._bufferedRoundAdvanced = null;
+                        this._bufferedRoundsComplete = false;
+                        this.showState('eliminatedState');
+                        try { lucide.createIcons(); } catch(_) {}
+                        return;
+                    }
+
                     const waitMsg = document.getElementById('roundSubmittedMessage');
                     if (waitMsg) { waitMsg.classList.remove('d-none'); try { lucide.createIcons(); } catch(_) {} }
+
+                    // Falls question_rounds_complete gepuffert → jetzt verarbeiten
+                    if (this._bufferedRoundsComplete) {
+                        this._bufferedRoundsComplete = false;
+                        this.onQuestionRoundsComplete();
+                        return;
+                    }
 
                     // Falls round_advanced gepuffert wurde (auto-submit ausgelöst) → jetzt verarbeiten
                     if (this._bufferedRoundAdvanced) {
@@ -1242,6 +1315,100 @@
                             window.location.href = url.toString();
                         }
                     }, 2000);
+                }
+
+                onQuestionRoundsComplete() {
+                    if (this.eliminated) return;
+                    clearInterval(this.questionTimer);
+
+                    // Drop vorliegt aber noch nicht bestätigt → auto-submit und puffern
+                    if (!this.roundSubmitted && this.userMatches && Object.keys(this.userMatches).length > 0) {
+                        this._bufferedRoundsComplete = true;
+                        this.submitAnswer();
+                        return;
+                    }
+
+                    // Race-Condition: bereits submitted (z.B. via onTimeUp) aber round_checked noch ausstehend
+                    if (this.roundSubmitted && this.lastRoundCorrect === null) {
+                        this._bufferedRoundsComplete = true;
+                        return;
+                    }
+
+                    // Keine Zuordnung gemacht → ausgeschieden
+                    if (!this.roundSubmitted && this.lastRoundCorrect === null) {
+                        this._wrongEntry = null;
+                        this.eliminated = true;
+                        this.showRoundProgress(false);
+                        this.showState('eliminatedState');
+                        try { lucide.createIcons(); } catch(_) {}
+                        return;
+                    }
+
+                    // Letzten korrekten Eintrag in History übernehmen (kein round_advanced mehr danach)
+                    if (this._pendingHistoryEntry) {
+                        if (!this.roundHistory) this.roundHistory = [];
+                        this.roundHistory.push(this._pendingHistoryEntry);
+                        this._pendingHistoryEntry = null;
+                    }
+                    this.showRoundProgress(false);
+                    this.showState('waitingSolutionState');
+                    try { lucide.createIcons(); } catch(_) {}
+                }
+
+                onShowSolution(data) {
+                    const correctList = document.getElementById('correctSolutionList');
+                    const userList = document.getElementById('userSolutionList');
+                    if (!correctList || !userList) return;
+                    correctList.innerHTML = '';
+                    userList.innerHTML = '';
+
+                    const leftItems = data.left_items || [];
+                    const rightItems = data.right_items || [];
+                    const correctMatches = data.correct_matches || {};
+
+                    // Teilnehmer-Antworten aufbauen: leftIdx → {rightText, correct}
+                    const participantAnswers = {};
+                    (this.roundHistory || []).forEach(entry => {
+                        participantAnswers[entry.leftIdx] = { rightText: entry.rightText, correct: true };
+                    });
+                    if (this._wrongEntry) {
+                        participantAnswers[this._wrongEntry.leftIdx] = { rightText: this._wrongEntry.rightText, correct: false };
+                    }
+
+                    leftItems.forEach((leftItem, idx) => {
+                        const correctRightIdx = correctMatches[String(idx)];
+                        const correctRightText = correctRightIdx !== undefined ? rightItems[correctRightIdx] : null;
+                        const answer = participantAnswers[idx];
+
+                        // Linkes Panel: Richtige Zuordnung
+                        const correctDiv = document.createElement('div');
+                        correctDiv.className = 'py-1 border-bottom';
+                        if (correctRightText !== null && correctRightText !== undefined) {
+                            correctDiv.innerHTML = `<span class="badge bg-success">${leftItem}</span> → <span class="badge bg-success">${correctRightText}</span>`;
+                        } else {
+                            correctDiv.innerHTML = `<span class="badge bg-secondary">${leftItem}</span> <span class="text-muted small">kein Match</span>`;
+                        }
+                        correctList.appendChild(correctDiv);
+
+                        // Rechtes Panel: Eigene Zuordnung
+                        const userDiv = document.createElement('div');
+                        userDiv.className = 'py-1 border-bottom';
+                        if (correctRightText === null || correctRightText === undefined) {
+                            // Distractor – kein Match nötig
+                            userDiv.innerHTML = `<span class="badge bg-secondary">${leftItem}</span> <span class="text-muted small">kein Match nötig</span>`;
+                        } else if (answer) {
+                            const bgClass = answer.correct ? 'bg-success' : 'bg-danger';
+                            const icon = answer.correct ? '✓' : '✗';
+                            userDiv.innerHTML = `<span class="badge ${bgClass}">${icon} ${leftItem}</span> → <span class="badge ${bgClass}">${answer.rightText}</span>`;
+                        } else {
+                            // Nicht beantwortet
+                            userDiv.innerHTML = `<span class="badge bg-warning text-dark">${leftItem}</span> <span class="text-muted small">nicht beantwortet</span>`;
+                        }
+                        userList.appendChild(userDiv);
+                    });
+
+                    this.showState('solutionState');
+                    try { lucide.createIcons(); } catch(_) {}
                 }
 
                 loadRound(roundIndex, currentLeftItem, allRightItems) {
@@ -1339,6 +1506,7 @@
                         if (completedIndices.has(idx)) return;  // bereits zugeordnet
 
                         const div = document.createElement('div');
+
                         div.className = 'draggable-item';
                         div.draggable = true;
                         div.textContent = leftText;
@@ -1518,7 +1686,7 @@
                     const leftText = document.querySelector(`.draggable-item[data-left-index="${leftIdx}"]`)?.textContent?.trim() || '';
                     const occupiedZone = document.querySelector('.drop-zone.occupied:not(.completed-round)');
                     const rightText = occupiedZone?.querySelector('.drop-zone-label')?.textContent?.trim() || '';
-                    this._pendingHistoryEntry = { leftText, rightText };
+                    this._pendingHistoryEntry = { leftIdx, leftText, rightText };
 
                     // UI sperren
                     document.querySelectorAll('.draggable-item').forEach(el => { el.draggable = false; el.style.cursor = 'default'; });

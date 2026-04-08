@@ -4031,10 +4031,10 @@ def add_assign_question(request):
                 'error': 'Question text and at least one left item are required.'
             }, status=400)
 
-        if len(right_items) < len(left_items):
+        if len(left_items) <= len(right_items):
             return JsonResponse({
                 'success': False,
-                'error': f'Die rechte Seite muss mindestens so viele Items enthalten wie die linke ({len(left_items)} benötigt, {len(right_items)} vorhanden).'
+                'error': f'Die linke Seite muss mindestens ein Item mehr haben als die rechte (links: {len(left_items)}, rechts: {len(right_items)}).'
             }, status=400)
 
         # Validate matches indices if provided
@@ -4132,10 +4132,10 @@ def update_assign_question(request):
                 'error': 'Question text and at least one left item are required.'
             }, status=400)
 
-        if len(right_items) < len(left_items):
+        if len(left_items) <= len(right_items):
             return JsonResponse({
                 'success': False,
-                'error': f'Die rechte Seite muss mindestens so viele Items enthalten wie die linke ({len(left_items)} benötigt, {len(right_items)} vorhanden).'
+                'error': f'Die linke Seite muss mindestens ein Item mehr haben als die rechte (links: {len(left_items)}, rechts: {len(right_items)}).'
             }, status=400)
 
         # Validate matches indices if provided
