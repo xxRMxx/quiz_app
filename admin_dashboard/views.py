@@ -29,6 +29,10 @@ def is_admin(user):
 
 def _get_lobby_url(request, room_code):
     """Return the full participant lobby URL for a game room_code, or None."""
+    # Prefer hub_session from the URL parameter (set when navigating from the hub monitor)
+    hub_session = request.GET.get('hub_session')
+    if hub_session:
+        return f"{request.scheme}://{request.get_host()}/hub/lobby/{hub_session}/"
     step = HubGameStep.objects.filter(room_code=room_code).select_related('session').first()
     if step:
         return f"{request.scheme}://{request.get_host()}/hub/lobby/{step.session.code}/"
@@ -325,6 +329,8 @@ def create_clue_rush_custom_game(request):
 
         quiz = ClueRushGame.objects.create(
             title=title,
+            internal_description=(data.get('internal_description') or '').strip(),
+            question_order=[int(i) for i in question_ids],
             creator=request.user,
         )
 
@@ -355,14 +361,22 @@ def update_clue_rush_custom_game(request):
         if not request.user.is_superuser and quiz.creator != request.user:
             return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
+        fields_to_update = []
         title = (data.get('title') or '').strip()
         if title:
             quiz.title = title
-            quiz.save(update_fields=['title'])
+            fields_to_update.append('title')
+        if 'internal_description' in data:
+            quiz.internal_description = (data['internal_description'] or '').strip()
+            fields_to_update.append('internal_description')
+        if fields_to_update:
+            quiz.save(update_fields=fields_to_update)
 
         if isinstance(data.get('question_ids'), list):
             qs = ClueQuestion.objects.filter(id__in=data['question_ids'], is_active=True)
             quiz.selected_questions.set(qs)
+            quiz.question_order = [int(i) for i in data['question_ids']]
+            quiz.save(update_fields=['question_order'])
 
         return JsonResponse({'success': True})
     except Exception as e:
@@ -834,6 +848,10 @@ def get_clue_rush_selected_questions(request, quiz_id: int):
             'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'is_active': q.is_active,
         } for q in qs]
+        _order = quiz.question_order or []
+        if _order:
+            _omap = {i: pos for pos, i in enumerate(_order)}
+            questions.sort(key=lambda q: _omap.get(q['id'], len(_order)))
         return JsonResponse({'success': True, 'questions': questions, 'count': len(questions)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -953,6 +971,8 @@ def create_sorting_ladder_custom_game(request):
 
         quiz = SortingLadderGame.objects.create(
             title=title,
+            internal_description=(data.get('internal_description') or '').strip(),
+            question_order=[int(i) for i in topic_ids],
             creator=request.user,
             status='waiting',
         )
@@ -989,6 +1009,10 @@ def get_sorting_selected_topics(request, quiz_id: int):
             'created_at': t.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'is_active': t.is_active,
         } for t in qs]
+        _order = quiz.question_order or []
+        if _order:
+            _omap = {i: pos for pos, i in enumerate(_order)}
+            topics.sort(key=lambda t: _omap.get(t['id'], len(_order)))
         return JsonResponse({'success': True, 'topics': topics, 'count': len(topics)})
     except Exception as e:  # pylint: disable=broad-except
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -1008,14 +1032,22 @@ def update_sorting_ladder_custom_game(request):
         if not request.user.is_superuser and quiz.creator != request.user:
             return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
+        fields_to_update = []
         title = (data.get('title') or '').strip()
         if title:
             quiz.title = title
-            quiz.save(update_fields=['title'])
+            fields_to_update.append('title')
+        if 'internal_description' in data:
+            quiz.internal_description = (data['internal_description'] or '').strip()
+            fields_to_update.append('internal_description')
+        if fields_to_update:
+            quiz.save(update_fields=fields_to_update)
 
         if isinstance(data.get('topic_ids'), list):
             qs = SortingQuestion.objects.filter(id__in=data['topic_ids'], is_active=True)
             quiz.selected_questions.set(qs)
+            quiz.question_order = [int(i) for i in data['topic_ids']]
+            quiz.save(update_fields=['question_order'])
 
         return JsonResponse({'success': True})
     except Exception as e:  # pylint: disable=broad-except
@@ -1110,6 +1142,18 @@ def add_sorting_topic(request):
         if bulk_items:
             SortingItem.objects.bulk_create(bulk_items)
 
+    # Set starting item if specified
+    starting_item_order_raw = request.POST.get('starting_item_order')
+    if starting_item_order_raw:
+        try:
+            starting_rank = float(starting_item_order_raw)
+            starting_item = topic.elements.filter(correct_rank=starting_rank).first()
+            if starting_item:
+                topic.starting_item = starting_item
+                topic.save(update_fields=['starting_item'])
+        except (TypeError, ValueError):
+            pass
+
     return JsonResponse({'success': True, 'topic_id': topic.id})
 
 @admin_required
@@ -1149,6 +1193,7 @@ def update_sorting_topic(request):
         if isinstance(items, list):
             # Remove current items and recreate from payload
             topic.elements.all().delete()
+            topic.starting_item = None
             bulk_items = []
             for idx, item in enumerate(items, start=1):
                 text = (item.get('text') or '').strip()
@@ -1166,6 +1211,21 @@ def update_sorting_topic(request):
                 ))
             if bulk_items:
                 SortingItem.objects.bulk_create(bulk_items)
+
+    # Set starting item if specified
+    starting_item_order_raw = request.POST.get('starting_item_order')
+    if starting_item_order_raw:
+        try:
+            starting_rank = float(starting_item_order_raw)
+            starting_item = topic.elements.filter(correct_rank=starting_rank).first()
+            if starting_item:
+                topic.starting_item = starting_item
+                topic.save(update_fields=['starting_item'])
+        except (TypeError, ValueError):
+            pass
+    else:
+        topic.starting_item = None
+        topic.save(update_fields=['starting_item'])
 
     return JsonResponse({'success': True})
 
@@ -1199,6 +1259,7 @@ def get_sorting_topic_detail(request, topic_id):
         'lower_label': topic.lower_label,
         'is_active': topic.is_active,
         'item_count': topic.elements.count(),
+        'starting_item_order': float(topic.starting_item.correct_rank) if topic.starting_item else None,
         'items': [
             {
                 'id': element.id,
@@ -1455,11 +1516,18 @@ def edit_game(request, game_type, game_id):
         from django.http import Http404
         raise Http404('Unknown game type')
     game = get_object_or_404(model, id=game_id)
-    selected_ids = list(game.selected_questions.values_list('id', flat=True))
+    _question_order = getattr(game, 'question_order', []) or []
+    if _question_order:
+        _id_set = set(game.selected_questions.values_list('id', flat=True))
+        selected_ids = [i for i in _question_order if i in _id_set]
+        selected_ids += [i for i in _id_set if i not in set(selected_ids)]
+    else:
+        selected_ids = list(game.selected_questions.values_list('id', flat=True))
     return render(request, 'admin_dashboard/manage_games.html', {
         'edit_mode': True,
         'game_id': game_id,
         'game_title': game.title,
+        'game_internal_description': game.internal_description,
         'game_type': game_type,
         'selected_ids_json': _json.dumps(selected_ids),
     })
@@ -1555,6 +1623,10 @@ def get_quiz_selected_questions(request, quiz_id: int):
             'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'is_active': q.is_active,
         } for q in qs]
+        _order = quiz.question_order or []
+        if _order:
+            _omap = {i: pos for pos, i in enumerate(_order)}
+            questions.sort(key=lambda q: _omap.get(q['id'], len(_order)))
         return JsonResponse({'success': True, 'questions': questions, 'count': len(questions)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -1579,14 +1651,22 @@ def update_custom_quiz(request):
         if not request.user.is_superuser and quiz.creator != request.user:
             return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
+        fields_to_update = []
         if title:
             quiz.title = title
-            quiz.save(update_fields=['title'])
+            fields_to_update.append('title')
+        if 'internal_description' in data:
+            quiz.internal_description = (data['internal_description'] or '').strip()
+            fields_to_update.append('internal_description')
+        if fields_to_update:
+            quiz.save(update_fields=fields_to_update)
 
         # Update selected questions
         if isinstance(question_ids, list):
             qs = QuizQuestion.objects.filter(id__in=question_ids)
             quiz.selected_questions.set(qs)
+            quiz.question_order = [int(i) for i in question_ids]
+            quiz.save(update_fields=['question_order'])
 
         return JsonResponse({'success': True})
     except json.JSONDecodeError:
@@ -1613,6 +1693,10 @@ def get_assign_selected_questions(request, quiz_id: int):
             'right_items': getattr(q, 'right_items', []),
             'correct_matches': getattr(q, 'correct_matches', {}),
         } for q in qs]
+        _order = quiz.question_order or []
+        if _order:
+            _omap = {i: pos for pos, i in enumerate(_order)}
+            questions.sort(key=lambda q: _omap.get(q['id'], len(_order)))
         return JsonResponse({'success': True, 'questions': questions, 'count': len(questions)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -1636,14 +1720,22 @@ def update_assign_custom_quiz(request):
         if not request.user.is_superuser and quiz.creator != request.user:
             return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
+        fields_to_update = []
         if title:
             quiz.title = title
-            quiz.save(update_fields=['title'])
+            fields_to_update.append('title')
+        if 'internal_description' in data:
+            quiz.internal_description = (data['internal_description'] or '').strip()
+            fields_to_update.append('internal_description')
+        if fields_to_update:
+            quiz.save(update_fields=fields_to_update)
 
         # Update selected questions
         if isinstance(question_ids, list):
             qs = AssignQuestion.objects.filter(id__in=question_ids)
             quiz.selected_questions.set(qs)
+            quiz.question_order = [int(i) for i in question_ids]
+            quiz.save(update_fields=['question_order'])
 
         return JsonResponse({'success': True})
     except json.JSONDecodeError:
@@ -1686,6 +1778,10 @@ def get_estimation_selected_questions(request, quiz_id: int):
             'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'is_active': getattr(q, 'is_active', True),
         } for q in qs]
+        _order = quiz.question_order or []
+        if _order:
+            _omap = {i: pos for pos, i in enumerate(_order)}
+            questions.sort(key=lambda q: _omap.get(q['id'], len(_order)))
         return JsonResponse({'success': True, 'questions': questions, 'count': len(questions), 'scoring_mode': getattr(quiz, 'scoring_mode', None)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -1717,6 +1813,9 @@ def update_estimation_custom_quiz(request):
         if scoring_mode in ('tolerance', 'rank'):
             setattr(quiz, 'scoring_mode', scoring_mode)
             fields_to_update.append('scoring_mode')
+        if 'internal_description' in data:
+            quiz.internal_description = (data['internal_description'] or '').strip()
+            fields_to_update.append('internal_description')
         if fields_to_update:
             quiz.save(update_fields=fields_to_update)
 
@@ -1724,6 +1823,8 @@ def update_estimation_custom_quiz(request):
         if isinstance(question_ids, list):
             qs = EstimationQuestion.objects.filter(id__in=question_ids)
             quiz.selected_questions.set(qs)
+            quiz.question_order = [int(i) for i in question_ids]
+            quiz.save(update_fields=['question_order'])
 
         return JsonResponse({'success': True})
     except json.JSONDecodeError:
@@ -1765,6 +1866,10 @@ def get_where_selected_questions(request, quiz_id: int):
             'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'is_active': getattr(q, 'is_active', True),
         } for q in qs]
+        _order = quiz.question_order or []
+        if _order:
+            _omap = {i: pos for pos, i in enumerate(_order)}
+            questions.sort(key=lambda q: _omap.get(q['id'], len(_order)))
         return JsonResponse({'success': True, 'questions': questions, 'count': len(questions)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -1788,14 +1893,22 @@ def update_where_custom_quiz(request):
         if not request.user.is_superuser and quiz.creator != request.user:
             return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
+        fields_to_update = []
         if title:
             quiz.title = title
-            quiz.save(update_fields=['title'])
+            fields_to_update.append('title')
+        if 'internal_description' in data:
+            quiz.internal_description = (data['internal_description'] or '').strip()
+            fields_to_update.append('internal_description')
+        if fields_to_update:
+            quiz.save(update_fields=fields_to_update)
 
         # Update selected questions
         if isinstance(question_ids, list):
             qs = WhereQuestion.objects.filter(id__in=question_ids)
             quiz.selected_questions.set(qs)
+            quiz.question_order = [int(i) for i in question_ids]
+            quiz.save(update_fields=['question_order'])
 
         return JsonResponse({'success': True})
     except json.JSONDecodeError:
@@ -1837,6 +1950,10 @@ def get_blackjack_selected_questions(request, quiz_id: int):
             'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'is_active': getattr(q, 'is_active', True),
         } for q in qs]
+        _order = quiz.question_order or []
+        if _order:
+            _omap = {i: pos for pos, i in enumerate(_order)}
+            questions.sort(key=lambda q: _omap.get(q['id'], len(_order)))
         return JsonResponse({'success': True, 'questions': questions, 'count': len(questions)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -1860,14 +1977,22 @@ def update_black_jack_custom_quiz(request):
         if not request.user.is_superuser and quiz.creator != request.user:
             return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
+        fields_to_update = []
         if title:
             quiz.title = title
-            quiz.save(update_fields=['title'])
+            fields_to_update.append('title')
+        if 'internal_description' in data:
+            quiz.internal_description = (data['internal_description'] or '').strip()
+            fields_to_update.append('internal_description')
+        if fields_to_update:
+            quiz.save(update_fields=fields_to_update)
 
         # Update selected questions
         if isinstance(question_ids, list):
             qs = BlackJackQuestion.objects.filter(id__in=question_ids)
             quiz.selected_questions.set(qs)
+            quiz.question_order = [int(i) for i in question_ids]
+            quiz.save(update_fields=['question_order'])
 
         return JsonResponse({'success': True})
     except json.JSONDecodeError:
@@ -1910,6 +2035,10 @@ def get_who_that_selected_questions(request, quiz_id: int):
             'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'is_active': getattr(q, 'is_active', True),
         } for q in qs]
+        _order = quiz.question_order or []
+        if _order:
+            _omap = {i: pos for pos, i in enumerate(_order)}
+            questions.sort(key=lambda q: _omap.get(q['id'], len(_order)))
         return JsonResponse({'success': True, 'questions': questions, 'count': len(questions)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -1933,14 +2062,22 @@ def update_who_that_custom_quiz(request):
         if not request.user.is_superuser and quiz.creator != request.user:
             return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
+        fields_to_update = []
         if title:
             quiz.title = title
-            quiz.save(update_fields=['title'])
+            fields_to_update.append('title')
+        if 'internal_description' in data:
+            quiz.internal_description = (data['internal_description'] or '').strip()
+            fields_to_update.append('internal_description')
+        if fields_to_update:
+            quiz.save(update_fields=fields_to_update)
 
         # Update selected questions
         if isinstance(question_ids, list):
             qs = WhoThatQuestion.objects.filter(id__in=question_ids)
             quiz.selected_questions.set(qs)
+            quiz.question_order = [int(i) for i in question_ids]
+            quiz.save(update_fields=['question_order'])
 
         return JsonResponse({'success': True})
     except json.JSONDecodeError:
@@ -1976,12 +2113,17 @@ def get_who_selected_questions(request, quiz_id: int):
         qs = quiz.selected_questions.all().order_by('-created_at')
         questions = [{
             'id': q.id,
-            'question_text': getattr(q, 'statement', ''),
+            'statement': getattr(q, 'statement', ''),
+            'people_count': len(q.people) if q.people else 0,
             'points': getattr(q, 'points', None),
             'time_limit': getattr(q, 'time_limit', None),
             'created_at': q.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'is_active': getattr(q, 'is_active', True),
         } for q in qs]
+        _order = quiz.question_order or []
+        if _order:
+            _omap = {i: pos for pos, i in enumerate(_order)}
+            questions.sort(key=lambda q: _omap.get(q['id'], len(_order)))
         return JsonResponse({'success': True, 'questions': questions, 'count': len(questions)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -2005,14 +2147,22 @@ def update_who_custom_quiz(request):
         if not request.user.is_superuser and quiz.creator != request.user:
             return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
+        fields_to_update = []
         if title:
             quiz.title = title
-            quiz.save(update_fields=['title'])
+            fields_to_update.append('title')
+        if 'internal_description' in data:
+            quiz.internal_description = (data['internal_description'] or '').strip()
+            fields_to_update.append('internal_description')
+        if fields_to_update:
+            quiz.save(update_fields=fields_to_update)
 
         # Update selected questions
         if isinstance(question_ids, list):
             qs = WhoQuestion.objects.filter(id__in=question_ids)
             quiz.selected_questions.set(qs)
+            quiz.question_order = [int(i) for i in question_ids]
+            quiz.save(update_fields=['question_order'])
 
         return JsonResponse({'success': True})
     except json.JSONDecodeError:
@@ -2192,6 +2342,8 @@ def create_who_custom_quiz(request):
 
         quiz = WhoQuiz.objects.create(
             title=title,
+            internal_description=(data.get('internal_description') or '').strip(),
+            question_order=[int(i) for i in question_ids],
             creator=request.user,
             status='waiting'
         )
@@ -2218,6 +2370,8 @@ def create_who_that_custom_quiz(request):
 
         quiz = WhoThatQuiz.objects.create(
             title=title,
+            internal_description=(data.get('internal_description') or '').strip(),
+            question_order=[int(i) for i in question_ids],
             creator=request.user,
             status='waiting'
         )
@@ -2246,6 +2400,8 @@ def create_custom_quiz(request):
 
         quiz = Quiz.objects.create(
             title=title,
+            internal_description=(data.get('internal_description') or '').strip(),
+            question_order=[int(i) for i in question_ids],
             creator=request.user,
             status='waiting'
         )
@@ -2737,21 +2893,54 @@ def api_live_responses(request, room_code):
             return JsonResponse({'error': 'Unauthorized'}, status=403)
         
         if not quiz.current_question:
-            return JsonResponse({
-                'success': True,
-                'responses': []
-            })
-        
-        responses = QuizAnswer.objects.filter(
+            # Auto-end race condition: question may have been cleared before the
+            # monitor page finished reloading. Return most recent answers from
+            # this session so responses are still visible after the page reload.
+            if not quiz.started_at:
+                return JsonResponse({'success': True, 'responses': []})
+            recent_qs = QuizAnswer.objects.filter(
+                quiz=quiz,
+                submitted_at__gte=quiz.started_at
+            ).select_related('participant', 'question').order_by('-submitted_at')[:20]
+            responses_data = []
+            for response in recent_qs:
+                display_answer = response.answer_text
+                if response.question.question_type == 'multiple_choice':
+                    opt_map = dict(response.question.get_options())
+                    display_answer = opt_map.get(response.answer_text.upper(), response.answer_text)
+                responses_data.append({
+                    'participant_name': response.participant.name,
+                    'answer_text': display_answer,
+                    'is_correct': response.is_correct,
+                    'time_taken': response.time_taken,
+                    'points_earned': response.points_earned,
+                    'submitted_at': response.submitted_at.isoformat(),
+                })
+            return JsonResponse({'success': True, 'responses': responses_data})
+
+        qs = QuizAnswer.objects.filter(
             quiz=quiz,
-            question=quiz.current_question
-        ).select_related('participant').order_by('-submitted_at')[:20]
-        
+            question=quiz.current_question,
+        )
+        # Filter to only answers submitted after the question was last sent (handles replayed questions)
+        if quiz.question_start_time:
+            qs = qs.filter(submitted_at__gte=quiz.question_start_time)
+        elif quiz.started_at:
+            qs = qs.filter(submitted_at__gte=quiz.started_at)
+        responses = qs.select_related('participant').order_by('-submitted_at')[:20]
+
+        # Build key→text map for multiple choice display
+        option_map = {}
+        if quiz.current_question.question_type == 'multiple_choice':
+            option_map = dict(quiz.current_question.get_options())
+
         responses_data = []
         for response in responses:
+            display_answer = option_map.get(response.answer_text.upper(), response.answer_text) \
+                if option_map else response.answer_text
             responses_data.append({
                 'participant_name': response.participant.name,
-                'answer_text': response.answer_text,
+                'answer_text': display_answer,
                 'is_correct': response.is_correct,
                 'time_taken': response.time_taken,
                 'points_earned': response.points_earned,
@@ -2898,6 +3087,8 @@ def create_where_custom_quiz(request):
 
         quiz = WhereQuiz.objects.create(
             title=title,
+            internal_description=(data.get('internal_description') or '').strip(),
+            question_order=[int(i) for i in question_ids],
             creator=request.user,
             status='waiting'
         )
@@ -3094,9 +3285,7 @@ def get_blackjack_question_detail(request, question_id):
             'id': question.id,
             'question_text': question.question_text,
             'correct_answer': question.correct_answer,
-            'difficulty': question.difficulty,
             'time_limit': question.time_limit,
-            'hint_text': question.hint_text or '',
             'explanation': question.explanation or '',
         }
         return JsonResponse({'success': True, 'question': data})
@@ -3121,17 +3310,10 @@ def update_blackjack_question(request):
             question.question_text = data.get('question_text', '').strip() or question.question_text
         if 'correct_answer' in data:
             question.correct_answer = int(data.get('correct_answer'))
-        if 'difficulty' in data:
-            diff = data.get('difficulty')
-            if diff in ['easy', 'medium', 'hard']:
-                question.difficulty = diff
         if 'time_limit' in data:
             tl = int(data.get('time_limit'))
             if 10 <= tl <= 120:
                 question.time_limit = tl
-        if 'hint_text' in data:
-            hint_text = data.get('hint_text', '').strip()
-            question.hint_text = hint_text if hint_text else None
         if 'explanation' in data:
             explanation = data.get('explanation', '').strip()
             question.explanation = explanation if explanation else None
@@ -3163,7 +3345,7 @@ def get_where_question_detail(request, question_id):
             'longitude': question.correct_longitude,
             'hint_text': question.hint_text or '',
             'explanation': question.explanation or '',
-            'image': question.image.url,
+            'image': question.image.url if question.image else None,
         }
         return JsonResponse({'success': True, 'question': data})
     except Exception as e:
@@ -3752,6 +3934,9 @@ def assign_monitor(request, room_code):
     # Get or create quiz session
     quiz_session, created = AssignSession.objects.get_or_create(quiz=quiz)
     
+    current_round_index = quiz_session.current_round_index
+    total_rounds_current = len(quiz.current_question.left_items) if quiz.current_question and quiz.current_question.left_items else 0
+
     context = {
         'quiz': quiz,
         'participants': participants,
@@ -3760,6 +3945,8 @@ def assign_monitor(request, room_code):
         'quiz_session': quiz_session,
         'lobby_url': _get_lobby_url(request, room_code),
         'hub_session': hub_session or '',
+        'current_round_index': current_round_index,
+        'total_rounds_current': total_rounds_current,
     }
     return render(request, 'admin_dashboard/assign_monitor.html', context)
 
@@ -3800,6 +3987,8 @@ def create_assign_custom_quiz(request):
 
         quiz = AssignQuiz.objects.create(
             title=title,
+            internal_description=(data.get('internal_description') or '').strip(),
+            question_order=[int(i) for i in question_ids],
             creator=request.user,
             status='waiting'
         )
@@ -3842,6 +4031,12 @@ def add_assign_question(request):
                 'error': 'Question text and at least one left item are required.'
             }, status=400)
 
+        if len(left_items) <= len(right_items):
+            return JsonResponse({
+                'success': False,
+                'error': f'Die linke Seite muss mindestens ein Item mehr haben als die rechte (links: {len(left_items)}, rechts: {len(right_items)}).'
+            }, status=400)
+
         # Validate matches indices if provided
         if correct_matches:
             for k, v in correct_matches.items():
@@ -3853,7 +4048,7 @@ def add_assign_question(request):
                     return JsonResponse({'success': False, 'error': 'Left index out of range in matches.'}, status=400)
                 if ri < 0 or ri >= len(right_items):
                     return JsonResponse({'success': False, 'error': 'Right index out of range in matches.'}, status=400)
-        
+
         # Create question
         question = AssignQuestion.objects.create(
             question_text=question_text,
@@ -3937,6 +4132,12 @@ def update_assign_question(request):
                 'error': 'Question text and at least one left item are required.'
             }, status=400)
 
+        if len(left_items) <= len(right_items):
+            return JsonResponse({
+                'success': False,
+                'error': f'Die linke Seite muss mindestens ein Item mehr haben als die rechte (links: {len(left_items)}, rechts: {len(right_items)}).'
+            }, status=400)
+
         # Validate matches indices if provided
         if correct_matches:
             for k, v in correct_matches.items():
@@ -3949,7 +4150,6 @@ def update_assign_question(request):
                 if ri < 0 or ri >= len(right_items):
                     return JsonResponse({'success': False, 'error': 'Right index out of range in matches.'}, status=400)
 
-        
         question.question_text = question_text
         question.points = points
         question.time_limit = time_limit
@@ -4684,6 +4884,8 @@ def create_estimation_custom_quiz(request):
 
         quiz = EstimationQuiz.objects.create(
             title=title,
+            internal_description=(data.get('internal_description') or '').strip(),
+            question_order=[int(i) for i in question_ids],
             creator=request.user,
             status='waiting',
             scoring_mode='rank' if scoring_mode == 'rank' else 'tolerance'
@@ -6361,23 +6563,6 @@ def blackjack_management(request):
     # Get recent game sessions
     recent_games = BlackJackQuiz.objects.filter(status='completed').order_by('-ended_at')[:10]
     
-    # Get difficulty breakdown with default values
-    difficulty_stats = BlackJackQuestion.objects.filter(is_active=True).values('difficulty').annotate(
-        count=Count('id')
-    )
-    
-    # Initialize with default values to avoid KeyError
-    difficulty_counts = {
-        'easy': 0,
-        'medium': 0,
-        'hard': 0
-    }
-    
-    # Update with actual counts
-    for stat in difficulty_stats:
-        if stat['difficulty'] in difficulty_counts:
-            difficulty_counts[stat['difficulty']] = stat['count']
-    
     # Get player statistics
     total_games = BlackJackQuiz.objects.filter(status='completed').count()
     total_players = BlackJackParticipant.objects.values('name').distinct().count()
@@ -6393,7 +6578,6 @@ def blackjack_management(request):
         'total_questions': total_questions,
         'user_questions': user_questions,
         'recent_games': recent_games,
-        'difficulty_counts': difficulty_counts,
         'total_games': total_games,
         'total_players': total_players,
         'bust_rate': round(bust_rate, 1),
@@ -6439,6 +6623,8 @@ def create_black_jack_custom_quiz(request):
 
         quiz = BlackJackQuiz.objects.create(
             title=title,
+            internal_description=(data.get('internal_description') or '').strip(),
+            question_order=[int(i) for i in question_ids],
             creator=request.user,
             status='waiting'
         )
@@ -6499,39 +6685,28 @@ def add_blackjack_question(request):
         
         question_text = data.get('question_text', '').strip()
         correct_answer = int(data.get('correct_answer'))
-        difficulty = data.get('difficulty', 'medium')
         time_limit = int(data.get('time_limit', 30))
-        hint_text = data.get('hint_text', '').strip()
         explanation = data.get('explanation', '').strip()
-        
+
         # Validate required fields
         if not question_text:
             return JsonResponse({
                 'success': False,
                 'error': 'Question text is required.'
             }, status=400)
-        
-        # Validate difficulty
-        if difficulty not in ['easy', 'medium', 'hard']:
-            return JsonResponse({
-                'success': False,
-                'error': 'Invalid difficulty level.'
-            }, status=400)
-        
+
         # Validate time limit
         if not (10 <= time_limit <= 120):
             return JsonResponse({
                 'success': False,
                 'error': 'Time limit must be between 10 and 120 seconds.'
             }, status=400)
-        
+
         # Create question
         question = BlackJackQuestion.objects.create(
             question_text=question_text,
             correct_answer=correct_answer,
-            difficulty=difficulty,
             time_limit=time_limit,
-            hint_text=hint_text if hint_text else None,
             explanation=explanation if explanation else None,
             created_by=request.user
         )
@@ -6989,22 +7164,16 @@ def api_blackjack_stats(request):
 def api_blackjack_questions(request):
     """Get paginated list of BlackJack questions"""
     try:
-        difficulty = request.GET.get('difficulty', 'all')
         page = int(request.GET.get('page', 1))
         per_page = 20
-        
-        questions = BlackJackQuestion.objects.filter(created_by=request.user)
-        
-        if difficulty != 'all':
-            questions = questions.filter(difficulty=difficulty)
-        
-        questions = questions.order_by('-created_at')
-        
+
+        questions = BlackJackQuestion.objects.filter(created_by=request.user).order_by('-created_at')
+
         # Paginate
         start = (page - 1) * per_page
         end = start + per_page
         paginated_questions = questions[start:end]
-        
+
         return JsonResponse({
             'success': True,
             'questions': [
@@ -7012,7 +7181,6 @@ def api_blackjack_questions(request):
                     'id': q.id,
                     'question_text': q.question_text,
                     'correct_answer': q.correct_answer,
-                    'difficulty': q.difficulty,
                     'time_limit': q.time_limit,
                     'is_active': q.is_active,
                     'created_at': q.created_at.isoformat(),
@@ -7285,28 +7453,26 @@ def get_black_jack_questions(request):
         from black_jack_quiz.models import BlackJackQuestion
         
         questions = BlackJackQuestion.objects.filter(is_active=True).order_by('-created_at')
-        
+
         # Search functionality
         search = request.GET.get('search', '')
         if search:
             questions = questions.filter(
                 Q(question_text__icontains=search) |
-                Q(correct_answer__icontains=search) |
-                Q(difficulty__icontains=search)
+                Q(correct_answer__icontains=search)
             )
-        
+
         # Pagination
         paginator = Paginator(questions, 20)
         page_number = request.GET.get('page', 1)
         page_obj = paginator.get_page(page_number)
-        
+
         questions_data = []
         for question in page_obj:
             questions_data.append({
                 'id': question.id,
                 'question_text': question.question_text,
                 'correct_answer': question.correct_answer,
-                'difficulty': question.difficulty,
                 'time_limit': question.time_limit,
                 'created_at': question.created_at.strftime('%Y-%m-%d %H:%M'),
                 'is_active': question.is_active,

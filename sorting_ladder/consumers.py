@@ -76,6 +76,10 @@ class SortingLadderGameConsumer(AsyncWebsocketConsumer):
             await self.handle_participant_submit_round(data)
         elif msg_type == 'ping':
             await self.handle_ping()
+        elif msg_type == 'admin_show_leaderboard':
+            await self.handle_admin_show_leaderboard()
+        elif msg_type == 'admin_hide_leaderboard':
+            await self.handle_admin_hide_leaderboard()
 
     # -------- Admin handlers --------
 
@@ -442,6 +446,24 @@ class SortingLadderGameConsumer(AsyncWebsocketConsumer):
             **result,
         })
 
+    async def handle_admin_show_leaderboard(self):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'show_leaderboard'}
+        )
+
+    async def show_leaderboard(self, event):
+        await self.send(text_data=json.dumps({'type': 'show_leaderboard'}))
+
+    async def handle_admin_hide_leaderboard(self):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {'type': 'hide_leaderboard'}
+        )
+
+    async def hide_leaderboard(self, event):
+        await self.send(text_data=json.dumps({'type': 'hide_leaderboard'}))
+
     async def handle_ping(self):
         await self.send(text_data=json.dumps({
             'type': 'pong',
@@ -627,9 +649,15 @@ class SortingLadderGameConsumer(AsyncWebsocketConsumer):
         if len(elements) < 2:
             return None
 
-        # Shuffle once for all participants
+        # Shuffle once for all participants; if a starting_item is defined,
+        # ensure it appears first in the shuffled order.
         shuffled = elements[:]
         random.shuffle(shuffled)
+        starting_item_id = question.starting_item_id
+        if starting_item_id:
+            idx = next((i for i, e in enumerate(shuffled) if e.id == starting_item_id), None)
+            if idx is not None and idx != 0:
+                shuffled.insert(0, shuffled.pop(idx))
         shuffled_ids = [str(e.id) for e in shuffled]
 
         session, _ = SortingLadderSession.objects.get_or_create(quiz=quiz)

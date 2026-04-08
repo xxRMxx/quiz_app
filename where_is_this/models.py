@@ -17,6 +17,8 @@ class WhereQuiz(SyncBase):
     ]
     
     title = models.CharField(max_length=200, default="Where is this?")
+    internal_description = models.TextField(blank=True, default='')
+    question_order = models.JSONField(default=list, blank=True)
     room_code = models.CharField(max_length=4, unique=True, blank=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_where_quizzes')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting')

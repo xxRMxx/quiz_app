@@ -70,8 +70,9 @@
                     {% csrf_token %}
                     <input type="hidden" id="questionId" name="question_id" />
                     <div class="mb-3">
-                        <label for="questionText" class="form-label">Question Text *</label>
-                        <textarea class="form-control" id="questionText" rows="3" placeholder="Enter the riddle/question..." required></textarea>
+                        <label for="questionText" class="form-label">Frage *</label>
+                        <input type="text" class="form-control" id="questionText" placeholder="z. B. Welches Land wird gesucht?" required>
+                        <small class="text-muted">Wird auf Teilnehmerseite als Frage angezeigt.</small>
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">
@@ -83,8 +84,8 @@
                             <input type="number" class="form-control" id="timeLimit" value="30" min="5" max="600" required disabled>
                         </div>
                         <div class="col-md-4">
-                            <label for="answer" class="form-label">Correct Answer *</label>
-                            <input type="text" class="form-control" id="answer" placeholder="e.g., Cristiano Ronaldo" required>
+                            <label for="answer" class="form-label">Gesuchter Begriff (Antwort) *</label>
+                            <input type="text" class="form-control" id="answer" placeholder="z. B. Cristiano Ronaldo" required>
                         </div>
                     </div>
                     <div class="mb-2 d-flex align-items-center justify-content-between">

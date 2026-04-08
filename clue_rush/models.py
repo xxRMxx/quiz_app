@@ -15,6 +15,8 @@ class ClueRushGame(SyncBase):
     ]
 
     title = models.CharField(max_length=200, default="Clue Rush")
+    internal_description = models.TextField(blank=True, default='')
+    question_order = models.JSONField(default=list, blank=True)
     room_code = models.CharField(max_length=4, unique=True, blank=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_cluerush_games')
 

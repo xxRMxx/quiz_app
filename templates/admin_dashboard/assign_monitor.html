@@ -40,16 +40,26 @@
                         {{ quiz.get_status_display }}
                     </span>
                     {% if quiz.status == 'waiting' %}
-                        <button class="btn btn-success" id="startQuizBtn">
-                            <i data-lucide="play"></i>
-                            Start Quiz
-                        </button>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="showTutorialToggle" checked>
+                                <label class="form-check-label" for="showTutorialToggle">Tutorial anzeigen</label>
+                            </div>
+                            <button class="btn btn-success" id="startQuizBtn">
+                                <i data-lucide="play"></i>
+                                Spiel starten
+                            </button>
+                        </div>
                     {% elif quiz.status == 'active' %}
                         <button class="btn btn-warning" id="endQuizBtn">
                             <i data-lucide="square"></i>
                             End Quiz
                         </button>
                     {% endif %}
+                    <button class="btn btn-outline-primary" id="showLeaderboardBtn">
+                        <i data-lucide="trophy"></i>
+                        Leaderboard einblenden
+                    </button>
                     <button type="button" class="btn btn-outline-secondary" id="backToHubBtn">
                         <i data-lucide="arrow-left"></i>
                         Back to Overview
@@ -108,12 +118,14 @@
                                         </div>
                                         <div class="question-meta">
                                             <span class="badge badge-secondary">{{ question.points }} pts per match</span>
-                                            <span class="time">{{ question.time_limit }}s</span>
                                             <span class="matches-count">{{ question.left_items|length }} matches</span>
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
-                                        <input type="number" class="form-control form-control-sm question-time-input" placeholder="Time (s)" min="5" step="1" style="max-width: 120px;" value="">
+                                        <div>
+                                            <small class="text-muted d-block mb-1">Zeit in Sek.</small>
+                                            <input type="number" class="form-control form-control-sm question-time-input" placeholder="Time (s)" min="5" step="1" style="max-width: 120px;" value="{{ question.time_limit }}">
+                                        </div>
                                         <button class="btn btn-secondary send-question-btn" data-question-id="{{ question.id }}" {% if quiz.status != 'active' %}disabled title="Start the quiz to send questions"{% endif %}>
                                             <i data-lucide="send"></i>
                                             Send Question
@@ -138,7 +150,14 @@
                         <!-- Active Question Display -->
                         <div id="activeQuestion">
                             <div class="active-question-header">
-                                <h6>Current Question</h6>
+                                <div>
+                                    <h6 class="mb-0">Aktuelle Frage</h6>
+                                    <div id="monitorRoundInfo" class="mt-1">
+                                        <span class="badge bg-secondary" id="monitorRoundBadge">
+                                            Runde {{ current_round_index|add:1 }} von {{ total_rounds_current }}
+                                        </span>
+                                    </div>
+                                </div>
                                 <div class="question-timer">
                                     <div class="timer-circle" id="questionTimerCircle">
                                         <span id="questionTimeLeft">{{ quiz.current_question.time_limit }}</span>
@@ -167,10 +186,21 @@
                                 </div>
                                 
                                 <div class="question-actions">
-                                    <button class="btn btn-warning" id="endQuestionBtn">
-                                        <i data-lucide="skip-forward"></i>
-                                        End Question Early
+                                    {% if current_round_index < total_rounds_current|add:"-1" %}
+                                    <button class="btn btn-primary" id="nextRoundBtn">
+                                        <i data-lucide="arrow-right"></i>
+                                        Nächste Runde (<span id="nextRoundLabel">{{ current_round_index|add:2 }}/{{ total_rounds_current }}</span>)
                                     </button>
+                                    <button class="btn btn-outline-warning" id="endRoundEarlyBtn">
+                                        <i data-lucide="skip-forward"></i>
+                                        Runde frühzeitig beenden
+                                    </button>
+                                    {% else %}
+                                    <button class="btn btn-warning" id="endQuestionBtn">
+                                        <i data-lucide="check-square"></i>
+                                        Frage beenden
+                                    </button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -812,6 +842,11 @@ document.addEventListener('DOMContentLoaded', function() {
             this.isActive = '{{ quiz.status|escapejs }}' === 'active';
             this.questionTimer = null;
             this.quizStartTime = {% if quiz.started_at %}new Date('{{ quiz.started_at|date:"c"|escapejs }}'){% else %}null{% endif %};
+
+            this.currentRoundIndex = {{ current_round_index }};
+            this.totalRoundsCurrentQ = {{ total_rounds_current }};
+            this.isLastRound = this.totalRoundsCurrentQ > 0 && this.currentRoundIndex >= this.totalRoundsCurrentQ - 1;
+
             this.init();
         }
 
@@ -928,15 +963,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                 case 'quiz_started':
                     console.log('Quiz started:', data.message);
-                    this.isActive = true;
-                    // Enable question send buttons if they were disabled before start
-                    document.querySelectorAll('.send-question-btn').forEach(btn => {
-                        btn.disabled = false;
-                        btn.removeAttribute('title');
-                    });
-
-                    // Re-apply sent state so already-sent questions remain blocked
-                    this.applySentStates();
+                    location.reload();
                     break;
                     
                 case 'tutorial_start':
@@ -949,12 +976,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                 case 'question_started':
                     console.log('Question started');
-                    location.reload(); // Refresh to show active question
+                    location.reload();
                     break;
-                    
+
+                case 'round_advanced':
+                    this.onRoundAdvanced(data);
+                    break;
+
+                case 'question_rounds_complete':
+                    this.onRoundsComplete();
+                    break;
+
+                case 'show_solution':
+                    // Admin kennt die Lösung bereits
+                    break;
+
                 case 'question_ended':
                     console.log('Question ended:', data.message);
-                    location.reload(); // Refresh to show ended question
+                    location.reload();
                     break;
                     
                 case 'quiz_ended':
@@ -982,6 +1021,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
+            // Leaderboard ein-/ausblenden (Toggle)
+            document.getElementById('showLeaderboardBtn')?.addEventListener('click', () => {
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    const btn = document.getElementById('showLeaderboardBtn');
+                    const isVisible = btn.dataset.lbVisible === '1';
+                    if (isVisible) {
+                        this.websocket.send(JSON.stringify({ type: 'admin_hide_leaderboard' }));
+                        btn.dataset.lbVisible = '0';
+                        btn.innerHTML = '<i data-lucide="trophy"></i> Leaderboard einblenden';
+                    } else {
+                        this.websocket.send(JSON.stringify({ type: 'admin_show_leaderboard' }));
+                        btn.dataset.lbVisible = '1';
+                        btn.innerHTML = '<i data-lucide="eye-off"></i> Leaderboard ausblenden';
+                    }
+                    try { lucide.createIcons(); } catch(_) {}
+                }
+            });
+
             // Back to Hub button
             document.getElementById('backToHubBtn')?.addEventListener('click', () => {
                 this.backToHub();
@@ -1006,11 +1063,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
             
-            // End Question button
+            // "Frage beenden" – letzte Runde abschließen (→ admin_next_round → question_rounds_complete)
+            // damit Teilnehmer noch ihre letzte Antwort auto-submiten können
             document.getElementById('endQuestionBtn')?.addEventListener('click', () => {
-                this.endCurrentQuestion();
+                this.sendNextRound();
             });
-            
+
+            // Nächste Runde button
+            document.getElementById('nextRoundBtn')?.addEventListener('click', () => {
+                this.sendNextRound();
+            });
+
+            // Runde frühzeitig beenden
+            document.getElementById('endRoundEarlyBtn')?.addEventListener('click', () => {
+                this.endRoundEarly();
+            });
+
             // Share Code button
             document.getElementById('shareCodeBtn')?.addEventListener('click', () => {
                 this.shareRoomCode();
@@ -1027,21 +1095,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         const hubWs = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/hub/' + hub + '/');
                         hubWs.onopen = () => {
                             hubWs.send(JSON.stringify({
-                                type: 'broadcast',
-                                event: { type: 'quiz_started', game_key: 'assign', room_code: '{{ quiz.room_code }}', title: '{{ quiz.title }}' }
+                                type: 'navigate_direct',
+                                game_key: 'assign',
+                                room_code: '{{ quiz.room_code }}'
                             }));
                             setTimeout(() => hubWs.close(), 100);
                         };
                     }
                 } catch(_) {}
+                const showTutorial = document.getElementById('showTutorialToggle')?.checked ?? true;
                 this.websocket.send(JSON.stringify({
-                    type: 'admin_start_quiz'
+                    type: 'admin_start_quiz',
+                    show_tutorial: showTutorial
                 }));
-                //reload page
-                location.reload();
             }
         }
-        
+
         endQuiz() {
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                 // Also notify hub directly (in case backend mirror is unavailable)
@@ -1121,6 +1190,97 @@ document.addEventListener('DOMContentLoaded', function() {
                     type: 'admin_end_question'
                 }));
             }
+        }
+
+        sendNextRound() {
+            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                this.websocket.send(JSON.stringify({
+                    type: 'admin_next_round'
+                }));
+            }
+        }
+
+        endRoundEarly() {
+            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                this.websocket.send(JSON.stringify({
+                    type: 'admin_next_round'
+                }));
+            }
+        }
+
+        onRoundsComplete() {
+            clearInterval(this.questionTimer);
+            const actions = document.querySelector('.question-actions');
+            if (actions) {
+                actions.innerHTML = `
+                    <button class="btn btn-success" id="showSolutionBtn">
+                        <i data-lucide="eye"></i>
+                        Zuordnung anzeigen
+                    </button>
+                    <button class="btn btn-warning" id="endQuestionBtn">
+                        <i data-lucide="check-square"></i>
+                        Spiel beendet
+                    </button>
+                `;
+                document.getElementById('showSolutionBtn')?.addEventListener('click', () => this.showSolution());
+                document.getElementById('endQuestionBtn')?.addEventListener('click', () => this.endCurrentQuestion());
+                try { lucide.createIcons(); } catch(_) {}
+            }
+        }
+
+        showSolution() {
+            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                this.websocket.send(JSON.stringify({ type: 'admin_show_solution' }));
+            }
+            const btn = document.getElementById('showSolutionBtn');
+            if (btn) btn.disabled = true;
+        }
+
+        onRoundAdvanced(data) {
+            this.currentRoundIndex = data.round_index;
+            this.totalRoundsCurrentQ = data.total_rounds;
+            this.isLastRound = (data.round_index >= data.total_rounds - 1);
+
+            // Runden-Badge aktualisieren
+            const badge = document.getElementById('monitorRoundBadge');
+            if (badge) badge.textContent = `Runde ${data.round_index + 1} von ${data.total_rounds}`;
+
+            // Buttons tauschen
+            const nextBtn = document.getElementById('nextRoundBtn');
+            const endRoundEarlyBtn = document.getElementById('endRoundEarlyBtn');
+            const endBtn = document.getElementById('endQuestionBtn');
+            if (this.isLastRound) {
+                if (nextBtn) nextBtn.style.display = 'none';
+                if (endRoundEarlyBtn) endRoundEarlyBtn.style.display = 'none';
+                if (!endBtn) {
+                    const actions = document.querySelector('.question-actions');
+                    if (actions) {
+                        const btn = document.createElement('button');
+                        btn.className = 'btn btn-warning';
+                        btn.id = 'endQuestionBtn';
+                        btn.innerHTML = '<i data-lucide="check-square"></i> Frage beenden';
+                        btn.addEventListener('click', () => this.sendNextRound());
+                        actions.appendChild(btn);
+                        try { lucide.createIcons(); } catch(_) {}
+                    }
+                } else {
+                    endBtn.style.display = '';
+                }
+            } else {
+                if (nextBtn) {
+                    const label = document.getElementById('nextRoundLabel');
+                    if (label) label.textContent = `${data.round_index + 2}/${data.total_rounds}`;
+                }
+            }
+
+            // Timer neu starten
+            clearInterval(this.questionTimer);
+            // Zeit aus dem gespeicherten Override oder Standard
+            const timeEl = document.getElementById('questionTimeLeft');
+            const timeLimit = timeEl ? parseInt(timeEl.textContent) || 60 : 60;
+            // Setze Timer auf Question-Zeitlimit zurück
+            if (timeEl) timeEl.textContent = data.time_limit || 60;
+            this.startQuestionTimer();
         }
         
         startQuestionTimer() {
@@ -1231,37 +1391,62 @@ document.addEventListener('DOMContentLoaded', function() {
         addLiveResponse(response) {
             const responsesContainer = document.getElementById('liveResponses');
             if (!responsesContainer) return;
-            
+
             const noResponses = responsesContainer.querySelector('.no-responses');
             if (noResponses) noResponses.remove();
-            
-            // Determine response quality based on accuracy
+
+            // Bestehenden Eintrag für diesen Teilnehmer suchen
+            const safeName = CSS.escape(response.participant_name);
+            const existing = responsesContainer.querySelector(`.response-item[data-participant="${response.participant_name}"]`);
+
+            let correct, total;
+            if (existing) {
+                // Kumulierte Werte auslesen und addieren
+                correct = parseInt(existing.dataset.correct || 0) + response.correct_matches;
+                total   = parseInt(existing.dataset.total   || 0) + response.total_matches;
+            } else {
+                correct = response.correct_matches;
+                total   = response.total_matches;
+            }
+
+            const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+            // Qualitätsklasse anhand der kumulierten Genauigkeit
             let quality = 'poor';
-            if (response.accuracy >= 90) quality = 'excellent';
-            else if (response.accuracy >= 70) quality = 'good';
-            else if (response.accuracy >= 50) quality = 'fair';
-            
-            const responseEl = document.createElement('div');
-            responseEl.className = 'response-item';
-            responseEl.innerHTML = `
-                <div class="response-avatar ${quality}">
-                    ${response.participant_name.charAt(0).toUpperCase()}
-                </div>
-                <div class="response-content">
-                    <div class="response-name">${response.participant_name}</div>
-                    <div class="response-details">
-                        ${response.correct_matches}/${response.total_matches} matches • ${response.accuracy}% accuracy • +${response.points_earned} pts
+            if (accuracy >= 90) quality = 'excellent';
+            else if (accuracy >= 70) quality = 'good';
+            else if (accuracy >= 50) quality = 'fair';
+
+            if (existing) {
+                // Eintrag aktualisieren
+                existing.dataset.correct = correct;
+                existing.dataset.total   = total;
+                existing.querySelector('.response-avatar').className = `response-avatar ${quality}`;
+                existing.querySelector('.response-details').textContent =
+                    `${correct}/${total} matches • ${accuracy}% accuracy`;
+            } else {
+                // Neuen Eintrag anlegen
+                const responseEl = document.createElement('div');
+                responseEl.className = 'response-item';
+                responseEl.dataset.participant = response.participant_name;
+                responseEl.dataset.correct = correct;
+                responseEl.dataset.total   = total;
+                responseEl.innerHTML = `
+                    <div class="response-avatar ${quality}">
+                        ${response.participant_name.charAt(0).toUpperCase()}
                     </div>
-                </div>
-                <div class="response-time">${response.time_taken ? response.time_taken.toFixed(1) + 's' : '-'}</div>
-            `;
-            
-            responsesContainer.insertBefore(responseEl, responsesContainer.firstChild);
-            
-            // Update response count
-            const count = document.querySelectorAll('.response-item').length;
-            const responseCount = document.getElementById('responseCount');
-            if (responseCount) responseCount.textContent = count;
+                    <div class="response-content">
+                        <div class="response-name">${response.participant_name}</div>
+                        <div class="response-details">${correct}/${total} matches • ${accuracy}% accuracy</div>
+                    </div>
+                `;
+                responsesContainer.insertBefore(responseEl, responsesContainer.firstChild);
+
+                // Anzahl nur bei neuem Eintrag erhöhen
+                const count = responsesContainer.querySelectorAll('.response-item').length;
+                const responseCount = document.getElementById('responseCount');
+                if (responseCount) responseCount.textContent = count;
+            }
         }
         
         updateParticipantCount() {
@@ -1283,9 +1468,10 @@ document.addEventListener('DOMContentLoaded', function() {
         onQuestionTimeout() {
             console.log('Question timed out');
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                this.websocket.send(JSON.stringify({
-                    type: 'admin_end_question'
-                }));
+                // Immer admin_next_round senden – auch bei letzter Runde.
+                // Der Server sendet dann question_rounds_complete (statt question_ended),
+                // damit Teilnehmer ihre letzte Antwort noch auto-submiten können.
+                this.websocket.send(JSON.stringify({ type: 'admin_next_round' }));
             }
         }
         
@@ -1375,6 +1561,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.warn("[HubScript] Unknown game_key:", step.game_key);
             }
 
+            } else if (data.type === 'recall_to_lobby') {
+            window.location.href = new URL(`/hub/lobby/${hubCode}/`, window.location.origin).toString();
             } else if (data.type === 'session_ended') {
             console.log("[HubScript] Session ended message received.");
             const u = new URL(`/hub/lobby/${hubCode}/`, window.location.origin);

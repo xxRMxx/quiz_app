@@ -87,13 +87,21 @@
                             <div class="question-card">
                                 <!-- Question Header -->
                                 <div class="question-header">
-                                    <div class="question-number">
-                                        Question <span id="currentQuestionNumber">1</span>
+                                    <div class="question-number" id="questionNumberDisplay">
+                                        Frage <span id="currentQuestionNumber">1</span>
                                     </div>
                                     <div class="question-timer">
                                         <div class="timer-circle" id="playerTimerCircle">
                                             <span id="playerTimeLeft">60</span>
                                         </div>
+                                    </div>
+                                </div>
+
+                                <!-- Runden-Fortschritt (nur im rundenbasierten Modus) -->
+                                <div id="roundProgressBar" class="round-progress d-none">
+                                    <div class="round-progress-inner">
+                                        <span id="roundProgressText">Runde 1 von 3</span>
+                                        <div class="round-dots" id="roundDots"></div>
                                     </div>
                                 </div>
 
@@ -109,14 +117,14 @@
                                     <div class="drag-drop-interface" id="dragDropInterface">
                                         <div class="drag-drop-container">
                                             <div class="left-items" id="leftItems">
-                                                <h4>Drag from here</h4>
+                                                <h4 id="leftItemsHeader">Ziehe von hier</h4>
                                                 <div class="items-list" id="leftItemsList">
                                                     <!-- Items will be populated dynamically -->
                                                 </div>
                                             </div>
-                                            
+
                                             <div class="drop-zones" id="dropZones">
-                                                <h4>Drop here</h4>
+                                                <h4>Lege hier ab</h4>
                                                 <div class="zones-list" id="zonesList">
                                                     <!-- Drop zones will be populated dynamically -->
                                                 </div>
@@ -124,10 +132,23 @@
                                         </div>
                                     </div>
 
+                                    <!-- Warte-Nachricht nach Runden-Submit -->
+                                    <div id="roundSubmittedMessage" class="d-none text-center py-3">
+                                        <i data-lucide="check-circle" style="color:var(--success-500);width:28px;height:28px;"></i>
+                                        <p class="mt-2 mb-0 fw-semibold">Antwort gespeichert!</p>
+                                        <p class="text-muted small">Warte auf nächste Runde...</p>
+                                    </div>
+
+                                    <!-- Zurücksetzen Button (nach Drop sichtbar) -->
+                                    <button class="btn btn-outline-secondary w-100 mb-2 d-none" id="resetRoundBtn">
+                                        <i data-lucide="rotate-ccw"></i>
+                                        Zurücksetzen
+                                    </button>
+
                                     <!-- Submit Button -->
                                     <button class="btn btn-primary btn-lg w-100 submit-answer" id="submitAnswerBtn" disabled>
                                         <i data-lucide="check-circle"></i>
-                                        Submit Matches
+                                        Antwort absenden
                                     </button>
                                 </div>
                             </div>
@@ -162,6 +183,48 @@
                                             <span class="score-label">Accuracy:</span>
                                             <span class="score-value" id="accuracyPercent">0%</span>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Eliminated State (falsche Zuordnung) -->
+                        <div id="eliminatedState" class="game-state d-none">
+                            <div class="waiting-card">
+                                <div class="waiting-animation">
+                                    <i data-lucide="x-circle" style="width:48px;height:48px;color:var(--danger-500,#ef4444);"></i>
+                                </div>
+                                <h2>Leider ausgeschieden!</h2>
+                                <p>Die vorherige Zuweisung war falsch. Du bist leider ausgeschieden.</p>
+                            </div>
+                        </div>
+
+                        <!-- Warte auf Auflösung State -->
+                        <div id="waitingSolutionState" class="game-state d-none">
+                            <div class="waiting-card">
+                                <div class="waiting-animation">
+                                    <div class="pulse-ring"></div>
+                                    <div class="pulse-ring delay-1"></div>
+                                    <div class="pulse-ring delay-2"></div>
+                                    <i data-lucide="loader"></i>
+                                </div>
+                                <h2>Auswertung läuft...</h2>
+                                <p>Bitte warte, der Host wertet die Ergebnisse aus.</p>
+                            </div>
+                        </div>
+
+                        <!-- Auflösung State -->
+                        <div id="solutionState" class="game-state d-none">
+                            <div class="waiting-card">
+                                <h2>Auflösung</h2>
+                                <div class="row g-3 mt-1">
+                                    <div class="col-6">
+                                        <h6 class="fw-bold text-success text-center mb-2">Richtige Zuordnung</h6>
+                                        <div id="correctSolutionList"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6 class="fw-bold text-center mb-2">Deine Zuordnung</h6>
+                                        <div id="userSolutionList"></div>
                                     </div>
                                 </div>
                             </div>
@@ -477,14 +540,46 @@
             min-height: 400px;
         }
 
-        .left-items, .drop-zones {
+        .drag-drop-container.three-col {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .left-items, .drop-zones, .matched-panel {
             background: var(--bg-secondary);
             border-radius: var(--border-radius-lg);
             padding: 1.5rem;
             border: 2px dashed var(--border-color);
         }
 
-        .left-items h4, .drop-zones h4 {
+        .matched-panel {
+            border-style: solid;
+            border-color: var(--secondary-300, #adb5bd);
+        }
+
+        .matched-list .matched-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-primary);
+            border-radius: var(--border-radius);
+            font-size: 0.875rem;
+        }
+
+        .matched-row .arrow {
+            flex-shrink: 0;
+            color: var(--text-muted);
+        }
+
+        .matched-row span {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .left-items h4, .drop-zones h4, .matched-panel h4 {
             text-align: center;
             margin-bottom: 1.5rem;
             color: var(--text-primary);
@@ -535,6 +630,33 @@
             border-color: var(--success-200);
             color: var(--success-700);
             cursor: default;
+        }
+
+        /* Abgeschlossene Runde links: nur ausgegraut, keine Zuordnungsanzeige */
+        .draggable-item.matched-done {
+            background: var(--success-50);
+            border-color: var(--success-200);
+            color: var(--success-700);
+            cursor: default;
+            opacity: 0.75;
+        }
+
+        /* Abgeschlossene Zuordnung rechts: gesperrt, zeigt gematchtes linkes Item */
+        .drop-zone.completed-round {
+            cursor: default;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        /* Noch nicht dran: ausgegraut */
+        .draggable-item.upcoming {
+            opacity: 0.4;
+            cursor: default;
+        }
+
+        .draggable-item.inactive-item {
+            opacity: 0.35;
+            cursor: not-allowed;
         }
 
         /* Drop Zones */
@@ -764,6 +886,49 @@
             margin: 0 auto;
         }
 
+        /* Runden-Fortschritt */
+        .round-progress {
+            background: linear-gradient(135deg, var(--secondary-50) 0%, var(--primary-50) 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+        }
+
+        .round-progress-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        #roundProgressText {
+            font-weight: 600;
+            color: var(--color-secondary);
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .round-dots {
+            display: flex;
+            gap: 0.4rem;
+        }
+
+        .round-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--border-color);
+            transition: background 0.3s;
+        }
+
+        .round-dot.done {
+            background: var(--color-success);
+        }
+
+        .round-dot.active {
+            background: var(--color-secondary);
+            box-shadow: 0 0 0 3px rgba(6,182,212,0.25);
+        }
+
         /* Connection Status */
         .connection-status {
             position: fixed;
@@ -814,7 +979,8 @@
                 font-size: 1.125rem;
             }
 
-            .drag-drop-container {
+            .drag-drop-container,
+            .drag-drop-container.three-col {
                 grid-template-columns: 1fr;
                 gap: 1rem;
             }
@@ -865,9 +1031,14 @@
                     this.websocket = null;
                     this.questionTimer = null;
                     this.questionStartTime = null;
-                    this.userMatches = {};
+                    this.userMatches = {};  // aktuell gematchte Items (aktuelle Runde)
                     this.hasAnswered = false;
-                    
+                    this.currentRoundIndex = 0;
+                    this.totalRounds = 0;
+                    this.dropLocked = false;  // nach einem Drop gesperrt, bis Reset
+                    this.accumulatedMatches = {};  // gesammelte Matches über alle Runden
+                    this.currentQuestion = null;  // vollständige Frage-Daten
+
                     this.init();
                 }
 
@@ -875,11 +1046,7 @@
                     this.connectWebSocket();
                     this.bindEvents();
                     
-                    // Start timer if there's an active question
-                    {% if quiz.current_question %}
-                        this.startQuestionTimer({{ quiz.current_question.time_limit }});
-                        this.loadCurrentQuestion();
-                    {% endif %}
+                    // Die aktuelle Runde wird via WebSocket in handle_participant_join geliefert
                 }
 
                 connectWebSocket() {
@@ -923,27 +1090,47 @@
                         case 'quiz_started':
                             this.onQuizStarted();
                             break;
-                            
+
                         case 'question_started':
                             this.onQuestionStarted(data.question);
                             break;
-                            
+
+                        case 'round_advanced':
+                            this.onRoundAdvanced(data);
+                            break;
+
                         case 'question_ended':
                             this.onQuestionEnded();
                             break;
-                            
+
                         case 'quiz_ended':
                             this.onQuizEnded(data);
                             break;
-                            
+
                         case 'participant_count_updated':
                             this.updateParticipantCount(data.count);
                             break;
 
-                        case 'answer_submitted':
-                            //this.onAnswerSubmitted(data);
+                        case 'round_checked':
+                            this.onRoundChecked(data);
                             break;
-                            
+
+                        case 'question_rounds_complete':
+                            this.onQuestionRoundsComplete();
+                            break;
+
+                        case 'show_solution':
+                            this.onShowSolution(data);
+                            break;
+
+                        case 'show_leaderboard':
+                            window.showLeaderboard(this.hubSession);
+                            break;
+
+                        case 'hide_leaderboard':
+                            document.getElementById('leaderboardSidebar')?.classList.add('d-none');
+                            break;
+
                         default:
                             console.log('Unknown message type:', data.type);
                     }
@@ -954,6 +1141,10 @@
                     document.getElementById('submitAnswerBtn').addEventListener('click', () => {
                         this.submitAnswer();
                     });
+                    // Zurücksetzen button
+                    document.getElementById('resetRoundBtn')?.addEventListener('click', () => {
+                        this.resetRoundDrop();
+                    });
                 }
 
                 onQuizStarted() {
@@ -962,25 +1153,139 @@
 
                 onQuestionStarted(question) {
                     this.hasAnswered = false;
+                    this.eliminated = false;
+                    this.lastRoundCorrect = null;
+                    this._pendingHistoryEntry = null;
+                    this._wrongEntry = null;
+                    this._bufferedRoundsComplete = false;
                     this.userMatches = {};
                     this.questionStartTime = Date.now();
-                    
-                    this.loadQuestion(question);
+                    this.currentQuestion = question;
+
+                    this.totalRounds = question.total_rounds;
+                    this.accumulatedMatches = {};
+                    this.roundSubmitted = false;
+                    this.roundHistory = [];  // [{leftText, rightText}]
+                    this.loadRound(question.round_index, question.current_left_item, question.right_items);
+                    this.showRoundProgress(true);
+
                     this.startQuestionTimer(question.time_limit);
                     this.showState('questionState');
                 }
 
+                onRoundAdvanced(data) {
+                    if (this.eliminated) return;
+
+                    // Wenn ein Drop vorliegt, der noch nicht bestätigt wurde → jetzt auto-submit
+                    // und round_advanced puffern bis round_checked zurückkommt
+                    if (!this.roundSubmitted && this.userMatches && Object.keys(this.userMatches).length > 0) {
+                        this._bufferedRoundAdvanced = data;
+                        this.submitAnswer();
+                        return;
+                    }
+
+                    // Race-Condition: Teilnehmer hat bereits submitted (z.B. via onTimeUp),
+                    // aber round_checked ist noch nicht angekommen → puffern und warten
+                    if (this.roundSubmitted && this.lastRoundCorrect === null) {
+                        this._bufferedRoundAdvanced = data;
+                        return;
+                    }
+
+                    this._applyRoundAdvanced(data);
+                }
+
+                _applyRoundAdvanced(data) {
+                    this.userMatches = {};
+                    this.roundSubmitted = false;
+
+                    clearInterval(this.questionTimer);
+
+                    // Auswertung der vorherigen Runde
+                    if (this.lastRoundCorrect === false ||
+                        (this.lastRoundCorrect === null && !this.roundSubmitted)) {
+                        // Falsche Antwort oder keine Antwort gegeben → ausgeschieden
+                        this._wrongEntry = this._pendingHistoryEntry;
+                        this._pendingHistoryEntry = null;
+                        this.eliminated = true;
+                        this.showState('eliminatedState');
+                        try { lucide.createIcons(); } catch(_) {}
+                        return;
+                    }
+
+                    // Richtige Antwort: History übernehmen
+                    if (this._pendingHistoryEntry) {
+                        if (!this.roundHistory) this.roundHistory = [];
+                        this.roundHistory.push(this._pendingHistoryEntry);
+                        this._pendingHistoryEntry = null;
+                    }
+                    this.lastRoundCorrect = null;
+
+                    // Nächste Runde laden
+                    const timeLimit = data.time_limit || (this.currentQuestion ? this.currentQuestion.time_limit : 60);
+                    this.startQuestionTimer(timeLimit);
+                    this.loadRound(data.round_index, data.current_left_item, data.right_items);
+                    this.showState('questionState');
+                }
+
+                onRoundChecked(data) {
+                    this.lastRoundCorrect = data.is_correct;
+
+                    if (!data.is_correct) {
+                        // Falschen Eintrag retten bevor _pendingHistoryEntry genullt wird
+                        this._wrongEntry = this._pendingHistoryEntry;
+                        this._pendingHistoryEntry = null;
+                        // Sofort ausscheiden – nicht auf round_advanced warten
+                        this.eliminated = true;
+                        this._bufferedRoundAdvanced = null;
+                        this._bufferedRoundsComplete = false;
+                        this.showState('eliminatedState');
+                        try { lucide.createIcons(); } catch(_) {}
+                        return;
+                    }
+
+                    const waitMsg = document.getElementById('roundSubmittedMessage');
+                    if (waitMsg) { waitMsg.classList.remove('d-none'); try { lucide.createIcons(); } catch(_) {} }
+
+                    // Falls question_rounds_complete gepuffert → jetzt verarbeiten
+                    if (this._bufferedRoundsComplete) {
+                        this._bufferedRoundsComplete = false;
+                        this.onQuestionRoundsComplete();
+                        return;
+                    }
+
+                    // Falls round_advanced gepuffert wurde (auto-submit ausgelöst) → jetzt verarbeiten
+                    if (this._bufferedRoundAdvanced) {
+                        const buffered = this._bufferedRoundAdvanced;
+                        this._bufferedRoundAdvanced = null;
+                        this._applyRoundAdvanced(buffered);
+                    }
+                }
+
                 onQuestionEnded() {
                     clearInterval(this.questionTimer);
-                    console.log("User Matches", this.userMatches);
-                    if (Object.keys(this.userMatches).length > 0) {
-                        // Stay on submitted state briefly, then return to waiting
-                        setTimeout(() => {
-                            this.showWaitingForNextQuestion();
-                        }, 1000);
-                    } else {
-                        this.showWaitingForNextQuestion();
+
+                    // Letzten Runden-Match einsammeln (wenn noch nicht manuell bestätigt)
+                    if (!this.roundSubmitted && this.userMatches && Object.keys(this.userMatches).length > 0) {
+                        const leftIdx = parseInt(Object.keys(this.userMatches)[0]);
+                        const rightIdx = this.userMatches[leftIdx];
+                        this.accumulatedMatches[leftIdx] = rightIdx;
                     }
+
+                    // Alle gesammelten Matches absenden
+                    if (Object.keys(this.accumulatedMatches).length > 0 && !this.hasAnswered) {
+                        const timeTaken = (Date.now() - this.questionStartTime) / 1000;
+                        this.websocket.send(JSON.stringify({
+                            type: 'participant_submit_answer',
+                            participant_name: this.participantName,
+                            hub_session: this.hubSession,
+                            user_matches: this.accumulatedMatches,
+                            time_taken: timeTaken
+                        }));
+                        this.hasAnswered = true;
+                    }
+
+                    this.showRoundProgress(false);
+                    this.showWaitingForNextQuestion();
                 }
 
                 onQuizEnded(data) {
@@ -1012,168 +1317,320 @@
                     }, 2000);
                 }
 
-                loadCurrentQuestion() {
-                    {% if quiz.current_question %}
-                    const question = {
-                        id: {{ quiz.current_question.id }},
-                        question_text: '{{ quiz.current_question.question_text|escapejs }}',
-                        time_limit: {{ quiz.current_question.time_limit }},
-                        left_items: {{ quiz.current_question.left_items|safe }},
-                        right_items: {{ quiz.current_question.right_items|safe }},
-                        total_possible_points: {{ quiz.current_question.get_total_possible_points }}
-                    };
-                    this.loadQuestion(question);
-                    {% endif %}
+                onQuestionRoundsComplete() {
+                    if (this.eliminated) return;
+                    clearInterval(this.questionTimer);
+
+                    // Drop vorliegt aber noch nicht bestätigt → auto-submit und puffern
+                    if (!this.roundSubmitted && this.userMatches && Object.keys(this.userMatches).length > 0) {
+                        this._bufferedRoundsComplete = true;
+                        this.submitAnswer();
+                        return;
+                    }
+
+                    // Race-Condition: bereits submitted (z.B. via onTimeUp) aber round_checked noch ausstehend
+                    if (this.roundSubmitted && this.lastRoundCorrect === null) {
+                        this._bufferedRoundsComplete = true;
+                        return;
+                    }
+
+                    // Keine Zuordnung gemacht → ausgeschieden
+                    if (!this.roundSubmitted && this.lastRoundCorrect === null) {
+                        this._wrongEntry = null;
+                        this.eliminated = true;
+                        this.showRoundProgress(false);
+                        this.showState('eliminatedState');
+                        try { lucide.createIcons(); } catch(_) {}
+                        return;
+                    }
+
+                    // Letzten korrekten Eintrag in History übernehmen (kein round_advanced mehr danach)
+                    if (this._pendingHistoryEntry) {
+                        if (!this.roundHistory) this.roundHistory = [];
+                        this.roundHistory.push(this._pendingHistoryEntry);
+                        this._pendingHistoryEntry = null;
+                    }
+                    this.showRoundProgress(false);
+                    this.showState('waitingSolutionState');
+                    try { lucide.createIcons(); } catch(_) {}
                 }
 
-                loadQuestion(question) {
-                    document.getElementById('questionText').textContent = question.question_text;
-                    this.setupDragDrop(question.left_items, question.right_items);
+                onShowSolution(data) {
+                    const correctList = document.getElementById('correctSolutionList');
+                    const userList = document.getElementById('userSolutionList');
+                    if (!correctList || !userList) return;
+                    correctList.innerHTML = '';
+                    userList.innerHTML = '';
+
+                    const leftItems = data.left_items || [];
+                    const rightItems = data.right_items || [];
+                    const correctMatches = data.correct_matches || {};
+
+                    // Teilnehmer-Antworten aufbauen: leftIdx → {rightText, correct}
+                    const participantAnswers = {};
+                    (this.roundHistory || []).forEach(entry => {
+                        participantAnswers[entry.leftIdx] = { rightText: entry.rightText, correct: true };
+                    });
+                    if (this._wrongEntry) {
+                        participantAnswers[this._wrongEntry.leftIdx] = { rightText: this._wrongEntry.rightText, correct: false };
+                    }
+
+                    leftItems.forEach((leftItem, idx) => {
+                        const correctRightIdx = correctMatches[String(idx)];
+                        const correctRightText = correctRightIdx !== undefined ? rightItems[correctRightIdx] : null;
+                        const answer = participantAnswers[idx];
+
+                        // Linkes Panel: Richtige Zuordnung
+                        const correctDiv = document.createElement('div');
+                        correctDiv.className = 'py-1 border-bottom';
+                        if (correctRightText !== null && correctRightText !== undefined) {
+                            correctDiv.innerHTML = `<span class="badge bg-success">${leftItem}</span> → <span class="badge bg-success">${correctRightText}</span>`;
+                        } else {
+                            correctDiv.innerHTML = `<span class="badge bg-secondary">${leftItem}</span> <span class="text-muted small">kein Match</span>`;
+                        }
+                        correctList.appendChild(correctDiv);
+
+                        // Rechtes Panel: Eigene Zuordnung
+                        const userDiv = document.createElement('div');
+                        userDiv.className = 'py-1 border-bottom';
+                        if (correctRightText === null || correctRightText === undefined) {
+                            // Distractor – kein Match nötig
+                            userDiv.innerHTML = `<span class="badge bg-secondary">${leftItem}</span> <span class="text-muted small">kein Match nötig</span>`;
+                        } else if (answer) {
+                            const bgClass = answer.correct ? 'bg-success' : 'bg-danger';
+                            const icon = answer.correct ? '✓' : '✗';
+                            userDiv.innerHTML = `<span class="badge ${bgClass}">${icon} ${leftItem}</span> → <span class="badge ${bgClass}">${answer.rightText}</span>`;
+                        } else {
+                            // Nicht beantwortet
+                            userDiv.innerHTML = `<span class="badge bg-warning text-dark">${leftItem}</span> <span class="text-muted small">nicht beantwortet</span>`;
+                        }
+                        userList.appendChild(userDiv);
+                    });
+
+                    this.showState('solutionState');
+                    try { lucide.createIcons(); } catch(_) {}
                 }
 
-                setupDragDrop(leftItems, rightItems) {
+                loadRound(roundIndex, currentLeftItem, allRightItems) {
+                    this.currentRoundIndex = roundIndex;
+                    this.roundSubmitted = false;
+                    this.dropLocked = false;
+
+                    // Fragetext setzen
+                    if (this.currentQuestion) {
+                        document.getElementById('questionText').textContent = this.currentQuestion.question_text;
+                    }
+
+                    // Submit-Button einblenden (deaktiviert bis eine Zuordnung gemacht wurde)
+                    const submitBtn = document.getElementById('submitAnswerBtn');
+                    submitBtn.style.display = '';
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i data-lucide="check-circle"></i> Antwort bestätigen';
+                    try { lucide.createIcons(); } catch(_) {}
+
+                    // Reset-Button ausblenden (neue Runde = kein Drop vorhanden)
+                    const resetBtn = document.getElementById('resetRoundBtn');
+                    if (resetBtn) resetBtn.classList.add('d-none');
+
+                    // Warte-Nachricht ausblenden
+                    const waitMsg = document.getElementById('roundSubmittedMessage');
+                    if (waitMsg) waitMsg.classList.add('d-none');
+
+                    // Drag-Drop wieder aktivieren
+                    document.querySelectorAll('.draggable-item').forEach(el => { el.draggable = true; el.style.cursor = ''; });
+                    document.querySelectorAll('.drop-zone').forEach(el => { el.style.pointerEvents = ''; });
+
+                    // Runden-Fortschritt aktualisieren
+                    this.updateRoundProgress(roundIndex, this.totalRounds);
+
+                    // Drag-Drop für dieses eine linke Item + (N+1) rechte Items
+                    const leftText = typeof currentLeftItem === 'string' ? currentLeftItem : (currentLeftItem.text || String(currentLeftItem));
+                    this.setupRoundDragDrop(roundIndex, leftText, allRightItems);
+                }
+
+                updateRoundProgress(roundIndex, totalRounds) {
+                    const progressText = document.getElementById('roundProgressText');
+                    if (progressText) progressText.textContent = `Runde ${roundIndex + 1} von ${totalRounds}`;
+
+                    const dotsContainer = document.getElementById('roundDots');
+                    if (dotsContainer) {
+                        dotsContainer.innerHTML = '';
+                        for (let i = 0; i < totalRounds; i++) {
+                            const dot = document.createElement('div');
+                            dot.className = 'round-dot';
+                            if (i < roundIndex) dot.classList.add('done');
+                            else if (i === roundIndex) dot.classList.add('active');
+                            dotsContainer.appendChild(dot);
+                        }
+                    }
+
+                    const qNumEl = document.getElementById('questionNumberDisplay');
+                    if (qNumEl) qNumEl.textContent = `Runde ${roundIndex + 1} von ${totalRounds}`;
+                }
+
+                showRoundProgress(visible) {
+                    const bar = document.getElementById('roundProgressBar');
+                    if (bar) {
+                        if (visible) bar.classList.remove('d-none');
+                        else bar.classList.add('d-none');
+                    }
+                }
+
+                setupRoundDragDrop(roundIndex, currentLeftText, allRightItems) {
                     const leftItemsList = document.getElementById('leftItemsList');
                     const zonesList = document.getElementById('zonesList');
-                    
-                    // Clear previous content
+
                     leftItemsList.innerHTML = '';
                     zonesList.innerHTML = '';
-                    // Normalize arrays: allow strings or objects
-                    const normLeft = (leftItems || []).map((it, i) => (typeof it === 'string' ? { id: i, text: it } : it));
-                    const normRight = (rightItems || []).map((it, i) => (typeof it === 'string' ? { id: i, text: it } : it));
 
-                    // Create draggable items (from left)
-                    normLeft.forEach((item, index) => {
-                        const draggableDiv = document.createElement('div');
-                        draggableDiv.className = 'draggable-item';
-                        draggableDiv.draggable = true;
-                        draggableDiv.textContent = item.text;
-                        draggableDiv.dataset.leftIndex = index;
-                        
-                        // Add drag event listeners
-                        draggableDiv.addEventListener('dragstart', (e) => {
-                            e.dataTransfer.setData('text/plain', index);
-                            draggableDiv.classList.add('dragging');
+                    // Normalisierung der rechten Items – originalIndex = item.id (Position im vollen Array)
+                    const normRight = (allRightItems || []).map((it, i) => ({
+                        text: typeof it === 'string' ? it : (it.text || String(it)),
+                        originalIndex: (typeof it === 'object' && it !== null && it.id !== undefined) ? it.id : i
+                    }));
+                    // Alphabetisch sortieren (originalIndex bleibt korrekt)
+                    normRight.sort((a, b) => a.text.localeCompare(b.text));
+
+                    // Alle linken Items anzeigen: bereits abgeschlossene ausblenden,
+                    // alle verbleibenden frei wählbar – alphabetisch sortiert
+                    const completedIndices = new Set(Object.keys(this.accumulatedMatches || {}).map(Number));
+                    const allLeftRaw = this.currentQuestion
+                        ? this.currentQuestion.left_items.map((it, idx) => ({
+                            text: typeof it === 'string' ? it : (it.text || String(it)),
+                            roundIdx: idx
+                          }))
+                        : [{ text: currentLeftText, roundIdx: roundIndex }];
+                    const allLeft = [...allLeftRaw].sort((a, b) => a.text.localeCompare(b.text));
+
+                    allLeft.forEach(({ text: leftText, roundIdx: idx }) => {
+                        if (completedIndices.has(idx)) return;  // bereits zugeordnet
+
+                        const div = document.createElement('div');
+
+                        div.className = 'draggable-item';
+                        div.draggable = true;
+                        div.textContent = leftText;
+                        div.dataset.leftIndex = idx;
+                        div.addEventListener('dragstart', (e) => {
+                            e.dataTransfer.setData('text/plain', String(idx));
+                            div.classList.add('dragging');
                         });
-                        
-                        draggableDiv.addEventListener('dragend', () => {
-                            draggableDiv.classList.remove('dragging');
+                        div.addEventListener('dragend', () => {
+                            div.classList.remove('dragging');
                         });
-                        
-                        leftItemsList.appendChild(draggableDiv);
+                        leftItemsList.appendChild(div);
                     });
-                    
-                    // Create drop zones for each left item (label from right if available)
-                    //const zoneCount = Math.max(normLeft.length, normRight.length);
-                    const zoneCount = normRight.length
-                    for (let index = 0; index < zoneCount; index++) {
-                        const item = normRight[index] || { text: '' };
+
+                    // Rechte Seite: zuerst abgeschlossene Zuordnungen aus Vorrunden anzeigen
+                    (this.roundHistory || []).forEach(({ leftText, rightText }) => {
+                        const completedZone = document.createElement('div');
+                        completedZone.className = 'drop-zone occupied completed-round';
+                        completedZone.innerHTML =
+                            `<div class="drop-zone-label">${rightText}</div>`
+                            + `<div class="dropped-item">${leftText}</div>`;
+                        zonesList.appendChild(completedZone);
+                    });
+
+                    // Danach aktive Drop-Zones für die aktuelle Runde
+                    normRight.forEach((item) => {
                         const dropZone = document.createElement('div');
                         dropZone.className = 'drop-zone';
-                        dropZone.dataset.rightIndex = index;
-                        
+                        dropZone.dataset.rightIndex = item.originalIndex;
+
                         const label = document.createElement('div');
                         label.className = 'drop-zone-label';
                         label.textContent = item.text;
                         dropZone.appendChild(label);
-                        
-                        // Add drop event listeners
+
                         dropZone.addEventListener('dragover', (e) => {
+                            if (this.dropLocked) return;
                             e.preventDefault();
                             dropZone.classList.add('drag-over');
                         });
-                        
                         dropZone.addEventListener('dragleave', () => {
                             dropZone.classList.remove('drag-over');
                         });
-                        
                         dropZone.addEventListener('drop', (e) => {
+                            if (this.dropLocked) return;
                             e.preventDefault();
                             dropZone.classList.remove('drag-over');
-                            
-                            const leftIndex = e.dataTransfer.getData('text/plain');
-                            this.handleDrop(leftIndex, index, dropZone, normLeft[leftIndex].text);
+                            const leftIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                            const draggedEl = document.querySelector(`.draggable-item[data-left-index="${leftIndex}"]`);
+                            const draggedText = draggedEl?.textContent?.trim() || '';
+                            this.handleRoundDrop(leftIndex, item.originalIndex, dropZone, draggedText);
                         });
-                        
+
                         zonesList.appendChild(dropZone);
-                    }
-                    
-                    document.getElementById('submitAnswerBtn').disabled = true;
+                    });
                 }
 
-                handleDrop(leftIndex, rightIndex, dropZone, itemText) {
-                    // Remove any existing item in this drop zone
-                    const existingItem = dropZone.querySelector('.dropped-item');
-                    if (existingItem) {
-                        // Return previous item to draggable state
-                        const prevLeftIndex = existingItem.dataset.leftIndex;
-                        const prevDraggable = document.querySelector(`[data-left-index="${prevLeftIndex}"]`);
-                        if (prevDraggable) {
-                            prevDraggable.classList.remove('matched');
-                            prevDraggable.draggable = true;
-                        }
-                        existingItem.remove();
-                    }
-                    
-                    // Remove this item from any other drop zone
-                    document.querySelectorAll('.dropped-item').forEach(item => {
-                        if (item.dataset.leftIndex === leftIndex) {
-                            const oldDropZone = item.parentElement;
-                            oldDropZone.classList.remove('occupied');
-                            item.remove();
-                        }
+                handleRoundDrop(leftIndex, rightIndex, dropZone, itemText) {
+                    // Vorherigen Match dieser Runde entfernen (nur aktive Zones, nicht abgeschlossene)
+                    document.querySelectorAll('.drop-zone:not(.completed-round)').forEach(zone => {
+                        const prev = zone.querySelector('.dropped-item');
+                        if (prev) { prev.remove(); zone.classList.remove('occupied'); }
                     });
-                    
-                    // Create dropped item
+                    // Vorheriges matched-Item wieder freigeben (falls Nutzer Item wechselt)
+                    const prevMatched = document.querySelector('.draggable-item.matched');
+                    if (prevMatched) { prevMatched.classList.remove('matched'); prevMatched.draggable = true; }
+
+                    // Neues dropped-item erstellen (kein Click-to-undo — nur Reset-Button)
                     const droppedItem = document.createElement('div');
                     droppedItem.className = 'dropped-item';
                     droppedItem.textContent = itemText;
                     droppedItem.dataset.leftIndex = leftIndex;
-                    
-                    // Add click to remove functionality
-                    droppedItem.addEventListener('click', () => {
-                        this.removeMatch(leftIndex, rightIndex, dropZone);
-                    });
-                    
+
                     dropZone.appendChild(droppedItem);
                     dropZone.classList.add('occupied');
-                    
-                    // Mark original item as matched
-                    const draggableItem = document.querySelector(`[data-left-index="${leftIndex}"]`);
+
+                    // Das konkret gezogene Item sperren, alle anderen ausgrauen
+                    document.querySelectorAll('.draggable-item:not(.matched)').forEach(el => {
+                        el.classList.add('inactive-item');
+                        el.draggable = false;
+                    });
+                    const draggableItem = document.querySelector(`.draggable-item[data-left-index="${leftIndex}"]`);
                     if (draggableItem) {
+                        draggableItem.classList.remove('inactive-item');
                         draggableItem.classList.add('matched');
                         draggableItem.draggable = false;
                     }
-                    
-                    // Update user matches
-                    this.userMatches[leftIndex] = rightIndex;
-                    
-                    // Enable submit button if at least one match is made
-                    document.getElementById('submitAnswerBtn').disabled = Object.keys(this.userMatches).length === 0;
+
+                    // Drop sperren: alle weiteren Drops in dieser Runde verhindern
+                    this.dropLocked = true;
+
+                    this.userMatches = { [leftIndex]: rightIndex };
+
+                    // Submit-Button aktivieren, Reset-Button einblenden
+                    const submitBtn = document.getElementById('submitAnswerBtn');
+                    if (submitBtn) submitBtn.disabled = false;
+                    const resetBtn = document.getElementById('resetRoundBtn');
+                    if (resetBtn) resetBtn.classList.remove('d-none');
                 }
 
-                removeMatch(leftIndex, rightIndex, dropZone) {
-                    // Remove from user matches
-                    delete this.userMatches[leftIndex];
-                    
-                    // Remove dropped item
-                    const droppedItem = dropZone.querySelector('.dropped-item');
-                    if (droppedItem) {
-                        droppedItem.remove();
-                    }
-                    
-                    // Remove occupied state
-                    dropZone.classList.remove('occupied');
-                    
-                    // Restore draggable item
-                    const draggableItem = document.querySelector(`[data-left-index="${leftIndex}"]`);
+                resetRoundDrop() {
+                    this.dropLocked = false;
+                    // Nur aktive Drop-Zone der aktuellen Runde zurücksetzen (abgeschlossene bleiben)
+                    document.querySelectorAll('.drop-zone:not(.completed-round)').forEach(zone => {
+                        const prev = zone.querySelector('.dropped-item');
+                        if (prev) prev.remove();
+                        zone.classList.remove('occupied');
+                    });
+                    // Das gematchte Item wieder freigeben, ausgegra ute Items reaktivieren
+                    const draggableItem = document.querySelector('.draggable-item.matched');
                     if (draggableItem) {
                         draggableItem.classList.remove('matched');
                         draggableItem.draggable = true;
                     }
-                    
-                    // Update submit button state
-                    document.getElementById('submitAnswerBtn').disabled = Object.keys(this.userMatches).length === 0;
+                    document.querySelectorAll('.draggable-item.inactive-item').forEach(el => {
+                        el.classList.remove('inactive-item');
+                        el.draggable = true;
+                    });
+                    // Submit sperren, Reset ausblenden
+                    const submitBtn = document.getElementById('submitAnswerBtn');
+                    if (submitBtn) submitBtn.disabled = true;
+                    const resetBtn = document.getElementById('resetRoundBtn');
+                    if (resetBtn) resetBtn.classList.add('d-none');
+                    this.userMatches = {};
                 }
 
                 startQuestionTimer(timeLimit) {
@@ -1218,45 +1675,40 @@
                 }
 
                 submitAnswer() {
-                    if (Object.keys(this.userMatches).length === 0 || this.hasAnswered) return;
-                    
-                    const timeTaken = (Date.now() - this.questionStartTime) / 1000;
-                    
-                    // Disable drag-drop interface
-                    document.querySelectorAll('.draggable-item').forEach(item => {
-                        item.draggable = false;
-                        item.style.cursor = 'default';
-                    });
-                    
-                    document.querySelectorAll('.drop-zone').forEach(zone => {
-                        zone.style.pointerEvents = 'none';
-                    });
-                    
-                    // Send answer via WebSocket
-                    this.websocket.send(JSON.stringify({
-                        type: 'participant_submit_answer',
-                        participant_name: this.participantName,
-                        hub_session: this.hubSession,
-                        user_matches: this.userMatches,
-                        time_taken: timeTaken
-                    }));
-                    
-                    this.hasAnswered = true;
-                    
-                    // Show submitted state after a brief delay
-                    setTimeout(() => {
-                        this.showState('answerSubmittedState');
-                    }, 500);
+                    if (Object.keys(this.userMatches).length === 0 || this.roundSubmitted) return;
+
+                    const leftIdx = parseInt(Object.keys(this.userMatches)[0]);
+                    const rightIdx = this.userMatches[leftIdx];
+                    this.accumulatedMatches[leftIdx] = rightIdx;
+                    this.roundSubmitted = true;
+
+                    // Texte für History merken – das konkret submittete Item per Index ansprechen
+                    const leftText = document.querySelector(`.draggable-item[data-left-index="${leftIdx}"]`)?.textContent?.trim() || '';
+                    const occupiedZone = document.querySelector('.drop-zone.occupied:not(.completed-round)');
+                    const rightText = occupiedZone?.querySelector('.drop-zone-label')?.textContent?.trim() || '';
+                    this._pendingHistoryEntry = { leftIdx, leftText, rightText };
+
+                    // UI sperren
+                    document.querySelectorAll('.draggable-item').forEach(el => { el.draggable = false; el.style.cursor = 'default'; });
+                    document.getElementById('submitAnswerBtn').style.display = 'none';
+                    const resetBtn = document.getElementById('resetRoundBtn');
+                    if (resetBtn) resetBtn.classList.add('d-none');
+
+                    // Prüfung beim Server anfragen
+                    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                        this.websocket.send(JSON.stringify({
+                            type: 'participant_check_round',
+                            round_index: leftIdx,
+                            user_match: { [leftIdx]: rightIdx },
+                        }));
+                    }
                 }
 
                 onTimeUp() {
                     if (this.hasAnswered) return;
-                    
-                    // Auto-submit if any matches are made, otherwise show waiting
-                    if (Object.keys(this.userMatches).length > 0) {
+                    // Wenn noch ein Drop vorliegt, der nicht bestätigt wurde → auto-submit
+                    if (!this.roundSubmitted && this.userMatches && Object.keys(this.userMatches).length > 0) {
                         this.submitAnswer();
-                    } else {
-                        this.showWaitingForNextQuestion();
                     }
                 }
 
@@ -1461,6 +1913,7 @@
 
         });
     </script>
+  {% include 'includes/_leaderboard_overlay.html' %}
   {% include 'includes/accessibility_widget.html' %}
 </body>
 </html>

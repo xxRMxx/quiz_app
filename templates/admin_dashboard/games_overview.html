@@ -87,10 +87,10 @@
                                    class="btn btn-sm btn-outline-secondary me-1">
                                     <i data-lucide="pencil" style="width:14px;height:14px;"></i>
                                 </a>
-                                <a href="{% url game.monitor_url_name game.room_code %}"
+                                <!--<a href="{% url game.monitor_url_name game.room_code %}"
                                    class="btn btn-sm btn-outline-primary me-1">
                                     <i data-lucide="monitor" style="width:14px;height:14px;"></i>
-                                </a>
+                                </a>-->
                                 <button class="btn btn-sm btn-outline-danger delete-game-btn"
                                         data-game-id="{{ game.id }}"
                                         data-game-type="{{ game.game_type }}"
@@ -449,7 +449,6 @@ const qbPopulate = {
         document.getElementById('qbq-c').value = q.option_c || '';
         document.getElementById('qbq-d').value = q.option_d || '';
         document.getElementById('qbq-correct').value = q.correct_answer || '';
-        document.getElementById('qbq-explanation').value = q.explanation || '';
     },
     estimation(q) {
         document.getElementById('qbe-id').value = q.id;
@@ -559,7 +558,6 @@ const qbCollect = {
             option_c: document.getElementById('qbq-c').value.trim(),
             option_d: document.getElementById('qbq-d').value.trim(),
             correct_answer: document.getElementById('qbq-correct').value.trim(),
-            explanation: document.getElementById('qbq-explanation').value.trim(),
         };
     },
     estimation() {
@@ -789,7 +787,6 @@ function qbAddClueRow(container, text = '', order = '', duration = 10) {
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6"><label class="form-label">Correct Answer</label><input type="text" class="form-control" id="qbq-correct"></div>
-                        <div class="col-md-6"><label class="form-label">Explanation</label><input type="text" class="form-control" id="qbq-explanation"></div>
                     </div>
                 </div>
 

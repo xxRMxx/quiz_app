@@ -16,6 +16,8 @@ class BlackJackQuiz(SyncBase):
     ]
     
     title = models.CharField(max_length=200, default="Black Jack Quiz")
+    internal_description = models.TextField(blank=True, default='')
+    question_order = models.JSONField(default=list, blank=True)
     room_code = models.CharField(max_length=4, unique=True, blank=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_blackjack_quizzes')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting')
@@ -89,17 +91,9 @@ class BlackJackBundle(SyncBase):
 class BlackJackQuestion(SyncBase):
     """Questions for blackjack quiz games"""
     
-    DIFFICULTY_CHOICES = [
-        ('easy', 'Easy'),
-        ('medium', 'Medium'),
-        ('hard', 'Hard'),
-    ]
-    
     question_text = models.TextField(help_text="The question, e.g., 'How many legs does a spider have?'")
     correct_answer = models.IntegerField(help_text="The correct numerical answer (integer only)")
-    difficulty = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES, default='medium')
     time_limit = models.PositiveIntegerField(default=30, help_text="Time limit in seconds")
-    hint_text = models.TextField(blank=True, null=True, help_text="Optional hint shown during question")
     explanation = models.TextField(blank=True, null=True, help_text="Optional explanation shown after answering")
     
     is_active = models.BooleanField(default=True)
